@@ -2,13 +2,21 @@ package main
 
 import (
 	"log"
-	"os"
+
+	"github.com/CIRCL/pbtc/domain"
 )
 
 func main() {
+	log.Println("Passive Bitcoin by CIRL")
 
-	// Initialize basic logger
-	pbtcLog := log.New(os.Stdout, "[PBTC]", log.LstdFlags)
+	// find all valid local IPv4 addresses
+	ips := domain.FindIPs()
 
-	pbtcLog.Println("Passive Bitcoin by CIRL")
+	// initialize our listening node on those adresses
+	server, err := domain.NewServer(ips)
+	if err != nil {
+		log.Println(err)
+	}
+
+	_ = server
 }
