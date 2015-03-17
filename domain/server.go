@@ -4,10 +4,13 @@ import (
 	"errors"
 	"log"
 	"net"
+	"sync/atomic"
 )
 
 type Server struct {
 	listeners []net.Listener
+	started   uint32
+	shutdown  uint32
 }
 
 func NewServer(ips []net.IP) (*Server, error) {
@@ -36,4 +39,29 @@ func NewServer(ips []net.IP) (*Server, error) {
 	}
 
 	return server, nil
+}
+
+func (server *Server) Start() {
+	if atomic.AddUint32(&server.started, 1) != 1 {
+		return
+	}
+
+	for _, listener := range server.listeners {
+		go server.handleListener(listener)
+	}
+}
+
+func (server *Server) handleListener(listener net.Listener) {
+	for atomic.LoadUint32(&server.shutdown) == 0 {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		server.handleConn(conn)
+	}
+}
+
+func (server *Server) handleConn(conn net.Conn) {
+
 }

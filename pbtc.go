@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -10,7 +11,8 @@ import (
 )
 
 func main() {
-	log.Println("Passive Bitcoin by CIRL")
+	// use all cpu cores
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	// find all valid local IPv4 addresses
 	ips := domain.FindIPs()
@@ -85,5 +87,5 @@ func main() {
 		conn.Close()
 	}
 
-	log.Println("Exiting")
+	return
 }
