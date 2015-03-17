@@ -1,2 +1,2 @@
-# passive-bitcoin
+# pbtc - passive-bitcoin
 Passive Bitcoin Project
