@@ -5,9 +5,9 @@ import (
 	"net"
 )
 
-func FindIPs() []net.IP {
+func FindIPs() []string {
 	// create empty slice of ips to return
-	var ips []net.IP
+	var ips []string
 
 	// get all network interfaces
 	ifaces, err := net.Interfaces()
@@ -56,13 +56,13 @@ func FindIPs() []net.IP {
 			}
 
 			// if the IP is not a valid IPv4 address, skip
-			ip = ip.To4()
-			if ip == nil {
+			ipv4 := ip.To4()
+			if ipv4 == nil {
 				continue
 			}
 
 			// append the IP to the slice of valid IPs
-			ips = append(ips, ip)
+			ips = append(ips, ip.String())
 		}
 	}
 

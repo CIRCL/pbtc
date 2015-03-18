@@ -1,4 +1,4 @@
-package domain
+package usecases
 
 import (
 	"net"
@@ -10,5 +10,10 @@ type ConnectionRepository interface {
 }
 
 type Peer struct {
-	ip net.IP
+	ip   net.IP
+	conn net.Conn
+}
+
+func (*Peer) Close() {
+
 }

@@ -5,13 +5,10 @@ import (
 )
 
 type NodeRepository interface {
-	AddNode(addr net.TCPAddr)
-	GetNodes(limit uint32) []*Node
-	Connected(node *Node)
-	Disconnected(node *Node)
+	AddNode(tcpAddr net.TCPAddr)
+	FindByAddr(addr net.TCPAddr) *Node
 }
 
 type Node struct {
-	addr   net.TCPAddr
-	active uint32
+	addr net.TCPAddr
 }
