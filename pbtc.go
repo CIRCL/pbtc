@@ -6,6 +6,8 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/btcsuite/btcd/wire"
+
 	"github.com/CIRCL/pbtc/domain"
 	"github.com/CIRCL/pbtc/usecases"
 )
@@ -21,34 +23,34 @@ func main() {
 	seedChan := make(chan string, 128)
 	listChan := make(chan string, 128)
 
+	// the server will handle all peers that are set up
+	serv, err := usecases.NewServer(wire.TestNet3, wire.ProtocolVersion)
+	if err != nil {
+		log.Println(err)
+	}
+
 	// the discoverer will poll dns seeds for node ips
-	disc, err := domain.NewDiscoverer(seedChan, nodeChan)
+	disc, err := domain.NewDiscoverer()
 	if err != nil {
 		log.Println(err)
 	}
 
 	// the initializer will take care of connection handshakes
-	init, err := domain.NewInitializer(nodeChan, connChan, peerChan)
-	if err != nil {
-		log.Println(err)
-	}
-
-	// the server will handle all peers that are set up
-	serv, err := usecases.NewServer(listChan, peerChan)
+	init, err := domain.NewInitializer(serv.Version, serv.Network)
 	if err != nil {
 		log.Println(err)
 	}
 
 	// start all modules
-	serv.Start()
-	disc.Start()
-	init.Start()
+	serv.Start(listChan, peerChan)
+	init.Start(nodeChan, connChan, peerChan)
+	disc.Start(seedChan, nodeChan)
 
 	// give the server the ips to listen on
 	ips := domain.FindIPs()
 
 	for _, ip := range ips {
-		listChan <- ip
+		serv.AddListener(ip)
 	}
 
 	// give the discoverer the dns seeds that we want to poll
@@ -60,15 +62,17 @@ func main() {
 	}
 
 	for _, seed := range seeds {
-		seedChan <- seed
+		disc.AddSeed(seed)
 	}
 
 	// wait for a bit
 	timer := time.NewTimer(120 * time.Second)
 	<-timer.C
 
-	// close all channels to end modules
-	close(seedChan)
+	// stop all module
+	disc.Stop()
+	init.Stop()
+	serv.Stop()
 
 	return
 }

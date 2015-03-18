@@ -1,7 +1,12 @@
 package usecases
 
 import (
+	"errors"
+	"io"
+	"log"
 	"net"
+
+	"github.com/btcsuite/btcd/wire"
 )
 
 type ConnectionRepository interface {
@@ -10,10 +15,90 @@ type ConnectionRepository interface {
 }
 
 type Peer struct {
-	ip   net.IP
-	conn net.Conn
+	qSend   chan wire.Message
+	qRecv   chan wire.Message
+	conn    net.Conn
+	Version uint32
+	network wire.BitcoinNet
+	Me      *wire.NetAddress
+	You     *wire.NetAddress
+	Inbound bool
 }
 
-func (*Peer) Close() {
+func NewPeer(conn net.Conn, version uint32, network wire.BitcoinNet, inbound bool) (*Peer, error) {
+	me, err := wire.NewNetAddress(conn.LocalAddr(), 0)
+	if err != nil {
+		log.Println(err)
+		return nil, errors.New("Could not parse local address")
+	}
 
+	you, err := wire.NewNetAddress(conn.RemoteAddr(), 0)
+	if err != nil {
+		log.Println(err)
+		return nil, errors.New("Could not parse remote address")
+	}
+
+	qSend := make(chan wire.Message)
+	qRecv := make(chan wire.Message)
+
+	peer := &Peer{
+		qSend:   qSend,
+		qRecv:   qRecv,
+		conn:    conn,
+		Version: version,
+		network: network,
+		Me:      me,
+		You:     you,
+		Inbound: inbound,
+	}
+
+	peer.Start()
+
+	return peer, nil
+}
+
+func (peer *Peer) Start() {
+	go peer.handleSend()
+	go peer.handleRecv()
+}
+
+func (peer *Peer) Stop() {
+	close(peer.qSend)
+	peer.conn.Close()
+	close(peer.qRecv)
+}
+
+func (peer *Peer) SendMessage(msg wire.Message) {
+	peer.qSend <- msg
+}
+
+func (peer *Peer) RecvMessage() wire.Message {
+	return <-peer.qRecv
+}
+
+func (peer *Peer) handleSend() {
+	for msg := range peer.qSend {
+		err := wire.WriteMessage(peer.conn, msg, peer.Version, peer.network)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+	}
+}
+
+func (peer *Peer) handleRecv() {
+	for {
+		msg, _, err := wire.ReadMessage(peer.conn, peer.Version, peer.network)
+		if err == io.EOF {
+			log.Println("Peer connection closed remotely", peer.You)
+			break
+		}
+
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		peer.qRecv <- msg
+	}
 }
