@@ -60,7 +60,7 @@ func (init *Initializer) AddConn(conn net.Conn) {
 
 func (init *Initializer) handleNodes() {
 	for node := range init.nodeIn {
-		conn, err := net.DialTimeout("tcp4", node+":8333", time.Second)
+		conn, err := net.DialTimeout("tcp4", node+":18333", time.Second)
 		if err != nil {
 			log.Println(err)
 			continue
@@ -124,26 +124,18 @@ func (init *Initializer) waitVerAck(peer *usecases.Peer) {
 
 func (init *Initializer) waitVersion(peer *usecases.Peer) {
 	msg := peer.RecvMessage()
-	switch t := msg.(type) {
+	switch msg.(type) {
 	case *wire.MsgVersion:
 		log.Println("Received version from", peer.You)
 		if peer.Inbound {
-			init.setVersion(peer, uint32(t.ProtocolVersion))
 			init.sendVersion(peer)
 			go init.waitVerAck(peer)
 		} else {
-			init.setVersion(peer, uint32(t.ProtocolVersion))
 			init.sendVerAck(peer)
 			init.peerOut <- peer
 		}
 	default:
 		log.Println("Received wrong message on version", peer.You)
 		peer.Stop()
-	}
-}
-
-func (init *Initializer) setVersion(peer *usecases.Peer, version uint32) {
-	if version < init.version {
-		peer.Version = version
 	}
 }

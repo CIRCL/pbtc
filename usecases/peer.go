@@ -38,8 +38,8 @@ func NewPeer(conn net.Conn, version uint32, network wire.BitcoinNet, inbound boo
 		return nil, errors.New("Could not parse remote address")
 	}
 
-	qSend := make(chan wire.Message)
-	qRecv := make(chan wire.Message)
+	qSend := make(chan wire.Message, 128)
+	qRecv := make(chan wire.Message, 128)
 
 	peer := &Peer{
 		qSend:   qSend,
@@ -52,14 +52,14 @@ func NewPeer(conn net.Conn, version uint32, network wire.BitcoinNet, inbound boo
 		Inbound: inbound,
 	}
 
-	peer.Start()
+	go peer.handleSend()
+	go peer.handleRecv()
 
 	return peer, nil
 }
 
 func (peer *Peer) Start() {
-	go peer.handleSend()
-	go peer.handleRecv()
+
 }
 
 func (peer *Peer) Stop() {
@@ -89,6 +89,7 @@ func (peer *Peer) handleSend() {
 func (peer *Peer) handleRecv() {
 	for {
 		msg, _, err := wire.ReadMessage(peer.conn, peer.Version, peer.network)
+
 		if err == io.EOF {
 			log.Println("Peer connection closed remotely", peer.You)
 			break
@@ -96,7 +97,7 @@ func (peer *Peer) handleRecv() {
 
 		if err != nil {
 			log.Println(err)
-			continue
+			break
 		}
 
 		peer.qRecv <- msg

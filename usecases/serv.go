@@ -63,7 +63,7 @@ func (serv *Server) Stop() {
 func (serv *Server) handleListeners() {
 	go func() {
 		for list := range serv.listIn {
-			listener, err := net.Listen("tcp4", list+":8333")
+			listener, err := net.Listen("tcp4", list+":18333")
 			if err != nil {
 				log.Println(err)
 				continue
@@ -78,6 +78,8 @@ func (serv *Server) handleListeners() {
 func (serv *Server) handlePeers() {
 	go func() {
 		for peer := range serv.peerIn {
+			peer.Start()
+
 			serv.peers = append(serv.peers, peer)
 			log.Println("Now talking to peers:", len(serv.peers))
 		}
