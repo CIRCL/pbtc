@@ -1,6 +1,7 @@
 package all
 
 import (
+	"log"
 	"net"
 )
 
@@ -21,10 +22,13 @@ func NewDiscoveryAgent() *discoveryAgent {
 }
 
 func (dAgent *discoveryAgent) GetSeedIn() chan<- string {
+
 	return dAgent.seedIn
 }
 
 func (dAgent *discoveryAgent) Start(addrOut chan<- string) {
+
+	log.Println("Starting discovery agent")
 
 	dAgent.addrOut = addrOut
 
@@ -33,6 +37,9 @@ func (dAgent *discoveryAgent) Start(addrOut chan<- string) {
 
 func (dAgent *discoveryAgent) Stop() {
 
+	log.Println("Stopping discovery agent")
+
+	close(dAgent.seedIn)
 }
 
 func (dAgent *discoveryAgent) handleSeeds() {
@@ -41,10 +48,13 @@ func (dAgent *discoveryAgent) handleSeeds() {
 
 		ips, err := net.LookupIP(seed)
 		if err != nil {
+			log.Println("DIscovery failed:", seed)
 			continue
 		}
 
 		for _, ip := range ips {
+			log.Println("IP discovered from seed:", ip)
+
 			addr := net.JoinHostPort(ip.String(), protocolPort)
 			dAgent.addrOut <- addr
 		}

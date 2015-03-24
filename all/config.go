@@ -19,3 +19,8 @@ const (
 	protocolNetwork = wire.TestNet3
 	protocolPort    = "18333"
 )
+
+const (
+	maxConnsPerSec = 4
+	maxConnsTotal  = 1024
+)

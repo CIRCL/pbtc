@@ -37,6 +37,6 @@ func (dManager *dataManager) handlePeers() {
 
 	for peer := range dManager.peerIn {
 
-		log.Println("New peer connected", peer)
+		log.Println("New peer connected:", peer.GetAddress())
 	}
 }

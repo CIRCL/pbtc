@@ -44,50 +44,67 @@ func NewPeer(conn net.Conn, me *wire.NetAddress, you *wire.NetAddress, nonce uin
 	return peer
 }
 
+func (peer *peer) GetAddress() string {
+
+	return peer.conn.RemoteAddr().String()
+}
+
 func (peer *peer) InitHandshake() {
 
-	verOut := wire.NewMsgVersion(peer.me, peer.you, peer.nonce, 0)
-	peer.SendMessage(verOut)
+	go func() {
 
-	verIn := peer.RecvMessage()
-	switch verIn.(type) {
-	case *wire.MsgVersion:
-		// version negotiation
-	default:
-		log.Println("Outgoing handshake failed, expected version message")
-		break
-	}
+		verOut := wire.NewMsgVersion(peer.me, peer.you, peer.nonce, 0)
+		peer.SendMessage(verOut)
 
-	verAck := wire.NewMsgVerAck()
-	peer.SendMessage(verAck)
+		verIn := peer.RecvMessage()
+		switch verIn.(type) {
+		case *wire.MsgVersion:
+			// set version
+		default:
+			log.Println("Outgoing handshake failed, expected version message")
+			break
+		}
 
-	peer.peerOut <- peer
+		verAck := wire.NewMsgVerAck()
+		peer.SendMessage(verAck)
+		peer.state = stateConnected
+
+		log.Println("Handshake complete:", peer.GetAddress())
+
+		peer.peerOut <- peer
+	}()
 }
 
 func (peer *peer) WaitHandshake() {
 
-	verIn := peer.RecvMessage()
-	switch verIn.(type) {
-	case *wire.MsgVersion:
-		// version negotiation
-	default:
-		log.Println("Incoming handshake failed, expected version message")
-		break
-	}
+	go func() {
 
-	verOut := wire.NewMsgVersion(peer.me, peer.you, peer.nonce, 0)
-	peer.SendMessage(verOut)
+		verIn := peer.RecvMessage()
+		switch verIn.(type) {
+		case *wire.MsgVersion:
+			// set version
+		default:
+			log.Println("Incoming handshake failed, expected version message")
+			break
+		}
 
-	verAck := peer.RecvMessage()
-	switch verAck.(type) {
-	case *wire.MsgVerAck:
-		// nothing
-	default:
-		log.Println("Incoming handshake failed, expected verack message")
-		break
-	}
+		verOut := wire.NewMsgVersion(peer.me, peer.you, peer.nonce, 0)
+		peer.SendMessage(verOut)
 
-	peer.peerOut <- peer
+		verAck := peer.RecvMessage()
+		switch verAck.(type) {
+		case *wire.MsgVerAck:
+			// nothing
+		default:
+			log.Println("Incoming handshake failed, expected verack message")
+			break
+		}
+
+		log.Println("Handshake complete:", peer.GetAddress())
+
+		peer.state = stateConnected
+		peer.peerOut <- peer
+	}()
 }
 
 func (peer *peer) IsConnected() bool {
