@@ -1,6 +1,8 @@
 package all
 
 import (
+	"time"
+
 	"github.com/btcsuite/btcd/wire"
 )
 
@@ -22,5 +24,18 @@ const (
 
 const (
 	maxConnsPerSec = 4
-	maxConnsTotal  = 1024
+	maxConnsTotal  = 8192
+	maxNodesTotal  = 32768
+)
+
+const (
+	timeoutRecv = 1 * time.Second
+	timeoutDial = 4 * time.Second
+)
+
+const (
+	backoffInitial    = 60
+	backoffMaximum    = 60 * 60
+	backoffMultiplier = 2
+	backoffRandomizer = 0.5
 )

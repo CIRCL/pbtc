@@ -35,34 +35,38 @@ func main() {
 	dAgent := all.NewDiscoveryAgent()
 
 	// set up the data manager to retrieve and log data
-	dManager.Start()
+	dManager.Start(
+		nRepo.GetAddrIn(),
+	)
 
 	// set up the connection handler to initiate outgoing connections
-	peerToManager := dManager.GetPeerIn()
-	cHandler.Start(peerToManager)
+	cHandler.Start(
+		dManager.GetPeerIn(),
+	)
 
 	// set up node repository to manage known nodes
-	addrToConnector := cHandler.GetAddrIn()
-	nRepo.Start(addrToConnector)
+	nRepo.Start(
+		cHandler.GetAddrIn(),
+	)
 
 	// set up accept handler to listen & accept incoming connections
-	connToConnector := cHandler.GetConnIn()
-	aHandler.Start(connToConnector)
+	aHandler.Start(
+		cHandler.GetConnIn(),
+	)
 
 	// set up discovery agent to bootstrap discovery
-	addrToRepository := nRepo.GetAddrIn()
-	dAgent.Start(addrToRepository)
+	dAgent.Start(
+		nRepo.GetAddrIn(),
+	)
 
 	// feed listening IPs to the accept handler to start listeners
-	ipToAcceptor := aHandler.GetIpIn()
 	for _, ip := range ips {
-		ipToAcceptor <- ip
+		aHandler.GetIpIn() <- ip
 	}
 
 	// feed dns seeds to discovery agent to start bootstrapping
-	seedToDiscovery := dAgent.GetSeedIn()
 	for _, seed := range seeds {
-		seedToDiscovery <- seed
+		dAgent.GetSeedIn() <- seed
 	}
 
 	// wait for input

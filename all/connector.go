@@ -4,30 +4,34 @@ import (
 	"log"
 	"net"
 	"time"
-
-	"github.com/btcsuite/btcd/wire"
 )
 
 type connectionHandler struct {
 	addrIn   chan string
+	nodeEx   chan *node
 	connIn   chan net.Conn
+	connEx   chan net.Conn
 	peerIn   chan *peer
 	peerOut  chan<- *peer
 	ticker   *time.Ticker
-	numConns uint32
+	nodeList map[string]*node
 }
 
 func NewConnectionHandler() *connectionHandler {
 
 	addrIn := make(chan string, bufferConnector)
+	nodeEx := make(chan *node, bufferConnector)
 	connIn := make(chan net.Conn, bufferConnector)
-	peerIn := make(chan *peer, bufferConnector)
+	connEx := make(chan net.Conn, bufferConnector)
+
+	nodeList := make(map[string]*node)
 
 	cHandler := &connectionHandler{
 		addrIn:   addrIn,
+		nodeEx:   nodeEx,
 		connIn:   connIn,
-		peerIn:   peerIn,
-		numConns: 0,
+		connEx:   connEx,
+		nodeList: nodeList,
 	}
 
 	return cHandler
@@ -55,84 +59,78 @@ func (cHandler *connectionHandler) Start(peerOut chan<- *peer) {
 	cHandler.ticker = time.NewTicker(period)
 
 	go cHandler.handleAddresses()
-	go cHandler.handleConnections()
-	go cHandler.handlePeers()
+	go cHandler.handleNodes()
+	go cHandler.handleIncoming()
+	go cHandler.handleOutgoing()
 }
 
 func (cHandler *connectionHandler) Stop() {
 
 	log.Println("Stopping connection handler")
 
-	cHandler.ticker.Stop()
-
 	close(cHandler.addrIn)
+	close(cHandler.nodeEx)
 	close(cHandler.connIn)
-	close(cHandler.peerIn)
+	close(cHandler.connEx)
+
+	cHandler.ticker.Stop()
 }
 
 func (cHandler *connectionHandler) handleAddresses() {
 
 	for addr := range cHandler.addrIn {
 
-		<-cHandler.ticker.C
-
-		conn, err := net.DialTimeout("tcp", addr, time.Second/4)
-		if err != nil {
-			log.Println("Connection failed:", addr, err)
+		node, ok := cHandler.nodeList[addr]
+		if !ok {
+			node = NewNode(addr)
+			cHandler.nodeList[addr] = node
+			cHandler.nodeEx <- node
 			continue
 		}
 
-		log.Println("Connection established:", addr)
-
-		cHandler.connIn <- conn
+		go node.Retry(cHandler.nodeEx)
 	}
 }
 
-func (cHandler *connectionHandler) handleConnections() {
+func (cHandler *connectionHandler) handleNodes() {
+
+	for node := range cHandler.nodeEx {
+
+		<-cHandler.ticker.C
+
+		go node.Dial(cHandler.addrIn, cHandler.connEx)
+	}
+
+}
+
+func (cHandler *connectionHandler) handleIncoming() {
 
 	for conn := range cHandler.connIn {
 
-		cHandler.numConns++
-
-		if cHandler.numConns > maxConnsTotal {
+		peer, err := NewPeer(conn, protocolNetwork, protocolVersion)
+		if err != nil {
+			cHandler.addrIn <- conn.RemoteAddr().String()
 			conn.Close()
 			continue
 		}
 
-		addr := conn.RemoteAddr().String()
-
-		me, err := wire.NewNetAddress(conn.LocalAddr(), 0)
-		if err != nil {
-			log.Println("Could not parse local address:", addr, err)
-			continue
-		}
-
-		you, err := wire.NewNetAddress(conn.RemoteAddr(), 0)
-		if err != nil {
-			log.Println("Could not parse remote address:", addr, err)
-			continue
-		}
-
-		nonce, err := wire.RandomUint64()
-		if err != nil {
-			log.Println("Could not generate nonce:", addr, err)
-			continue
-		}
-
-		log.Println("Peer created:", addr)
-
-		peer := NewPeer(conn, me, you, nonce, protocolNetwork, protocolVersion)
-		peer.Start(cHandler.peerIn)
-		peer.InitHandshake()
+		peer.Start()
+		go peer.Handshake(false, cHandler.addrIn, cHandler.peerOut)
 	}
 }
 
-func (cHandler *connectionHandler) handlePeers() {
+func (cHandler *connectionHandler) handleOutgoing() {
 
-	for peer := range cHandler.peerIn {
+	for conn := range cHandler.connEx {
 
-		if peer.IsConnected() {
-			cHandler.peerOut <- peer
+		peer, err := NewPeer(conn, protocolNetwork, protocolVersion)
+		if err != nil {
+			cHandler.addrIn <- conn.RemoteAddr().String()
+			conn.Close()
+			continue
 		}
+
+		peer.Start()
+		go peer.Handshake(true, cHandler.addrIn, cHandler.peerOut)
 	}
 }
