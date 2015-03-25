@@ -1,62 +1,49 @@
 package all
 
 import (
-	"log"
 	"net"
 )
 
-type discoveryAgent struct {
+type Discovery struct {
 	seedIn  chan string
 	addrOut chan<- string
 }
 
-func NewDiscoveryAgent() *discoveryAgent {
-
+func NewDiscovery() *Discovery {
 	seedIn := make(chan string, bufferDiscovery)
 
-	dAgent := &discoveryAgent{
+	dsc := &Discovery{
 		seedIn: seedIn,
 	}
 
-	return dAgent
+	return dsc
 }
 
-func (dAgent *discoveryAgent) GetSeedIn() chan<- string {
-
-	return dAgent.seedIn
+func (dsc *Discovery) GetSeedIn() chan<- string {
+	return dsc.seedIn
 }
 
-func (dAgent *discoveryAgent) Start(addrOut chan<- string) {
+func (dsc *Discovery) Start(addrOut chan<- string) {
+	dsc.addrOut = addrOut
 
-	log.Println("Starting discovery agent")
-
-	dAgent.addrOut = addrOut
-
-	go dAgent.handleSeeds()
+	go dsc.handleSeeds()
 }
 
-func (dAgent *discoveryAgent) Stop() {
-
-	log.Println("Stopping discovery agent")
-
-	close(dAgent.seedIn)
+func (dsc *Discovery) Stop() {
+	close(dsc.seedIn)
 }
 
-func (dAgent *discoveryAgent) handleSeeds() {
-
-	for seed := range dAgent.seedIn {
+func (dsc *Discovery) handleSeeds() {
+	for seed := range dsc.seedIn {
 
 		ips, err := net.LookupIP(seed)
 		if err != nil {
-			log.Println("DIscovery failed:", seed)
 			continue
 		}
 
 		for _, ip := range ips {
-			log.Println("IP discovered from seed:", ip)
-
 			addr := net.JoinHostPort(ip.String(), protocolPort)
-			dAgent.addrOut <- addr
+			dsc.addrOut <- addr
 		}
 	}
 }

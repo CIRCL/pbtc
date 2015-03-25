@@ -27,57 +27,12 @@ func main() {
 		"testnet-seed.bitcoin.schildbach.de",
 	}
 
-	// initialize the modules
-	dManager := all.NewDataManager()
-	cHandler := all.NewConnectionHandler()
-	nRepo := all.NewNodeRepository()
-	aHandler := all.NewAcceptHandler()
-	dAgent := all.NewDiscoveryAgent()
+	// start everything
 
-	// set up the data manager to retrieve and log data
-	dManager.Start(
-		nRepo.GetAddrIn(),
-	)
-
-	// set up the connection handler to initiate outgoing connections
-	cHandler.Start(
-		dManager.GetPeerIn(),
-	)
-
-	// set up node repository to manage known nodes
-	nRepo.Start(
-		cHandler.GetAddrIn(),
-	)
-
-	// set up accept handler to listen & accept incoming connections
-	aHandler.Start(
-		cHandler.GetConnIn(),
-	)
-
-	// set up discovery agent to bootstrap discovery
-	dAgent.Start(
-		nRepo.GetAddrIn(),
-	)
-
-	// feed listening IPs to the accept handler to start listeners
-	for _, ip := range ips {
-		aHandler.GetIpIn() <- ip
-	}
-
-	// feed dns seeds to discovery agent to start bootstrapping
-	for _, seed := range seeds {
-		dAgent.GetSeedIn() <- seed
-	}
-
-	// wait for input
+	// running
 	_, _ = fmt.Scanln()
 
-	// stop all modules
-	dAgent.Stop()
-	aHandler.Stop()
-	nRepo.Stop()
-	cHandler.Stop()
-	dManager.Stop()
+	// stop everything
 
 	return
 }

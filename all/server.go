@@ -5,36 +5,66 @@ import (
 )
 
 type server struct {
-	connOut  chan<- net.Conn
-	listener net.Listener
+	addrIn       chan string
+	connOut      chan<- net.Conn
+	listenerList map[string]net.Listener
 }
 
-func NewServer(listener net.Listener) *server {
+func NewServer() *server {
+	addrIn := make(chan string)
+	listenerList := make(map[string]net.Listener)
 
-	server := &server{
-		listener: listener,
+	svr := &server{
+		addrIn:       addrIn,
+		listenerList: listenerList,
 	}
 
-	return server
+	return svr
 }
 
-func (server *server) Start(connOut chan<- net.Conn) {
-
-	server.connOut = connOut
-
-	go server.handleIncoming()
+func (svr *server) GetAddrIn() chan<- string {
+	return svr.addrIn
 }
 
-func (server server) handleIncoming() {
+func (svr *server) Start(connOut chan<- net.Conn) {
+	svr.connOut = connOut
 
-	for {
+	go svr.handleAddresses()
+}
 
-		conn, err := server.listener.Accept()
+func (svr *server) Stop() {
+	for _, listener := range svr.listenerList {
+		listener.Close()
+	}
+
+	close(svr.addrIn)
+}
+
+func (svr *server) handleAddresses() {
+	for addr := range svr.addrIn {
+		_, ok := svr.listenerList[addr]
+		if ok {
+			continue
+		}
+
+		listener, err := net.Listen("tcp", addr)
 		if err != nil {
 			continue
 		}
 
-		server.connOut <- conn
-	}
+		svr.listenerList[addr] = listener
 
+		go svr.acceptConnections(listener)
+	}
+}
+
+func (svr *server) acceptConnections(listener net.Listener) {
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			break
+		}
+
+		svr.connOut <- conn
+	}
 }

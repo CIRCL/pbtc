@@ -1,5 +1,3 @@
-* whitelist of successfully connected nodes
-* blacklist of never connecting to nodes
-* fix retry to skip addrin queue, go right into nodein
-* create node repository
-* create peer repository
+* create manager requesting, connecting, retrying nodes
+* implement ip/addr blacklist & whitelist
+* atomic node state changes
