@@ -1,3 +1,0 @@
-* create manager requesting, connecting, retrying nodes
-* implement ip/addr blacklist & whitelist
-* atomic node state changes

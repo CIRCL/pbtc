@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"runtime"
 	"time"
 
@@ -27,12 +28,33 @@ func main() {
 		"testnet-seed.bitcoin.schildbach.de",
 	}
 
+	// create everything
+	mgr := all.NewManager()
+	svr := all.NewServer()
+	dsc := all.NewDiscovery()
+
 	// start everything
+	mgr.Start(all.ProtocolNetwork, all.ProtocolVersion)
+	svr.Start(mgr.GetConnIn())
+	dsc.Start(mgr.GetAddrIn())
+
+	// feed listen ips into server
+	for _, ip := range ips {
+		svr.GetAddrIn() <- net.JoinHostPort(ip, "18333")
+	}
+
+	// feed dns seeds into discovery
+	for _, seed := range seeds {
+		dsc.GetSeedIn() <- seed
+	}
 
 	// running
 	_, _ = fmt.Scanln()
 
 	// stop everything
+	dsc.Stop()
+	svr.Stop()
+	mgr.Stop()
 
 	return
 }

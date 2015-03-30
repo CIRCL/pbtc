@@ -4,36 +4,36 @@ import (
 	"net"
 )
 
-type Discovery struct {
+type discovery struct {
 	seedIn  chan string
 	addrOut chan<- string
 }
 
-func NewDiscovery() *Discovery {
+func NewDiscovery() *discovery {
 	seedIn := make(chan string, bufferDiscovery)
 
-	dsc := &Discovery{
+	dsc := &discovery{
 		seedIn: seedIn,
 	}
 
 	return dsc
 }
 
-func (dsc *Discovery) GetSeedIn() chan<- string {
+func (dsc *discovery) GetSeedIn() chan<- string {
 	return dsc.seedIn
 }
 
-func (dsc *Discovery) Start(addrOut chan<- string) {
+func (dsc *discovery) Start(addrOut chan<- string) {
 	dsc.addrOut = addrOut
 
 	go dsc.handleSeeds()
 }
 
-func (dsc *Discovery) Stop() {
+func (dsc *discovery) Stop() {
 	close(dsc.seedIn)
 }
 
-func (dsc *Discovery) handleSeeds() {
+func (dsc *discovery) handleSeeds() {
 	for seed := range dsc.seedIn {
 
 		ips, err := net.LookupIP(seed)

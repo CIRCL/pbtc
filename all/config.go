@@ -17,8 +17,8 @@ const (
 )
 
 const (
-	protocolVersion = wire.BIP0031Version
-	protocolNetwork = wire.TestNet3
+	ProtocolVersion = wire.BIP0031Version
+	ProtocolNetwork = wire.TestNet3
 	protocolPort    = "18333"
 )
 
@@ -30,6 +30,7 @@ const (
 
 const (
 	timeoutRecv = 1 * time.Second
+	timeoutSend = 1 * time.Second
 	timeoutDial = 4 * time.Second
 )
 
