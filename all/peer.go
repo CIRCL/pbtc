@@ -1,6 +1,7 @@
 package all
 
 import (
+	"log"
 	"net"
 	"time"
 
@@ -25,7 +26,7 @@ type peer struct {
 	msgOut chan<- wire.Message
 }
 
-func NewPeer(conn net.Conn) (*peer, error) {
+func NewPeer(conn net.Conn, network wire.BitcoinNet, version uint32) (*peer, error) {
 
 	me, err := wire.NewNetAddress(conn.LocalAddr(), 0)
 	if err != nil {
@@ -66,88 +67,106 @@ func NewPeer(conn net.Conn) (*peer, error) {
 	return peer, nil
 }
 
-func (peer *peer) Start(network wire.BitcoinNet, version uint32) {
-	peer.network = network
-	peer.version = version
+func (peer *peer) Start(msgOut chan<- wire.Message) {
+	peer.msgOut = msgOut
 
+	peer.sendEx <- wire.NewGetAddr()
+
+	go peer.handleMessages()
 	go peer.handleSend()
 	go peer.handleReceive()
 }
 
 func (peer *peer) Stop() {
+	peer.sigSuspend <- struct{}{}
 	peer.sigStopRecv <- struct{}{}
 	peer.sigStopSend <- struct{}{}
 }
 
-func (peer *peer) Process(msgOut chan<- wire.Message) {
-	peer.msgOut = msgOut
-
-	go peer.handleMessages()
-}
-
-func (peer *peer) Suspend() {
-	peer.sigSuspend <- struct{}{}
-}
-
 func (peer *peer) InitHandshake(peerOut chan<- *peer) {
+
+	log.Println("Sending outgoing version message:", peer.conn.RemoteAddr().String())
+
 	verOut := wire.NewMsgVersion(peer.me, peer.you, peer.nonce, 0)
 	err := peer.sendMessage(verOut)
 	if err != nil {
+		log.Println("Could not send outgoing version message:", peer.conn.RemoteAddr().String(), err)
 		return
 	}
+
+	log.Println("Waiting for version message reply:", peer.conn.RemoteAddr().String())
 
 	verIn, err := peer.recvMessage()
 	if err != nil {
+		log.Println("Did not receive version message reply:", peer.conn.RemoteAddr().String(), err)
 		return
 	}
 
-	switch verIn.(type) {
+	switch msg := verIn.(type) {
 	case *wire.MsgVersion:
 
 	default:
+		log.Println("Version message reply wrong type:", peer.conn.RemoteAddr().String(), msg.Command())
 		return
 	}
+
+	log.Println("Sending outgoing verack message:", peer.conn.RemoteAddr().String())
 
 	verAck := wire.NewMsgVerAck()
 	err = peer.sendMessage(verAck)
 	if err != nil {
+		log.Println("Could not send outgoing verack message:", peer.conn.RemoteAddr().String(), err)
 		return
 	}
 
+	log.Println("Outgoing handshake complete:", peer.conn.RemoteAddr().String())
 	peerOut <- peer
 }
 
 func (peer *peer) WaitHandshake(peerOut chan<- *peer) {
+
+	log.Println("Waiting for incoming version message:", peer.conn.RemoteAddr().String())
+
 	verIn, err := peer.recvMessage()
 	if err != nil {
+		log.Println("Did not receive incoming version message:", peer.conn.RemoteAddr().String(), err)
 		return
 	}
 
-	switch verIn.(type) {
+	switch msg := verIn.(type) {
 	case *wire.MsgVersion:
 
 	default:
+		log.Println("Incoming version message wrong type:", peer.conn.RemoteAddr().String(), msg.Command())
 		return
 	}
+
+	log.Println("Sending version message reply:", peer.conn.RemoteAddr().String())
 
 	verOut := wire.NewMsgVersion(peer.me, peer.you, peer.nonce, 0)
 	err = peer.sendMessage(verOut)
 	if err != nil {
+		log.Println("Could not send version message reply:", peer.conn.RemoteAddr().String(), err)
 		return
 	}
+
+	log.Println("Waiting for incoming verack message:", peer.conn.RemoteAddr().String())
 
 	verAck, err := peer.recvMessage()
 	if err != nil {
+		log.Println("Did not receive incoming verack message:", peer.conn.RemoteAddr().String(), err)
 		return
 	}
 
-	switch verAck.(type) {
+	switch msg := verAck.(type) {
 	case *wire.MsgVerAck:
 
 	default:
+		log.Println("Incoming verack message wrong type:", peer.conn.RemoteAddr().String(), msg.Command())
 		return
 	}
 
+	log.Println("Incoming handshake complete:", peer.conn.RemoteAddr().String())
 	peerOut <- peer
 }
 
@@ -159,7 +178,7 @@ func (peer *peer) sendMessage(msg wire.Message) error {
 }
 
 func (peer *peer) recvMessage() (wire.Message, error) {
-	peer.conn.SetReadDeadline(time.Now().Add(timeoutRecv))
+	//peer.conn.SetReadDeadline(time.Now().Add(timeoutRecv))
 	msg, _, err := wire.ReadMessage(peer.conn, peer.version, peer.network)
 
 	return msg, err

@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/btcsuite/btcd/wire"
+
 	"github.com/CIRCL/pbtc/all"
 )
 
@@ -34,7 +36,7 @@ func main() {
 	dsc := all.NewDiscovery()
 
 	// start everything
-	mgr.Start(all.ProtocolNetwork, all.ProtocolVersion)
+	mgr.Start(wire.TestNet3, wire.RejectVersion)
 	svr.Start(mgr.GetConnIn())
 	dsc.Start(mgr.GetAddrIn())
 

@@ -1,6 +1,7 @@
 package all
 
 import (
+	"log"
 	"net"
 )
 
@@ -36,10 +37,15 @@ func (dsc *discovery) Stop() {
 func (dsc *discovery) handleSeeds() {
 	for seed := range dsc.seedIn {
 
+		log.Println("Running DNS discovery:", seed)
+
 		ips, err := net.LookupIP(seed)
 		if err != nil {
+			log.Println("DNS discovery failed:", seed, err)
 			continue
 		}
+
+		log.Println("Found IPs:", seed, len(ips))
 
 		for _, ip := range ips {
 			addr := net.JoinHostPort(ip.String(), protocolPort)

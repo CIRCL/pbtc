@@ -1,6 +1,7 @@
 package all
 
 import (
+	"log"
 	"net"
 )
 
@@ -47,14 +48,18 @@ func (svr *server) handleAddresses() {
 			continue
 		}
 
+		log.Println("Creating listener:", addr)
+
 		listener, err := net.Listen("tcp", addr)
 		if err != nil {
+			log.Println("Can't accept connections:", addr, err)
 			continue
 		}
 
-		svr.listenerList[addr] = listener
+		log.Println("Accepting connections:", addr)
 
 		go svr.acceptConnections(listener)
+		svr.listenerList[addr] = listener
 	}
 }
 

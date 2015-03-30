@@ -81,18 +81,25 @@ func (mgr *manager) handleAddresses() {
 
 		<-mgr.signalConnect.C
 
+		log.Println("Dialing new connection:", addr)
+
 		conn, err := net.DialTimeout("tcp", addr, timeoutDial)
 		if err != nil {
+			log.Println("Dialing failed:", addr, err)
 			continue
 		}
 
-		peer, err := NewPeer(conn)
+		log.Println("Creating new outgoing peer:", addr)
+
+		peer, err := NewPeer(conn, mgr.network, mgr.version)
 		if err != nil {
+			log.Println("Creating peer failed:", addr, err)
 			conn.Close()
 			continue
 		}
 
-		peer.Start(mgr.network, mgr.version)
+		log.Println("Peer connected, initiating handshake:", addr)
+
 		go peer.InitHandshake(mgr.peerIn)
 		mgr.peerList[addr] = peer
 	}
@@ -107,13 +114,17 @@ func (mgr *manager) handleConnections() {
 			continue
 		}
 
-		peer, err := NewPeer(conn)
+		log.Println("Creating new incoming peer:", addr)
+
+		peer, err := NewPeer(conn, mgr.network, mgr.version)
 		if err != nil {
+			log.Println("Creating peer failed:", addr, err)
 			conn.Close()
 			continue
 		}
 
-		peer.Start(mgr.network, mgr.version)
+		log.Println("Peer connected, waiting for handshake:", addr)
+
 		go peer.WaitHandshake(mgr.peerIn)
 		mgr.peerList[addr] = peer
 	}
@@ -121,8 +132,9 @@ func (mgr *manager) handleConnections() {
 
 func (mgr *manager) handlePeers() {
 	for peer := range mgr.peerIn {
-		peer.Process(mgr.msgIn)
-		log.Println("Handshake complete")
+		peer.Start(mgr.msgIn)
+
+		log.Println("Handshake complete, initiating message processing")
 	}
 }
 
@@ -135,6 +147,7 @@ func (mgr *manager) handleMessages() {
 			}
 
 		default:
+			log.Println("Message received:", msg.Command())
 
 		}
 	}
