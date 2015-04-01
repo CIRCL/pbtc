@@ -3,7 +3,6 @@ package all
 import (
 	"log"
 	"net"
-	"strconv"
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
@@ -12,8 +11,7 @@ import (
 type manager struct {
 	addrIn chan string
 	connIn chan net.Conn
-	msgIn  chan wire.Message
-	peerIn chan *peer
+	evtIn  chan event
 
 	signalConnect *time.Ticker
 
@@ -26,18 +24,15 @@ type manager struct {
 func NewManager() *manager {
 	addrIn := make(chan string)
 	connIn := make(chan net.Conn)
-	msgIn := make(chan wire.Message)
-	peerIn := make(chan *peer)
+	evtIn := make(chan event)
 
 	signalConnect := time.NewTicker(1 * time.Second / maxConnsPerSec)
-
 	peerList := make(map[string]*peer)
 
 	mgr := &manager{
 		addrIn: addrIn,
 		connIn: connIn,
-		msgIn:  msgIn,
-		peerIn: peerIn,
+		evtIn:  evtIn,
 
 		signalConnect: signalConnect,
 
@@ -59,17 +54,12 @@ func (mgr *manager) Start(network wire.BitcoinNet, version uint32) {
 	mgr.network = network
 	mgr.version = version
 
-	go mgr.handleMessages()
-	go mgr.handlePeers()
-	go mgr.handleConnections()
 	go mgr.handleAddresses()
+	go mgr.handleConnections()
+	go mgr.handleEvents()
 }
 
 func (mgr *manager) Stop() {
-	close(mgr.addrIn)
-	close(mgr.connIn)
-	close(mgr.peerIn)
-	close(mgr.msgIn)
 }
 
 func (mgr *manager) handleAddresses() {
@@ -79,29 +69,12 @@ func (mgr *manager) handleAddresses() {
 			continue
 		}
 
+		peer := NewPeer(addr, mgr.evtIn)
+		mgr.peerList[addr] = peer
+
 		<-mgr.signalConnect.C
 
-		log.Println("Dialing new connection:", addr)
-
-		conn, err := net.DialTimeout("tcp", addr, timeoutDial)
-		if err != nil {
-			log.Println("Dialing failed:", addr, err)
-			continue
-		}
-
-		log.Println("Creating new outgoing peer:", addr)
-
-		peer, err := NewPeer(conn, mgr.network, mgr.version)
-		if err != nil {
-			log.Println("Creating peer failed:", addr, err)
-			conn.Close()
-			continue
-		}
-
-		log.Println("Peer connected, initiating handshake:", addr)
-
-		go peer.InitHandshake(mgr.peerIn)
-		mgr.peerList[addr] = peer
+		go peer.Connect()
 	}
 }
 
@@ -116,39 +89,36 @@ func (mgr *manager) handleConnections() {
 
 		log.Println("Creating new incoming peer:", addr)
 
-		peer, err := NewPeer(conn, mgr.network, mgr.version)
-		if err != nil {
-			log.Println("Creating peer failed:", addr, err)
-			conn.Close()
-			continue
-		}
-
-		log.Println("Peer connected, waiting for handshake:", addr)
-
-		go peer.WaitHandshake(mgr.peerIn)
+		peer := NewPeer(addr, mgr.evtIn)
 		mgr.peerList[addr] = peer
+
+		peer.Connection(conn)
+		go peer.WaitHandshake(mgr.network, mgr.version)
 	}
 }
 
-func (mgr *manager) handlePeers() {
-	for peer := range mgr.peerIn {
-		peer.Start(mgr.msgIn)
-
-		log.Println("Handshake complete, initiating message processing")
-	}
-}
-
-func (mgr *manager) handleMessages() {
-	for m := range mgr.msgIn {
-		switch msg := m.(type) {
-		case *wire.MsgAddr:
-			for _, addr := range msg.AddrList {
-				mgr.addrIn <- net.JoinHostPort(addr.IP.String(), strconv.Itoa(int(addr.Port)))
+func (mgr *manager) handleEvents() {
+	for event := range mgr.evtIn {
+		switch e := event.(type) {
+		case *eventConnection:
+			if e.err != nil {
+				// retry
+			} else {
+				go e.peer.InitHandshake(mgr.network, mgr.version)
 			}
 
-		default:
-			log.Println("Message received:", msg.Command())
+		case *eventHandshake:
+			if e.err != nil {
+				e.peer.Disconnect()
+				// retry
+			} else {
+				go e.peer.Start()
+			}
 
+		case *eventAddress:
+			for _, addr := range e.list {
+				mgr.addrIn <- addr
+			}
 		}
 	}
 }
