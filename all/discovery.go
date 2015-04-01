@@ -11,7 +11,7 @@ type discovery struct {
 }
 
 func NewDiscovery() *discovery {
-	seedIn := make(chan string, bufferDiscovery)
+	seedIn := make(chan string, bufferDiscoverySeed)
 
 	dsc := &discovery{
 		seedIn: seedIn,

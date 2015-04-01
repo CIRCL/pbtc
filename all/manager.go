@@ -10,6 +10,7 @@ import (
 
 type manager struct {
 	addrIn chan string
+	peerIn chan *peer
 	connIn chan net.Conn
 	evtIn  chan event
 
@@ -22,15 +23,17 @@ type manager struct {
 }
 
 func NewManager() *manager {
-	addrIn := make(chan string)
-	connIn := make(chan net.Conn)
-	evtIn := make(chan event)
+	addrIn := make(chan string, bufferManagerAddress)
+	peerIn := make(chan *peer, bufferManagerPeer)
+	connIn := make(chan net.Conn, bufferManagerConnection)
+	evtIn := make(chan event, bufferManagerEvent)
 
 	signalConnect := time.NewTicker(1 * time.Second / maxConnsPerSec)
 	peerList := make(map[string]*peer)
 
 	mgr := &manager{
 		addrIn: addrIn,
+		peerIn: peerIn,
 		connIn: connIn,
 		evtIn:  evtIn,
 
@@ -60,6 +63,9 @@ func (mgr *manager) Start(network wire.BitcoinNet, version uint32) {
 }
 
 func (mgr *manager) Stop() {
+	close(mgr.addrIn)
+	close(mgr.connIn)
+	close(mgr.evtIn)
 }
 
 func (mgr *manager) handleAddresses() {
@@ -72,6 +78,12 @@ func (mgr *manager) handleAddresses() {
 		peer := NewPeer(addr, mgr.evtIn)
 		mgr.peerList[addr] = peer
 
+		mgr.peerIn <- peer
+	}
+}
+
+func (mgr *manager) handlePeers() {
+	for peer := range mgr.peerIn {
 		<-mgr.signalConnect.C
 
 		go peer.Connect()
@@ -102,7 +114,7 @@ func (mgr *manager) handleEvents() {
 		switch e := event.(type) {
 		case *eventConnection:
 			if e.err != nil {
-				// retry
+				go e.peer.Retry(mgr.peerIn)
 			} else {
 				go e.peer.InitHandshake(mgr.network, mgr.version)
 			}
@@ -110,7 +122,7 @@ func (mgr *manager) handleEvents() {
 		case *eventHandshake:
 			if e.err != nil {
 				e.peer.Disconnect()
-				// retry
+				go e.peer.Retry(mgr.peerIn)
 			} else {
 				go e.peer.Start()
 			}

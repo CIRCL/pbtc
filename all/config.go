@@ -7,13 +7,12 @@ import (
 )
 
 const (
-	bufferConnector  = 128
-	bufferDiscovery  = 128
-	bufferMessage    = 128
-	bufferRepository = 128
-	bufferAcceptor   = 128
-	bufferSeeds      = 128
-	bufferManager    = 128
+	bufferManagerAddress    = 1024
+	bufferManagerPeer       = 128
+	bufferManagerConnection = 64
+	bufferManagerEvent      = 1024
+
+	bufferDiscoverySeed = 16
 )
 
 const (
@@ -29,14 +28,19 @@ const (
 )
 
 const (
-	timeoutRecv = 16 * time.Second
+	timeoutRecv = 4 * time.Second
 	timeoutSend = 4 * time.Second
 	timeoutDial = 4 * time.Second
 )
 
 const (
-	backoffInitial    = 60
-	backoffMaximum    = 60 * 60
-	backoffMultiplier = 2
-	backoffRandomizer = 0.5
+	backoffInitial    = 60 * time.Second
+	backoffMaximum    = 60 * time.Minute
+	backoffMultiplier = 1.99
+	backoffRandomizer = 0.27
+)
+
+const (
+	logLimitSize = 1024 * 1024 * 64
+	logLimitTime = 5 * time.Minute
 )

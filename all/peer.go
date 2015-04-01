@@ -26,7 +26,8 @@ type peer struct {
 	sigStopRecv chan struct{}
 	sigSuspend  chan struct{}
 
-	evtOut chan<- event
+	evtOut  chan<- event
+	backoff time.Duration
 }
 
 func NewPeer(addr string, evtOut chan<- event) *peer {
@@ -47,7 +48,8 @@ func NewPeer(addr string, evtOut chan<- event) *peer {
 		sigStopRecv: sigStopRecv,
 		sigSuspend:  sigSuspend,
 
-		evtOut: evtOut,
+		evtOut:  evtOut,
+		backoff: backoffInitial,
 	}
 
 	return peer
@@ -75,6 +77,19 @@ func (peer *peer) Connect() {
 	}
 
 	peer.Connection(conn)
+}
+
+func (peer *peer) Retry(peerOut chan<- *peer) {
+	randomFactor := time.Duration(float32(peer.backoff) * backoffRandomizer)
+	backoff := peer.backoff + randomFactor
+	timer := time.NewTimer(backoff)
+	peer.backoff = time.Duration(float32(peer.backoff) * backoffMultiplier)
+	if peer.backoff > backoffMaximum {
+		peer.backoff = backoffMaximum
+	}
+
+	<-timer.C
+	peerOut <- peer
 }
 
 func (peer *peer) Disconnect() {
