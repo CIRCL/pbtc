@@ -51,7 +51,17 @@ func main() {
 	}
 
 	// running
-	_, _ = fmt.Scanln()
+	var input string
+	for {
+		_, _ = fmt.Scanln(&input)
+		if input == "exit" {
+			break
+		}
+	}
+
+	// close channels
+	close(svr.GetAddrIn())
+	close(dsc.GetSeedIn())
 
 	// stop everything
 	dsc.Stop()

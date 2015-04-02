@@ -1,12 +1,20 @@
 package all
 
 import (
-	"errors"
 	"log"
 	"net"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
+)
+
+const (
+	stateIdle = iota
+	stateConnected
+	stateReady
+	stateProcessing
 )
 
 type peer struct {
@@ -28,15 +36,18 @@ type peer struct {
 
 	evtOut  chan<- event
 	backoff time.Duration
+	state   uint32
+
+	waitGroup *sync.WaitGroup
 }
 
 func NewPeer(addr string, evtOut chan<- event) *peer {
-	recvEx := make(chan wire.Message)
-	sendEx := make(chan wire.Message)
+	recvEx := make(chan wire.Message, bufferPeerRecv)
+	sendEx := make(chan wire.Message, bufferPeerSend)
 
-	sigStopSend := make(chan struct{})
-	sigStopRecv := make(chan struct{})
-	sigSuspend := make(chan struct{})
+	sigStopSend := make(chan struct{}, 1)
+	sigStopRecv := make(chan struct{}, 1)
+	sigSuspend := make(chan struct{}, 1)
 
 	peer := &peer{
 		addr: addr,
@@ -50,33 +61,77 @@ func NewPeer(addr string, evtOut chan<- event) *peer {
 
 		evtOut:  evtOut,
 		backoff: backoffInitial,
+		state:   stateIdle,
+
+		waitGroup: &sync.WaitGroup{},
 	}
 
 	return peer
 }
 
+func (peer *peer) GetState() uint32 {
+	return peer.state
+}
+
 func (peer *peer) Start() {
+	if !atomic.CompareAndSwapUint32(&peer.state, stateReady, stateProcessing) {
+		return
+	}
+
+	peer.waitGroup.Add(3)
 	go peer.handleSend()
 	go peer.handleReceive()
 	go peer.handleMessages()
 
-	peer.sendEx <- wire.NewMsgGetAddr()
-}
-
-func (peer *peer) Stop() {
-	peer.sigSuspend <- struct{}{}
-	peer.sigStopRecv <- struct{}{}
-	peer.sigStopSend <- struct{}{}
+	peer.notifyState()
 }
 
 func (peer *peer) Connect() {
-	conn, err := net.DialTimeout("tcp", peer.addr, timeoutDial)
-	if err != nil {
-		peer.evtOut <- NewConnectionEvent(peer, err)
+	if !atomic.CompareAndSwapUint32(&peer.state, stateIdle, stateConnected) {
 		return
 	}
 
-	peer.Connection(conn)
+	peer.waitGroup.Add(1)
+	go func() {
+		conn, err := net.DialTimeout("tcp", peer.addr, timeoutDial)
+		if err != nil {
+			peer.Stop()
+			return
+		}
+
+		err = peer.Connection(conn)
+		if err != nil {
+			peer.Stop()
+			return
+		}
+
+		peer.notifyState()
+		peer.waitGroup.Done()
+	}()
+}
+
+func (peer *peer) Connection(conn net.Conn) error {
+	me, err := wire.NewNetAddress(conn.LocalAddr(), 0)
+	if err != nil {
+		return err
+	}
+
+	you, err := wire.NewNetAddress(conn.RemoteAddr(), 0)
+	if err != nil {
+		return err
+	}
+
+	nonce, err := wire.RandomUint64()
+	if err != nil {
+		return err
+	}
+
+	peer.conn = conn
+	peer.me = me
+	peer.you = you
+	peer.nonce = nonce
+
+	return nil
 }
 
 func (peer *peer) Retry(peerOut chan<- *peer) {
@@ -88,132 +143,157 @@ func (peer *peer) Retry(peerOut chan<- *peer) {
 		peer.backoff = backoffMaximum
 	}
 
-	<-timer.C
-	peerOut <- peer
-}
-
-func (peer *peer) Disconnect() {
-	peer.conn.Close()
-}
-
-func (peer *peer) Connection(conn net.Conn) {
-	me, err := wire.NewNetAddress(conn.LocalAddr(), 0)
-	if err != nil {
-		peer.evtOut <- NewConnectionEvent(peer, err)
-		return
-	}
-
-	you, err := wire.NewNetAddress(conn.RemoteAddr(), 0)
-	if err != nil {
-		peer.evtOut <- NewConnectionEvent(peer, err)
-		return
-	}
-
-	nonce, err := wire.RandomUint64()
-	if err != nil {
-		peer.evtOut <- NewConnectionEvent(peer, err)
-		return
-	}
-
-	peer.conn = conn
-	peer.me = me
-	peer.you = you
-	peer.nonce = nonce
-
-	peer.evtOut <- NewConnectionEvent(peer, nil)
+	peer.waitGroup.Add(1)
+	go func() {
+		<-timer.C
+		peerOut <- peer
+		peer.waitGroup.Done()
+	}()
 }
 
 func (peer *peer) InitHandshake(network wire.BitcoinNet, version uint32) {
+	if !atomic.CompareAndSwapUint32(&peer.state, stateConnected, stateReady) {
+		return
+	}
+
 	peer.network = network
 	peer.version = version
 
-	log.Println("Sending outgoing version message:", peer.conn.RemoteAddr().String())
+	peer.waitGroup.Add(1)
+	go func() {
+		verOut := wire.NewMsgVersion(peer.me, peer.you, peer.nonce, 0)
+		err := peer.sendMessage(verOut)
+		if err != nil {
+			log.Println("[PEER] Handshake out verout failed", peer.addr, err)
+			peer.Stop()
+			return
+		}
 
-	verOut := wire.NewMsgVersion(peer.me, peer.you, peer.nonce, 0)
-	err := peer.sendMessage(verOut)
-	if err != nil {
-		peer.evtOut <- NewHandshakeEvent(peer, err)
-		return
-	}
+		verIn, err := peer.recvMessage()
+		if err != nil {
+			log.Println("[PEER] Handshake out verin failed", peer.addr, err)
+			peer.Stop()
+			return
+		}
 
-	log.Println("Waiting for version message reply:", peer.conn.RemoteAddr().String())
+		switch msg := verIn.(type) {
+		case *wire.MsgVersion:
+			version := uint32(msg.ProtocolVersion)
+			if version < peer.version {
+				peer.version = version
+			}
 
-	verIn, err := peer.recvMessage()
-	if err != nil {
-		peer.evtOut <- NewHandshakeEvent(peer, err)
-		return
-	}
+		default:
+			log.Println("[PEER] Handshake out verin invalid", peer.addr, msg.Command())
+			peer.Stop()
+			return
+		}
 
-	switch verIn.(type) {
-	case *wire.MsgVersion:
+		verAck := wire.NewMsgVerAck()
+		err = peer.sendMessage(verAck)
+		if err != nil {
+			log.Println("[PEER] Handshake out verack failed", peer.addr, err)
+			peer.Stop()
+			return
+		}
 
-	default:
-		peer.evtOut <- NewHandshakeEvent(peer, errors.New("Wrong handshake reply message type"))
-		return
-	}
-
-	log.Println("Sending outgoing verack message:", peer.conn.RemoteAddr().String())
-
-	verAck := wire.NewMsgVerAck()
-	err = peer.sendMessage(verAck)
-	if err != nil {
-		peer.evtOut <- NewHandshakeEvent(peer, err)
-		return
-	}
-
-	log.Println("Outgoing handshake complete:", peer.conn.RemoteAddr().String())
-
-	peer.evtOut <- NewHandshakeEvent(peer, nil)
+		peer.notifyState()
+		peer.waitGroup.Done()
+	}()
 }
 
 func (peer *peer) WaitHandshake(network wire.BitcoinNet, version uint32) {
+	if !atomic.CompareAndSwapUint32(&peer.state, stateConnected, stateReady) {
+		return
+	}
+
 	peer.network = network
 	peer.version = version
 
-	log.Println("Waiting for incoming version message:", peer.conn.RemoteAddr().String())
+	peer.waitGroup.Add(1)
+	go func() {
+		verIn, err := peer.recvMessage()
+		if err != nil {
+			log.Println("[PEER] Handshake in verin failed", peer.addr, err)
+			peer.Stop()
+			return
+		}
 
-	verIn, err := peer.recvMessage()
-	if err != nil {
-		peer.evtOut <- NewHandshakeEvent(peer, err)
+		switch msg := verIn.(type) {
+		case *wire.MsgVersion:
+			version := uint32(msg.ProtocolVersion)
+			if version < peer.version {
+				peer.version = version
+			}
+
+		default:
+			log.Println("[PEER] Handshake in verin invalid", peer.addr, msg.Command())
+			peer.Stop()
+			return
+		}
+
+		verOut := wire.NewMsgVersion(peer.me, peer.you, peer.nonce, 0)
+		err = peer.sendMessage(verOut)
+		if err != nil {
+			log.Println("[PEER] Handshake in verout failed", peer.addr, err)
+			peer.Stop()
+			return
+		}
+
+		verAck, err := peer.recvMessage()
+		if err != nil {
+			log.Println("[PEER] Handshake in verack failed", peer.addr, err)
+			peer.Stop()
+			return
+		}
+
+		switch msg := verAck.(type) {
+		case *wire.MsgVerAck:
+
+		default:
+			log.Println("[PEER] Handshake in verack invalid", peer.addr, msg.Command())
+			peer.Stop()
+			return
+		}
+
+		peer.notifyState()
+		peer.waitGroup.Done()
+	}()
+}
+
+func (peer *peer) Poll() {
+	if atomic.LoadUint32(&peer.state) != stateProcessing {
 		return
 	}
 
-	switch verIn.(type) {
-	case *wire.MsgVersion:
+	peer.sendEx <- wire.NewMsgGetAddr()
+}
 
-	default:
-		peer.evtOut <- NewHandshakeEvent(peer, errors.New("Wrong handshake hello message type"))
+func (peer *peer) Ping() {
+	if atomic.LoadUint32(&peer.state) != stateProcessing {
 		return
 	}
 
-	log.Println("Sending version message reply:", peer.conn.RemoteAddr().String())
+	peer.sendEx <- wire.NewMsgPing(peer.nonce)
+}
 
-	verOut := wire.NewMsgVersion(peer.me, peer.you, peer.nonce, 0)
-	err = peer.sendMessage(verOut)
-	if err != nil {
-		peer.evtOut <- NewHandshakeEvent(peer, err)
+func (peer *peer) Stop() {
+	if !atomic.CompareAndSwapUint32(&peer.state, stateConnected, stateIdle) &&
+		!atomic.CompareAndSwapUint32(&peer.state, stateReady, stateIdle) &&
+		!atomic.CompareAndSwapUint32(&peer.state, stateProcessing, stateIdle) {
 		return
 	}
 
-	log.Println("Waiting for incoming verack message:", peer.conn.RemoteAddr().String())
+	peer.sigSuspend <- struct{}{}
+	peer.sigStopRecv <- struct{}{}
+	peer.sigStopSend <- struct{}{}
 
-	verAck, err := peer.recvMessage()
-	if err != nil {
-		peer.evtOut <- NewHandshakeEvent(peer, err)
-		return
+	if peer.conn != nil {
+		peer.conn.Close()
 	}
 
-	switch verAck.(type) {
-	case *wire.MsgVerAck:
-
-	default:
-		peer.evtOut <- NewHandshakeEvent(peer, errors.New("Wrong handshake ack message type"))
-		return
-	}
-
-	log.Println("Incoming handshake complete:", peer.conn.RemoteAddr().String())
-
-	peer.evtOut <- NewHandshakeEvent(peer, nil)
+	peer.waitGroup.Wait()
+	peer.notifyState()
 }
 
 func (peer *peer) sendMessage(msg wire.Message) error {
@@ -224,55 +304,77 @@ func (peer *peer) sendMessage(msg wire.Message) error {
 }
 
 func (peer *peer) recvMessage() (wire.Message, error) {
-	//peer.conn.SetReadDeadline(time.Now().Add(timeoutRecv))
+	peer.conn.SetReadDeadline(time.Now().Add(timeoutRecv))
 	msg, _, err := wire.ReadMessage(peer.conn, peer.version, peer.network)
 
 	return msg, err
 }
 
+func (peer *peer) notifyState() {
+	peer.evtOut <- NewStateEvent(peer, peer.state)
+}
+
 func (peer *peer) handleSend() {
+SendLoop:
 	for {
 		select {
 		case <-peer.sigStopSend:
-			break
+			break SendLoop
 
 		case msg := <-peer.sendEx:
 			err := peer.sendMessage(msg)
+			if e, ok := err.(net.Error); ok && e.Timeout() {
+				continue SendLoop
+			}
 			if err != nil {
-				continue
+				log.Println("[PEER] Sending failed", peer.addr, err)
+				peer.Stop()
+				break SendLoop
 			}
 		}
 	}
+
+	peer.waitGroup.Done()
 }
 
 func (peer *peer) handleReceive() {
+RecvLoop:
 	for {
 		select {
 		case <-peer.sigStopRecv:
-			break
+			break RecvLoop
 
 		default:
-			peer.conn.SetReadDeadline(time.Now().Add(timeoutRecv))
 			msg, err := peer.recvMessage()
+			if e, ok := err.(net.Error); ok && e.Timeout() {
+				continue RecvLoop
+			}
 			if err != nil {
-				continue
+				log.Println("[PEER] Receiving failed", peer.addr, err)
+				peer.Stop()
+				break RecvLoop
 			}
 
 			peer.recvEx <- msg
 		}
 	}
+
+	peer.waitGroup.Done()
 }
 
 func (peer *peer) handleMessages() {
+MsgLoop:
 	for {
 		select {
 		case <-peer.sigSuspend:
-			break
+			break MsgLoop
 
 		case msg := <-peer.recvEx:
 			peer.processMessage(msg)
 		}
 	}
+
+	peer.waitGroup.Done()
 }
 
 func (peer *peer) processMessage(msg wire.Message) {
@@ -282,6 +384,7 @@ func (peer *peer) processMessage(msg wire.Message) {
 	case *wire.MsgVerAck:
 
 	case *wire.MsgPing:
+		peer.sendEx <- wire.NewMsgPong(m.Nonce)
 
 	case *wire.MsgPong:
 

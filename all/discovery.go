@@ -3,18 +3,21 @@ package all
 import (
 	"log"
 	"net"
+	"sync"
 )
 
 type discovery struct {
-	seedIn  chan string
-	addrOut chan<- string
+	seedIn    chan string
+	addrOut   chan<- string
+	waitGroup *sync.WaitGroup
 }
 
 func NewDiscovery() *discovery {
 	seedIn := make(chan string, bufferDiscoverySeed)
 
 	dsc := &discovery{
-		seedIn: seedIn,
+		seedIn:    seedIn,
+		waitGroup: &sync.WaitGroup{},
 	}
 
 	return dsc
@@ -27,18 +30,16 @@ func (dsc *discovery) GetSeedIn() chan<- string {
 func (dsc *discovery) Start(addrOut chan<- string) {
 	dsc.addrOut = addrOut
 
+	dsc.waitGroup.Add(1)
 	go dsc.handleSeeds()
 }
 
 func (dsc *discovery) Stop() {
-	close(dsc.seedIn)
+	dsc.waitGroup.Wait()
 }
 
 func (dsc *discovery) handleSeeds() {
 	for seed := range dsc.seedIn {
-
-		log.Println("Running DNS discovery:", seed)
-
 		ips, err := net.LookupIP(seed)
 		if err != nil {
 			log.Println("DNS discovery failed:", seed, err)
@@ -46,10 +47,11 @@ func (dsc *discovery) handleSeeds() {
 		}
 
 		log.Println("Found IPs:", seed, len(ips))
-
 		for _, ip := range ips {
 			addr := net.JoinHostPort(ip.String(), protocolPort)
 			dsc.addrOut <- addr
 		}
 	}
+
+	dsc.waitGroup.Done()
 }

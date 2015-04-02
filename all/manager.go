@@ -1,8 +1,11 @@
 package all
 
 import (
+	"container/list"
 	"log"
 	"net"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
@@ -14,32 +17,44 @@ type manager struct {
 	connIn chan net.Conn
 	evtIn  chan event
 
-	signalConnect *time.Ticker
+	sigAddr chan struct{}
+	sigPeer chan struct{}
+	sigConn chan struct{}
+	sigInfo chan struct{}
 
-	network wire.BitcoinNet
-	version uint32
+	tickPeer *time.Ticker
+	tickInfo *time.Ticker
 
-	peerList map[string]*peer
+	peerList  map[string]*peer
+	peerQueue *list.List
+
+	waitGroup *sync.WaitGroup
+
+	network  wire.BitcoinNet
+	version  uint32
+	numConns uint32
+	shutdown uint32
 }
 
 func NewManager() *manager {
-	addrIn := make(chan string, bufferManagerAddress)
-	peerIn := make(chan *peer, bufferManagerPeer)
-	connIn := make(chan net.Conn, bufferManagerConnection)
-	evtIn := make(chan event, bufferManagerEvent)
-
-	signalConnect := time.NewTicker(1 * time.Second / maxConnsPerSec)
-	peerList := make(map[string]*peer)
-
 	mgr := &manager{
-		addrIn: addrIn,
-		peerIn: peerIn,
-		connIn: connIn,
-		evtIn:  evtIn,
+		addrIn: make(chan string, bufferManagerAddress),
+		peerIn: make(chan *peer, bufferManagerPeer),
+		connIn: make(chan net.Conn, bufferManagerConnection),
+		evtIn:  make(chan event, bufferManagerEvent),
 
-		signalConnect: signalConnect,
+		sigAddr: make(chan struct{}, 1),
+		sigPeer: make(chan struct{}, 1),
+		sigConn: make(chan struct{}, 1),
+		sigInfo: make(chan struct{}, 1),
 
-		peerList: peerList,
+		tickPeer: time.NewTicker(time.Second / maxConnsPerSec),
+		tickInfo: time.NewTicker(logInfoTick),
+
+		peerList:  make(map[string]*peer),
+		peerQueue: list.New(),
+
+		waitGroup: &sync.WaitGroup{},
 	}
 
 	return mgr
@@ -57,75 +72,138 @@ func (mgr *manager) Start(network wire.BitcoinNet, version uint32) {
 	mgr.network = network
 	mgr.version = version
 
+	mgr.waitGroup.Add(5)
 	go mgr.handleAddresses()
+	go mgr.handlePeers()
 	go mgr.handleConnections()
 	go mgr.handleEvents()
+	go mgr.printStatus()
 }
 
 func (mgr *manager) Stop() {
-	close(mgr.addrIn)
-	close(mgr.connIn)
-	close(mgr.evtIn)
+	if !atomic.CompareAndSwapUint32(&mgr.shutdown, 0, 1) {
+		return
+	}
+
+	for _, peer := range mgr.peerList {
+		peer.Stop()
+	}
+
+	close(mgr.sigAddr)
+	close(mgr.sigConn)
+	mgr.tickPeer.Stop()
+	mgr.tickInfo.Stop()
+
+	mgr.waitGroup.Wait()
 }
 
 func (mgr *manager) handleAddresses() {
-	for addr := range mgr.addrIn {
-		_, ok := mgr.peerList[addr]
-		if ok {
-			continue
+AddrLoop:
+	for {
+		select {
+		case _, ok := <-mgr.sigAddr:
+			if !ok {
+				break AddrLoop
+			}
+
+		case addr, ok := <-mgr.addrIn:
+			if !ok {
+				break AddrLoop
+			}
+
+			_, ok = mgr.peerList[addr]
+			if ok {
+				continue AddrLoop
+			}
+
+			if len(mgr.peerList) >= maxNodesTotal {
+				continue AddrLoop
+			}
+
+			peer := NewPeer(addr, mgr.evtIn)
+			mgr.peerList[addr] = peer
+			mgr.peerIn <- peer
+
 		}
-
-		peer := NewPeer(addr, mgr.evtIn)
-		mgr.peerList[addr] = peer
-
-		mgr.peerIn <- peer
 	}
+
+	mgr.waitGroup.Done()
 }
 
 func (mgr *manager) handlePeers() {
-	for peer := range mgr.peerIn {
-		<-mgr.signalConnect.C
+PeerLoop:
+	for {
+		select {
+		case _, ok := <-mgr.sigPeer:
+			if !ok {
+				break PeerLoop
+			}
 
-		go peer.Connect()
+		case peer := <-mgr.peerIn:
+			mgr.peerQueue.PushBack(peer)
+
+		case <-mgr.tickPeer.C:
+			if mgr.numConns >= maxConnsTotal {
+				continue PeerLoop
+			}
+
+			element := mgr.peerQueue.Front()
+			if element == nil {
+				continue PeerLoop
+			}
+
+			mgr.peerQueue.Remove(element)
+			peer, ok := element.Value.(*peer)
+			if !ok {
+				continue PeerLoop
+			}
+
+			mgr.numConns++
+			peer.Connect()
+		}
 	}
+
+	mgr.peerQueue.Init()
+	mgr.waitGroup.Done()
 }
 
 func (mgr *manager) handleConnections() {
-	for conn := range mgr.connIn {
-		addr := conn.RemoteAddr().String()
-		_, ok := mgr.peerList[addr]
-		if ok {
-			conn.Close()
-			continue
+ConnLoop:
+	for {
+		select {
+		case _, ok := <-mgr.sigConn:
+			if !ok {
+				break ConnLoop
+			}
+
+		case conn, ok := <-mgr.connIn:
+			if !ok {
+				break ConnLoop
+			}
+
+			addr := conn.RemoteAddr().String()
+			_, ok = mgr.peerList[addr]
+			if ok {
+				conn.Close()
+				continue ConnLoop
+			}
+
+			log.Println("Accepting incoming connection")
+			peer := NewPeer(addr, mgr.evtIn)
+			mgr.peerList[addr] = peer
+			peer.Connection(conn)
+			peer.WaitHandshake(mgr.network, mgr.version)
 		}
-
-		log.Println("Creating new incoming peer:", addr)
-
-		peer := NewPeer(addr, mgr.evtIn)
-		mgr.peerList[addr] = peer
-
-		peer.Connection(conn)
-		go peer.WaitHandshake(mgr.network, mgr.version)
 	}
+
+	mgr.waitGroup.Done()
 }
 
 func (mgr *manager) handleEvents() {
 	for event := range mgr.evtIn {
 		switch e := event.(type) {
-		case *eventConnection:
-			if e.err != nil {
-				go e.peer.Retry(mgr.peerIn)
-			} else {
-				go e.peer.InitHandshake(mgr.network, mgr.version)
-			}
-
-		case *eventHandshake:
-			if e.err != nil {
-				e.peer.Disconnect()
-				go e.peer.Retry(mgr.peerIn)
-			} else {
-				go e.peer.Start()
-			}
+		case *eventState:
+			mgr.handleStateChange(e)
 
 		case *eventAddress:
 			for _, addr := range e.list {
@@ -133,4 +211,63 @@ func (mgr *manager) handleEvents() {
 			}
 		}
 	}
+
+	mgr.waitGroup.Done()
+}
+
+func (mgr *manager) handleStateChange(evt *eventState) {
+	if atomic.LoadUint32(&mgr.shutdown) == 1 {
+		return
+	}
+
+	switch evt.state {
+	case stateIdle:
+		mgr.numConns--
+		evt.peer.Retry(mgr.peerIn)
+
+	case stateConnected:
+		evt.peer.InitHandshake(mgr.network, mgr.version)
+
+	case stateReady:
+		evt.peer.Start()
+
+	case stateProcessing:
+		evt.peer.Ping()
+		evt.peer.Poll()
+	}
+}
+
+func (mgr *manager) printStatus() {
+InfoLoop:
+	for {
+		select {
+		case _, ok := <-mgr.sigInfo:
+			if !ok {
+				break InfoLoop
+			}
+
+		case <-mgr.tickInfo.C:
+			idle := 0
+			connected := 0
+			ready := 0
+			processing := 0
+			for _, peer := range mgr.peerList {
+				switch peer.GetState() {
+				case stateIdle:
+					idle++
+				case stateConnected:
+					connected++
+				case stateReady:
+					ready++
+				case stateProcessing:
+					processing++
+				}
+			}
+
+			log.Println("Total:", len(mgr.peerList), "Idle:", idle-mgr.peerQueue.Len(), "Queued:", mgr.peerQueue.Len(),
+				"Pending:", connected, "Connected:", ready+processing)
+		}
+	}
+
+	mgr.waitGroup.Done()
 }

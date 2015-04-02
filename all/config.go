@@ -7,12 +7,17 @@ import (
 )
 
 const (
-	bufferManagerAddress    = 1024
-	bufferManagerPeer       = 128
-	bufferManagerConnection = 64
-	bufferManagerEvent      = 1024
+	bufferManagerAddress    = 1
+	bufferManagerPeer       = 1
+	bufferManagerConnection = 1
+	bufferManagerEvent      = 1
 
-	bufferDiscoverySeed = 16
+	bufferDiscoverySeed = 1
+
+	bufferServerAddress = 1
+
+	bufferPeerRecv = 1
+	bufferPeerSend = 1
 )
 
 const (
@@ -23,7 +28,7 @@ const (
 
 const (
 	maxConnsPerSec = 4
-	maxConnsTotal  = 8192
+	maxConnsTotal  = 1024
 	maxNodesTotal  = 32768
 )
 
@@ -43,4 +48,5 @@ const (
 const (
 	logLimitSize = 1024 * 1024 * 64
 	logLimitTime = 5 * time.Minute
+	logInfoTick  = 1 * time.Second
 )
