@@ -1,10 +1,13 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"math/rand"
 	"net"
+	"os"
+	"os/signal"
 	"runtime"
+	"syscall"
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
@@ -13,6 +16,12 @@ import (
 )
 
 func main() {
+	log.Println("PBTC STARTING")
+
+	// catch signals
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, os.Interrupt)
+
 	// use all cpu cores
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
@@ -50,23 +59,29 @@ func main() {
 		dsc.GetSeedIn() <- seed
 	}
 
-	// running
-	var input string
-	for {
-		_, _ = fmt.Scanln(&input)
-		if input == "exit" {
-			break
+	// check for signals
+SigLoop:
+	for sig := range sigc {
+		switch sig {
+		case os.Interrupt:
+			log.Println("PBTC STOPPING")
+			break SigLoop
+
+		case syscall.SIGTERM:
+
+		case syscall.SIGHUP:
+
+		case syscall.SIGINT:
+
+		case syscall.SIGQUIT:
 		}
 	}
-
-	// close channels
-	close(svr.GetAddrIn())
-	close(dsc.GetSeedIn())
 
 	// stop everything
 	dsc.Stop()
 	svr.Stop()
 	mgr.Stop()
 
+	log.Println("PBTC STOPPED")
 	return
 }

@@ -17,6 +17,7 @@ type manager struct {
 	connIn chan net.Conn
 	evtIn  chan event
 
+	sigEvt  chan struct{}
 	sigAddr chan struct{}
 	sigPeer chan struct{}
 	sigConn chan struct{}
@@ -29,11 +30,11 @@ type manager struct {
 	peerQueue *list.List
 
 	waitGroup *sync.WaitGroup
+	state     uint32
 
 	network  wire.BitcoinNet
 	version  uint32
 	numConns uint32
-	shutdown uint32
 }
 
 func NewManager() *manager {
@@ -43,11 +44,6 @@ func NewManager() *manager {
 		connIn: make(chan net.Conn, bufferManagerConnection),
 		evtIn:  make(chan event, bufferManagerEvent),
 
-		sigAddr: make(chan struct{}, 1),
-		sigPeer: make(chan struct{}, 1),
-		sigConn: make(chan struct{}, 1),
-		sigInfo: make(chan struct{}, 1),
-
 		tickPeer: time.NewTicker(time.Second / maxConnsPerSec),
 		tickInfo: time.NewTicker(logInfoTick),
 
@@ -55,6 +51,7 @@ func NewManager() *manager {
 		peerQueue: list.New(),
 
 		waitGroup: &sync.WaitGroup{},
+		state:     stateIdle,
 	}
 
 	return mgr
@@ -69,154 +66,207 @@ func (mgr *manager) GetConnIn() chan<- net.Conn {
 }
 
 func (mgr *manager) Start(network wire.BitcoinNet, version uint32) {
+	if !atomic.CompareAndSwapUint32(&mgr.state, stateIdle, stateRunning) {
+		return
+	}
+
+	log.Println("[MGR] Starting")
+
+	mgr.sigEvt = make(chan struct{}, 1)
+	mgr.sigAddr = make(chan struct{}, 1)
+	mgr.sigPeer = make(chan struct{}, 1)
+	mgr.sigConn = make(chan struct{}, 1)
+	mgr.sigInfo = make(chan struct{}, 1)
+
 	mgr.network = network
 	mgr.version = version
 
-	mgr.waitGroup.Add(5)
-	go mgr.handleAddresses()
-	go mgr.handlePeers()
-	go mgr.handleConnections()
-	go mgr.handleEvents()
-	go mgr.printStatus()
+	mgr.handleAddresses()
+	mgr.handlePeers()
+	mgr.handleConnections()
+	mgr.handleEvents()
+	mgr.handlePrinting()
+
+	log.Println("[MGR] Started")
 }
 
 func (mgr *manager) Stop() {
-	if !atomic.CompareAndSwapUint32(&mgr.shutdown, 0, 1) {
+	if !atomic.CompareAndSwapUint32(&mgr.state, stateRunning, stateIdle) {
 		return
 	}
+
+	log.Println("[MGR] Stopping")
+
+	close(mgr.sigConn)
+	close(mgr.sigPeer)
+
+	mgr.tickPeer.Stop()
+	mgr.peerQueue.Init()
 
 	for _, peer := range mgr.peerList {
 		peer.Stop()
 	}
 
-	close(mgr.sigAddr)
-	close(mgr.sigConn)
-	mgr.tickPeer.Stop()
-	mgr.tickInfo.Stop()
+	log.Println("All peers stopped")
 
+	close(mgr.sigEvt)
+	close(mgr.sigAddr)
+	close(mgr.sigInfo)
+
+	mgr.tickInfo.Stop()
 	mgr.waitGroup.Wait()
+
+	log.Println("[MGR] Stopped")
 }
 
 func (mgr *manager) handleAddresses() {
-AddrLoop:
-	for {
-		select {
-		case _, ok := <-mgr.sigAddr:
-			if !ok {
-				break AddrLoop
+	mgr.waitGroup.Add(1)
+
+	go func() {
+		defer mgr.waitGroup.Done()
+
+	AddrLoop:
+		for {
+			select {
+			case _, ok := <-mgr.sigAddr:
+				if !ok {
+					break AddrLoop
+				}
+
+			case addr, ok := <-mgr.addrIn:
+				if !ok {
+					break AddrLoop
+				}
+
+				_, ok = mgr.peerList[addr]
+				if ok {
+					continue AddrLoop
+				}
+
+				if len(mgr.peerList) >= maxNodesTotal {
+					continue AddrLoop
+				}
+
+				peer := NewPeer(addr, mgr.evtIn)
+				mgr.peerList[addr] = peer
+				mgr.peerIn <- peer
+
 			}
-
-		case addr, ok := <-mgr.addrIn:
-			if !ok {
-				break AddrLoop
-			}
-
-			_, ok = mgr.peerList[addr]
-			if ok {
-				continue AddrLoop
-			}
-
-			if len(mgr.peerList) >= maxNodesTotal {
-				continue AddrLoop
-			}
-
-			peer := NewPeer(addr, mgr.evtIn)
-			mgr.peerList[addr] = peer
-			mgr.peerIn <- peer
-
 		}
-	}
-
-	mgr.waitGroup.Done()
+	}()
 }
 
 func (mgr *manager) handlePeers() {
-PeerLoop:
-	for {
-		select {
-		case _, ok := <-mgr.sigPeer:
-			if !ok {
-				break PeerLoop
+	mgr.waitGroup.Add(1)
+
+	go func() {
+		defer mgr.waitGroup.Done()
+
+	PeerLoop:
+		for {
+			select {
+			case _, ok := <-mgr.sigPeer:
+				if !ok {
+					break PeerLoop
+				}
+
+			case peer := <-mgr.peerIn:
+				mgr.peerQueue.PushBack(peer)
+
+			case <-mgr.tickPeer.C:
+				if mgr.numConns >= maxConnsTotal {
+					continue PeerLoop
+				}
+
+				element := mgr.peerQueue.Front()
+				if element == nil {
+					continue PeerLoop
+				}
+
+				mgr.peerQueue.Remove(element)
+				peer, ok := element.Value.(*peer)
+				if !ok {
+					continue PeerLoop
+				}
+
+				mgr.numConns++
+				peer.Connect()
 			}
-
-		case peer := <-mgr.peerIn:
-			mgr.peerQueue.PushBack(peer)
-
-		case <-mgr.tickPeer.C:
-			if mgr.numConns >= maxConnsTotal {
-				continue PeerLoop
-			}
-
-			element := mgr.peerQueue.Front()
-			if element == nil {
-				continue PeerLoop
-			}
-
-			mgr.peerQueue.Remove(element)
-			peer, ok := element.Value.(*peer)
-			if !ok {
-				continue PeerLoop
-			}
-
-			mgr.numConns++
-			peer.Connect()
 		}
-	}
-
-	mgr.peerQueue.Init()
-	mgr.waitGroup.Done()
+	}()
 }
 
 func (mgr *manager) handleConnections() {
-ConnLoop:
-	for {
-		select {
-		case _, ok := <-mgr.sigConn:
-			if !ok {
-				break ConnLoop
-			}
+	mgr.waitGroup.Add(1)
 
-		case conn, ok := <-mgr.connIn:
-			if !ok {
-				break ConnLoop
-			}
+	go func() {
+		defer mgr.waitGroup.Done()
 
-			addr := conn.RemoteAddr().String()
-			_, ok = mgr.peerList[addr]
-			if ok {
-				conn.Close()
-				continue ConnLoop
-			}
+	ConnLoop:
+		for {
+			select {
+			case _, ok := <-mgr.sigConn:
+				if !ok {
+					break ConnLoop
+				}
 
-			log.Println("Accepting incoming connection")
-			peer := NewPeer(addr, mgr.evtIn)
-			mgr.peerList[addr] = peer
-			peer.Connection(conn)
-			peer.WaitHandshake(mgr.network, mgr.version)
+			case conn, ok := <-mgr.connIn:
+				if !ok {
+					break ConnLoop
+				}
+
+				addr := conn.RemoteAddr().String()
+				_, ok = mgr.peerList[addr]
+				if ok {
+					conn.Close()
+					continue ConnLoop
+				}
+
+				log.Println("Accepting incoming connection")
+				peer := NewPeer(addr, mgr.evtIn)
+				mgr.peerList[addr] = peer
+				peer.Connection(conn)
+				peer.WaitHandshake(mgr.network, mgr.version)
+			}
 		}
-	}
-
-	mgr.waitGroup.Done()
+	}()
 }
 
 func (mgr *manager) handleEvents() {
-	for event := range mgr.evtIn {
-		switch e := event.(type) {
-		case *eventState:
-			mgr.handleStateChange(e)
+	mgr.waitGroup.Add(1)
 
-		case *eventAddress:
-			for _, addr := range e.list {
-				mgr.addrIn <- addr
+	go func() {
+		defer mgr.waitGroup.Done()
+
+	EvtLoop:
+		for {
+			select {
+			case _, ok := <-mgr.sigEvt:
+				if !ok {
+					break EvtLoop
+				}
+
+			case event, ok := <-mgr.evtIn:
+				if !ok {
+					break EvtLoop
+				}
+
+				switch e := event.(type) {
+				case *eventState:
+					mgr.processStateChange(e)
+
+				case *eventAddress:
+					for _, addr := range e.list {
+						mgr.addrIn <- addr
+					}
+				}
 			}
 		}
-	}
-
-	mgr.waitGroup.Done()
+	}()
 }
 
-func (mgr *manager) handleStateChange(evt *eventState) {
-	if atomic.LoadUint32(&mgr.shutdown) == 1 {
+func (mgr *manager) processStateChange(evt *eventState) {
+	if atomic.LoadUint32(&mgr.state) != stateRunning {
 		return
 	}
 
@@ -225,49 +275,53 @@ func (mgr *manager) handleStateChange(evt *eventState) {
 		mgr.numConns--
 		evt.peer.Retry(mgr.peerIn)
 
-	case stateConnected:
+	case statePending:
 		evt.peer.InitHandshake(mgr.network, mgr.version)
 
 	case stateReady:
 		evt.peer.Start()
 
-	case stateProcessing:
+	case stateRunning:
 		evt.peer.Ping()
 		evt.peer.Poll()
 	}
 }
 
-func (mgr *manager) printStatus() {
-InfoLoop:
-	for {
-		select {
-		case _, ok := <-mgr.sigInfo:
-			if !ok {
-				break InfoLoop
-			}
+func (mgr *manager) handlePrinting() {
+	mgr.waitGroup.Add(1)
 
-		case <-mgr.tickInfo.C:
-			idle := 0
-			connected := 0
-			ready := 0
-			processing := 0
-			for _, peer := range mgr.peerList {
-				switch peer.GetState() {
-				case stateIdle:
-					idle++
-				case stateConnected:
-					connected++
-				case stateReady:
-					ready++
-				case stateProcessing:
-					processing++
+	go func() {
+		defer mgr.waitGroup.Done()
+
+	InfoLoop:
+		for {
+			select {
+			case _, ok := <-mgr.sigInfo:
+				if !ok {
+					break InfoLoop
 				}
+
+			case <-mgr.tickInfo.C:
+				idle := 0
+				pending := 0
+				ready := 0
+				running := 0
+				for _, peer := range mgr.peerList {
+					switch peer.GetState() {
+					case stateIdle:
+						idle++
+					case statePending:
+						pending++
+					case stateReady:
+						ready++
+					case stateRunning:
+						running++
+					}
+				}
+
+				log.Println("[MGR] Peers - Total:", len(mgr.peerList), "Idle:", idle-mgr.peerQueue.Len(), "Queued:", mgr.peerQueue.Len(),
+					"Pending:", pending, "Connected:", ready+running)
 			}
-
-			log.Println("Total:", len(mgr.peerList), "Idle:", idle-mgr.peerQueue.Len(), "Queued:", mgr.peerQueue.Len(),
-				"Pending:", connected, "Connected:", ready+processing)
 		}
-	}
-
-	mgr.waitGroup.Done()
+	}()
 }
