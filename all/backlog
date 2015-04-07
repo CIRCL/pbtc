@@ -1,0 +1,6 @@
+* Rewrite manager to work with repo
+* Rewrite peer struct to work with repo
+* Collector: flexible logger to write binary files for selected categories of events
+* Whitelist: a list of nodes that we will always try to connect to
+* Blacklist: a list of nodes that we will never connect to
+* Logger: add flexibility to select logging detail & categories
