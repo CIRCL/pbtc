@@ -26,9 +26,8 @@ type peer struct {
 	evtOut    chan<- event
 	backoff   time.Duration
 	state     uint32
-	currLevel uint32
-	nextLevel uint32
-	prevLevel uint32
+	nextState uint32
+	prevState uint32
 
 	conn    net.Conn
 	me      *wire.NetAddress
@@ -54,66 +53,37 @@ func NewPeer(addr string, evtOut chan<- event) *peer {
 	return peer
 }
 
-func (peer *peer) Start() {
-	if !atomic.CompareAndSwapUint32(&peer.state, stateIdle, stateRunning) {
-		return
+func (peer *peer) GetState() uint32 {
+	return peer.state
+}
+
+func (peer *peer) startTransition(fromState uint32, toState uint32) bool {
+	if !atomic.CompareAndSwapUint32(&peer.state, fromState, stateBusy) {
+		return false
 	}
 
-	log.Println("[PEER]", peer.addr, "Starting")
+	peer.prevState = fromState
+	peer.nextState = toState
 
-	handleLevel()
-
-	log.Println("[PEER]", peer.addr, "Started")
+	return true
 }
 
-func (peer *peer) Stop() {
-	if !atomic.CompareAndSwapUint32(&peer.state, stateRunning, stateIdle) {
-		return
+func (peer *peer) abortTransition() bool {
+	if !atomic.CompareAndSwapUint32(&peer.state, stateBusy, peer.prevState) {
+		return false
 	}
 
-	log.Println("[PEER]", peer.addr, "Stopping")
-
-	close(peer.sigState)
-
-	peer.waitGroup.Wait()
-
-	log.Println("[PEER]", peer.addr, "Stopped")
+	return true
 }
 
-func (peer *peer) handleLevel() {
-
-	peer.waitGroup.Add(1)
-
-	go func() {
-		defer peer.waitGroup.Done()
-
-		for {
-			select {
-			case _, ok := <-peer.sigState:
-				if !ok {
-					peer.SetLevel(stateIdle)
-					return
-				}
-
-			default:
-				adjustLevel()
-			}
-		}
-	}()
-}
-
-func (peer *peer) adjustLevel() {
-	if atomic.LoadUint32(&peer.currLevel) == stateBusy {
-		return
+func (peer *peer) endTransition() bool {
+	if !atomic.CompareAndSwapUint32(&peer.state, stateBusy, peer.nextState) {
+		return false
 	}
-}
 
-func (peer *peer) SetLevel(level uint32) {
-	atomic.StoreUint32(&peer.nextLevel, level)
-}
+	peer.evtOut <- NewStateEvent(peer, peer.state)
 
-func (peer *peer) GetLevel() uint32 {
-	return atomic.LoadUint32(&peer.currLevel)
+	return true
 }
 
 func (peer *peer) Connect() {
@@ -559,10 +529,4 @@ func (peer *peer) processMessage(msg wire.Message) {
 	default:
 
 	}
-}
-
-func (peer *peer) pushVersion() {
-	msg := wire.NewMsgVersion(peer.me, peer.you, peer.nonce, 0)
-	msg.AddUserAgent("Satoshi", "0.9.3")
-	msg.Services = wire.SFNodeNetwork
 }
