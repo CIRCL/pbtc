@@ -104,7 +104,7 @@ func (mgr *manager) Stop() {
 	mgr.peerQueue.Init()
 
 	for _, peer := range mgr.peerList {
-		peer.Stop()
+		peer.Close()
 	}
 
 	log.Println("All peers stopped")

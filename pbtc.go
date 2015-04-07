@@ -83,5 +83,6 @@ SigLoop:
 	mgr.Stop()
 
 	log.Println("PBTC STOPPED")
-	return
+
+	os.Exit(0)
 }
