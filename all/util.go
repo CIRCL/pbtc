@@ -69,3 +69,11 @@ func FindIPs() []string {
 	// return the slice of valid IPs, can be zero length and empty
 	return ips
 }
+
+func MinUint32(x uint32, y uint32) uint32 {
+	if x > y {
+		return x
+	}
+
+	return y
+}

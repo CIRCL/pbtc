@@ -2,10 +2,7 @@ package all
 
 const (
 	stateIdle = iota
-	stateBusy
-	statePending
-	stateReady
+	stateConnected
 	stateRunning
+	stateShutdown
 )
-
-const ()

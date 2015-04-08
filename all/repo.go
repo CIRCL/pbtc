@@ -48,7 +48,7 @@ func (repo *repository) Add(addr *net.TCPAddr, src *net.TCPAddr) {
 		return
 	}
 
-	if len(repo.nodeIndex) >= maxNodesTotal {
+	if len(repo.nodeIndex) >= maxNodeCount {
 		return
 	}
 
@@ -86,6 +86,7 @@ func (repo *repository) Good(addr *net.TCPAddr) {
 
 // Get will return one node that can currently be connected to.
 func (repo *repository) Get() *net.TCPAddr {
+	// PLACEHOLDER
 	index := rand.Int() % len(repo.nodeIndex)
 	i := 0
 	for _, node := range repo.nodeIndex {

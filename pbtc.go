@@ -46,8 +46,6 @@ func main() {
 
 	// start everything
 	mgr.Start(wire.TestNet3, wire.RejectVersion)
-	svr.Start(mgr.GetConnIn())
-	dsc.Start(mgr.GetAddrIn())
 
 	// feed listen ips into server
 	for _, ip := range ips {

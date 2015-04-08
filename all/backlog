@@ -1,5 +1,10 @@
 * Rewrite manager to work with repo
+-- Creating outgoing connections
+-- Receiving inbound connections
+-- Handling disconnected peers
 * Rewrite peer struct to work with repo
+-- Handshaking logic part of normal send/receive
+-- Flag indicates state of connection anyway
 * Collector: flexible logger to write binary files for selected categories of events
 * Whitelist: a list of nodes that we will always try to connect to
 * Blacklist: a list of nodes that we will never connect to
