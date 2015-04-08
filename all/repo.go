@@ -3,6 +3,7 @@ package all
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	"log"
 	"math/rand"
 	"net"
@@ -28,6 +29,7 @@ type node struct {
 	attempts    uint32
 	lastAttempt time.Time
 	lastSuccess time.Time
+	lastConnect time.Time
 }
 
 func NewRepository() *repository {
@@ -82,6 +84,11 @@ func (node *node) GobEncode() ([]byte, error) {
 		return nil, err
 	}
 
+	err = enc.Encode(node.lastConnect)
+	if err != nil {
+		return nil, err
+	}
+
 	return buffer.Bytes(), nil
 }
 
@@ -110,6 +117,11 @@ func (node *node) GobDecode(buf []byte) error {
 	}
 
 	err = dec.Decode(&node.lastSuccess)
+	if err != nil {
+		return err
+	}
+
+	err = dec.Decode(&node.lastConnect)
 	if err != nil {
 		return err
 	}
@@ -170,6 +182,16 @@ func (repo *repository) Attempt(addr *net.TCPAddr) {
 	n.lastAttempt = time.Now()
 }
 
+// Connected will tag the connection as currently connected.
+func (repo *repository) Connected(addr *net.TCPAddr) {
+	n, ok := repo.nodeIndex[addr.String()]
+	if !ok {
+		return
+	}
+
+	n.lastConnect = time.Now()
+}
+
 // Good will tag the connection to a given address as working correctly.
 // It will also reset the attempt counter.
 func (repo *repository) Good(addr *net.TCPAddr) {
@@ -178,25 +200,27 @@ func (repo *repository) Good(addr *net.TCPAddr) {
 		return
 	}
 
-	now := time.Now()
-	n.lastAttempt = now
-	n.lastSuccess = now
 	n.attempts = 0
+	n.lastSuccess = time.Now()
 }
 
 // Get will return one node that can currently be connected to.
-func (repo *repository) Get() *net.TCPAddr {
+func (repo *repository) Get() (*net.TCPAddr, error) {
+	if len(repo.nodeIndex) == 0 {
+		return nil, errors.New("No nodes in repository")
+	}
+
 	index := rand.Int() % len(repo.nodeIndex)
 	i := 0
 	for _, node := range repo.nodeIndex {
 		if i == index {
-			return node.addr
+			return node.addr, nil
 		}
 
 		i++
 	}
 
-	return nil
+	return nil, errors.New("No qualified node found")
 }
 
 // save will try to save all current nodes to a file on disk

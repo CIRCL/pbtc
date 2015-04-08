@@ -1,7 +1,6 @@
 package all
 
 import (
-	"log"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -14,9 +13,10 @@ type manager struct {
 	nodeRepo    *repository
 	peerIndex   map[string]*peer
 	listenIndex map[string]*net.TCPListener
-
-	peerNew  chan *peer
-	peerDone chan *peer
+	sigPeer     chan struct{}
+	sigConn     chan struct{}
+	peerNew     chan *peer
+	peerDone    chan *peer
 
 	connTicker *time.Ticker
 
@@ -33,6 +33,8 @@ func NewManager() *manager {
 		nodeRepo:  NewRepository(),
 		peerIndex: make(map[string]*peer),
 
+		sigPeer:  make(chan struct{}, 1),
+		sigConn:  make(chan struct{}, 1),
 		peerNew:  make(chan *peer, bufferManagerNew),
 		peerDone: make(chan *peer, bufferManagerDone),
 
@@ -63,16 +65,13 @@ func (mgr *manager) Start(network wire.BitcoinNet, version uint32) {
 		return
 	}
 
-	log.Println("[MGR] Starting")
-
 	mgr.network = network
 	mgr.version = version
 
-	mgr.wg.Add(2)
+	mgr.wg.Add(3)
 	go mgr.handleListeners()
+	go mgr.handleConnections()
 	go mgr.handlePeers()
-
-	log.Println("[MGR] Started")
 }
 
 // Stop cleanly shuts down the manager so it can be restarted later.
@@ -81,49 +80,19 @@ func (mgr *manager) Stop() {
 		return
 	}
 
-	log.Println("[MGR] Stopping")
+	for _, peer := range mgr.peerIndex {
+		peer.Stop()
+	}
+
+	close(mgr.sigConn)
 
 	for _, listener := range mgr.listenIndex {
 		listener.Close()
 	}
 
+	close(mgr.sigPeer)
+
 	mgr.wg.Wait()
-
-	log.Println("[MGR] Stopped")
-}
-
-func (mgr *manager) handlePeers() {
-	defer mgr.wg.Done()
-
-	for {
-		if atomic.LoadUint32(&mgr.state) == stateShutdown {
-			break
-		}
-
-		select {
-		case <-mgr.connTicker.C:
-			if len(mgr.peerIndex) <= maxPeerCount {
-				addr := mgr.nodeRepo.Get()
-				peer, err := NewOutgoingPeer(mgr, addr)
-				if err != nil {
-					break
-				}
-
-				mgr.peerNew <- peer
-			}
-
-		default:
-			break
-		}
-
-		select {
-		case peer := <-mgr.peerNew:
-			mgr.processNewPeer(peer)
-
-		case peer := <-mgr.peerDone:
-			mgr.processDonePeer(peer)
-		}
-	}
 }
 
 func (mgr *manager) handleListeners() {
@@ -150,6 +119,73 @@ func (mgr *manager) handleListeners() {
 		mgr.wg.Add(1)
 		go mgr.processListener(listener)
 	}
+}
+
+func (mgr *manager) handleConnections() {
+	defer mgr.wg.Done()
+
+ConnLoop:
+	for {
+		select {
+		case _, ok := <-mgr.sigConn:
+			if !ok {
+				break ConnLoop
+			}
+
+		case <-mgr.connTicker.C:
+			if len(mgr.peerIndex) <= maxPeerCount {
+				mgr.addPeer()
+			}
+		}
+	}
+}
+
+func (mgr *manager) handlePeers() {
+	defer mgr.wg.Done()
+
+PeerLoop:
+	for {
+		select {
+		case _, ok := <-mgr.sigPeer:
+			if !ok {
+				break PeerLoop
+			}
+
+		case peer := <-mgr.peerNew:
+			mgr.processNewPeer(peer)
+
+		case peer := <-mgr.peerDone:
+			mgr.processDonePeer(peer)
+		}
+	}
+}
+
+func (mgr *manager) addPeer() {
+	tries := 0
+	var addr *net.TCPAddr
+	for {
+		addr, err := mgr.nodeRepo.Get()
+		if err != nil {
+			return
+		}
+
+		_, ok := mgr.peerIndex[addr.String()]
+		if !ok {
+			continue
+		}
+
+		tries++
+		if tries > 128 {
+			return
+		}
+	}
+
+	peer, err := NewOutgoingPeer(mgr, addr)
+	if err != nil {
+		return
+	}
+
+	mgr.peerNew <- peer
 }
 
 func (mgr *manager) processNewPeer(peer *peer) {

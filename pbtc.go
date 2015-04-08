@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/CIRCL/pbtc/all"
+
+	"github.com/btcsuite/btcd/wire"
 )
 
 func main() {
@@ -27,9 +29,11 @@ func main() {
 
 	// create everything
 	repo := all.NewRepository()
+	mgr := all.NewManager()
 
 	// start everything
 	repo.Start()
+	mgr.Start(wire.TestNet3, wire.RejectVersion)
 
 	// check for signals
 SigLoop:
@@ -50,6 +54,7 @@ SigLoop:
 	}
 
 	// stop everything
+	mgr.Stop()
 	repo.Stop()
 
 	log.Println("PBTC CLOSING")
