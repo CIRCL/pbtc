@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -283,7 +284,9 @@ func (repo *repository) bootstrap() {
 		log.Println("Looked up IPs", seed, len(ips))
 
 		for _, ip := range ips {
-			addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(ip.String(), protocolPort))
+			port := GetDefaultPort()
+
+			addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(ip.String(), strconv.Itoa(port)))
 			if err != nil {
 				continue
 			}

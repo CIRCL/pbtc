@@ -17,26 +17,22 @@ type manager struct {
 	sigConn     chan struct{}
 	peerNew     chan *peer
 	peerDone    chan *peer
-
-	connTicker *time.Ticker
-
-	wg    *sync.WaitGroup
-	state uint32
-
-	network wire.BitcoinNet
-	version uint32
-	nonce   uint64
+	connTicker  *time.Ticker
+	wg          *sync.WaitGroup
+	state       uint32
+	network     wire.BitcoinNet
+	version     uint32
+	nonce       uint64
 }
 
+// NewManager creates a new manager with all necessary initializations done.
 func NewManager() *manager {
 	mgr := &manager{
-		nodeRepo:  NewRepository(),
 		peerIndex: make(map[string]*peer),
-
-		sigPeer:  make(chan struct{}, 1),
-		sigConn:  make(chan struct{}, 1),
-		peerNew:  make(chan *peer, bufferManagerNew),
-		peerDone: make(chan *peer, bufferManagerDone),
+		sigPeer:   make(chan struct{}, 1),
+		sigConn:   make(chan struct{}, 1),
+		peerNew:   make(chan *peer, bufferManagerNew),
+		peerDone:  make(chan *peer, bufferManagerDone),
 
 		connTicker: time.NewTicker(time.Second / maxConnsPerSec),
 
@@ -47,24 +43,13 @@ func NewManager() *manager {
 	return mgr
 }
 
-func (mgr *manager) GetNetwork() wire.BitcoinNet {
-	return mgr.network
-}
-
-func (mgr *manager) GetVersion() uint32 {
-	return mgr.version
-}
-
-func (mgr *manager) GetNonce() uint64 {
-	return mgr.nonce
-}
-
-// Start starts the peer manager on a certain network and version.
-func (mgr *manager) Start(network wire.BitcoinNet, version uint32) {
-	if !atomic.CompareAndSwapUint32(&mgr.state, stateIdle, stateRunning) {
+// Start starts the manager, with run-time options passed in as parameters.
+func (mgr *manager) Start(repo *repository, network wire.BitcoinNet, version uint32) {
+	if !atomic.CompareAndSwapUint32(&mgr.state, stateIdle, stateBusy) {
 		return
 	}
 
+	mgr.nodeRepo = repo
 	mgr.network = network
 	mgr.version = version
 
@@ -72,11 +57,13 @@ func (mgr *manager) Start(network wire.BitcoinNet, version uint32) {
 	go mgr.handleListeners()
 	go mgr.handleConnections()
 	go mgr.handlePeers()
+
+	atomic.StoreUint32(&mgr.state, stateRunning)
 }
 
 // Stop cleanly shuts down the manager so it can be restarted later.
 func (mgr *manager) Stop() {
-	if !atomic.CompareAndSwapUint32(&mgr.state, stateRunning, stateShutdown) {
+	if !atomic.CompareAndSwapUint32(&mgr.state, stateRunning, stateBusy) {
 		return
 	}
 
@@ -93,6 +80,8 @@ func (mgr *manager) Stop() {
 	close(mgr.sigPeer)
 
 	mgr.wg.Wait()
+
+	atomic.StoreUint32(&mgr.state, stateIdle)
 }
 
 func (mgr *manager) handleListeners() {
@@ -169,18 +158,18 @@ func (mgr *manager) addPeer() {
 			return
 		}
 
-		_, ok := mgr.peerIndex[addr.String()]
-		if !ok {
-			continue
-		}
-
 		tries++
 		if tries > 128 {
 			return
 		}
+
+		_, ok := mgr.peerIndex[addr.String()]
+		if !ok {
+			continue
+		}
 	}
 
-	peer, err := NewOutgoingPeer(mgr, addr)
+	peer, err := NewOutgoingPeer(mgr, addr, mgr.network, mgr.version, mgr.nonce)
 	if err != nil {
 		return
 	}
@@ -210,7 +199,7 @@ func (mgr *manager) processListener(listener *net.TCPListener) {
 			break
 		}
 
-		peer, err := NewIncomingPeer(mgr, conn)
+		peer, err := NewIncomingPeer(mgr, conn, mgr.network, mgr.version, mgr.nonce)
 		if err != nil {
 			continue
 		}

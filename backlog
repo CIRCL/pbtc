@@ -1,5 +1,6 @@
-[META] add extensive comments to all files
 [LOGGER] create flexible global logger with module, severity & timestamp
+[META] add logging messages throughout program
+[PEER] add handling for relevant messages to test program functionality
 [WRITER] create flexible writer to write connection events to files
 [WRITER] implement regular time-based & size-based log rotation
 [REPO] add blacklist of nodes we will never connect to
@@ -8,3 +9,4 @@
 [MANAGER] option to limit outgoing port range
 [MANAGER] possibility to define local IPs
 [SHELL] change to command line interface that allows creating separate nodes
+[META] separate modules into different packages

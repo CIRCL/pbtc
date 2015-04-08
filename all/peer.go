@@ -2,7 +2,6 @@ package all
 
 import (
 	"errors"
-	"log"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -32,13 +31,14 @@ type peer struct {
 	recvQ   chan wire.Message
 }
 
-func newPeer(mgr *manager, incoming bool) *peer {
+func newPeer(mgr *manager, incoming bool, network wire.BitcoinNet, version uint32,
+	nonce uint64) *peer {
 	peer := &peer{
 		mgr:      mgr,
 		incoming: incoming,
-		network:  mgr.GetNetwork(),
-		version:  mgr.GetVersion(),
-		nonce:    mgr.GetNonce(),
+		network:  network,
+		version:  version,
+		nonce:    nonce,
 
 		wg:      &sync.WaitGroup{},
 		sigSend: make(chan struct{}, 1),
@@ -51,8 +51,9 @@ func newPeer(mgr *manager, incoming bool) *peer {
 	return peer
 }
 
-func NewIncomingPeer(mgr *manager, conn net.Conn) (*peer, error) {
-	peer := newPeer(mgr, true)
+func NewIncomingPeer(mgr *manager, conn net.Conn, network wire.BitcoinNet, version uint32,
+	nonce uint64) (*peer, error) {
+	peer := newPeer(mgr, true, network, version, nonce)
 
 	addr, ok := conn.RemoteAddr().(*net.TCPAddr)
 	if !ok {
@@ -77,8 +78,9 @@ func NewIncomingPeer(mgr *manager, conn net.Conn) (*peer, error) {
 	return peer, nil
 }
 
-func NewOutgoingPeer(mgr *manager, addr *net.TCPAddr) (*peer, error) {
-	peer := newPeer(mgr, false)
+func NewOutgoingPeer(mgr *manager, addr *net.TCPAddr, network wire.BitcoinNet, version uint32,
+	nonce uint64) (*peer, error) {
+	peer := newPeer(mgr, false, network, version, nonce)
 
 	you, err := wire.NewNetAddress(addr, wire.SFNodeNetwork)
 	if err != nil {
@@ -96,13 +98,12 @@ func (peer *peer) String() string {
 }
 
 func (peer *peer) Connect() {
-	if !atomic.CompareAndSwapUint32(&peer.state, stateIdle, stateConnected) {
+	if !atomic.CompareAndSwapUint32(&peer.state, stateIdle, stateBusy) {
 		return
 	}
 
 	conn, err := net.DialTimeout("tcp", peer.addr.String(), timeoutDial)
 	if err != nil {
-		log.Println("Could not connect to peer")
 		peer.Stop()
 		return
 	}
@@ -110,18 +111,21 @@ func (peer *peer) Connect() {
 	local := conn.LocalAddr()
 	me, err := wire.NewNetAddress(local, wire.SFNodeNetwork)
 	if err != nil {
-		log.Println("Could not extract local net address")
 		peer.Stop()
+		return
+	}
+
+	if !atomic.CompareAndSwapUint32(&peer.state, stateBusy, stateConnected) {
 		return
 	}
 
 	peer.me = me
 	peer.conn = conn
-	peer.Start()
+	peer.mgr.peerNew <- peer
 }
 
 func (peer *peer) Use(conn net.Conn) {
-	if !atomic.CompareAndSwapUint32(&peer.state, stateIdle, stateConnected) {
+	if !atomic.CompareAndSwapUint32(&peer.state, stateIdle, stateBusy) {
 		return
 	}
 
@@ -130,19 +134,28 @@ func (peer *peer) Use(conn net.Conn) {
 		return
 	}
 
+	if !atomic.CompareAndSwapUint32(&peer.state, stateBusy, stateConnected) {
+		return
+	}
+
 	peer.conn = conn
+	peer.mgr.peerNew <- peer
 }
 
 func (peer *peer) Start() {
-	if !atomic.CompareAndSwapUint32(&peer.state, stateConnected, stateRunning) {
+	if !atomic.CompareAndSwapUint32(&peer.state, stateConnected, stateBusy) {
 		return
 	}
 
 	if !peer.incoming {
 		err := peer.pushVersion()
 		if err != nil {
-			peer.mgr.peerDone <- peer
+			peer.Stop()
 		}
+	}
+
+	if !atomic.CompareAndSwapUint32(&peer.state, stateBusy, stateRunning) {
+		return
 	}
 
 	peer.wg.Add(3)
@@ -361,7 +374,7 @@ func (peer *peer) handleAlertMsg(msg *wire.MsgAlert) {
 }
 
 func (peer *peer) pushVersion() error {
-	msg := wire.NewMsgVersion(peer.me, peer.you, peer.mgr.GetNonce(), 0)
+	msg := wire.NewMsgVersion(peer.me, peer.you, peer.nonce, 0)
 	msg.AddUserAgent(userAgentName, userAgentVersion)
 	msg.AddrYou.Services = wire.SFNodeNetwork
 	msg.Services = wire.SFNodeNetwork

@@ -33,7 +33,7 @@ func main() {
 
 	// start everything
 	repo.Start()
-	mgr.Start(wire.TestNet3, wire.RejectVersion)
+	mgr.Start(repo, wire.TestNet3, wire.RejectVersion)
 
 	// check for signals
 SigLoop:

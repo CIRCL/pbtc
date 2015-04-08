@@ -3,6 +3,8 @@ package all
 import (
 	"log"
 	"net"
+
+	"github.com/btcsuite/btcd/wire"
 )
 
 func FindLocalIPs() []net.IP {
@@ -76,4 +78,23 @@ func MinUint32(x uint32, y uint32) uint32 {
 	}
 
 	return y
+}
+
+func GetDefaultPort() int {
+	switch protocolNetwork {
+	case wire.SimNet:
+		return 18555
+
+	case wire.TestNet:
+		return 18444
+
+	case wire.TestNet3:
+		return 18333
+
+	case wire.MainNet:
+		return 8333
+
+	default:
+		return 0
+	}
 }
