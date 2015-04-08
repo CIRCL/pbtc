@@ -129,7 +129,7 @@ func (mgr *manager) handlePeers() {
 func (mgr *manager) handleListeners() {
 	defer mgr.wg.Done()
 
-	ips := FindIPs()
+	ips := FindLocalIPs()
 	for _, ip := range ips {
 		addr, err := net.ResolveTCPAddr("tcp", ip.String())
 		if err != nil {

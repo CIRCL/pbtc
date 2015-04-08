@@ -9,8 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/btcsuite/btcd/wire"
-
 	"github.com/CIRCL/pbtc/all"
 )
 
@@ -29,18 +27,16 @@ func main() {
 
 	// create everything
 	repo := all.NewRepository()
-	mgr := all.NewManager()
 
 	// start everything
 	repo.Start()
-	mgr.Start(wire.TestNet3, wire.RejectVersion)
 
 	// check for signals
 SigLoop:
 	for sig := range sigc {
 		switch sig {
 		case os.Interrupt:
-			log.Println("PBTC STOPPING")
+			log.Println("PBTC SHUTTING DOWN")
 			break SigLoop
 
 		case syscall.SIGTERM:
@@ -56,7 +52,7 @@ SigLoop:
 	// stop everything
 	repo.Stop()
 
-	log.Println("PBTC STOPPED")
+	log.Println("PBTC CLOSING")
 
 	os.Exit(0)
 }

@@ -5,7 +5,7 @@ import (
 	"net"
 )
 
-func FindIPs() []net.IP {
+func FindLocalIPs() []net.IP {
 	// create empty slice of ips to return
 	var ips []net.IP
 

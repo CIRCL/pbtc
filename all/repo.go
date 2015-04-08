@@ -1,6 +1,7 @@
 package all
 
 import (
+	"bytes"
 	"encoding/gob"
 	"log"
 	"math/rand"
@@ -52,17 +53,82 @@ func newNode(addr *net.TCPAddr, src *net.TCPAddr) *node {
 	return n
 }
 
+func (node *node) GobEncode() ([]byte, error) {
+	buffer := &bytes.Buffer{}
+	enc := gob.NewEncoder(buffer)
+
+	err := enc.Encode(node.addr)
+	if err != nil {
+		return nil, err
+	}
+
+	err = enc.Encode(node.src)
+	if err != nil {
+		return nil, err
+	}
+
+	err = enc.Encode(node.attempts)
+	if err != nil {
+		return nil, err
+	}
+
+	err = enc.Encode(node.lastAttempt)
+	if err != nil {
+		return nil, err
+	}
+
+	err = enc.Encode(node.lastSuccess)
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer.Bytes(), nil
+}
+
+func (node *node) GobDecode(buf []byte) error {
+	buffer := bytes.NewBuffer(buf)
+	dec := gob.NewDecoder(buffer)
+
+	err := dec.Decode(&node.addr)
+	if err != nil {
+		return err
+	}
+
+	err = dec.Decode(&node.src)
+	if err != nil {
+		return err
+	}
+
+	err = dec.Decode(&node.attempts)
+	if err != nil {
+		return err
+	}
+
+	err = dec.Decode(&node.lastAttempt)
+	if err != nil {
+		return err
+	}
+
+	err = dec.Decode(&node.lastSuccess)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (repo *repository) Start() {
 	if !atomic.CompareAndSwapUint32(&repo.state, stateIdle, stateBusy) {
 		return
 	}
 
-	repo.bootstrap()
 	repo.restore()
 
 	repo.wg.Add(2)
-	go repo.handleSave()
 	go repo.handleNodes()
+	go repo.handleSave()
+
+	repo.bootstrap()
 
 	atomic.StoreUint32(&repo.state, stateRunning)
 
@@ -149,6 +215,8 @@ func (repo *repository) save() {
 		log.Println(err)
 		return
 	}
+
+	log.Println("Node index saved to file", len(repo.nodeIndex))
 }
 
 // restore will try to load the previously saved node file
@@ -162,13 +230,16 @@ func (repo *repository) restore() {
 
 	dec := gob.NewDecoder(file)
 	err = dec.Decode(&repo.nodeIndex)
-
 	if err != nil {
-		log.Println("[REPO] Could not restore node index from disk!")
+		log.Println(err)
+		return
 	}
+
+	log.Println("Node index restored from file", len(repo.nodeIndex))
 }
 
 func (repo *repository) bootstrap() {
+
 	seeds := []string{
 		"testnet-seed.alexykot.me",
 		"testnet-seed.bitcoin.petertodd.org",
@@ -176,11 +247,16 @@ func (repo *repository) bootstrap() {
 		"testnet-seed.bitcoin.schildbach.de",
 	}
 
+	log.Println("Bootstrapping from DNS seeds", len(seeds))
+
 	for _, seed := range seeds {
 		ips, err := net.LookupIP(seed)
 		if err != nil {
+			log.Println("Could not look up IPs", seed)
 			continue
 		}
+
+		log.Println("Looked up IPs", seed, len(ips))
 
 		for _, ip := range ips {
 			addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(ip.String(), protocolPort))
@@ -196,6 +272,8 @@ func (repo *repository) bootstrap() {
 			repo.Update(addr, repo.local(addr))
 		}
 	}
+
+	log.Println("Finished bootstrapping from DNS seeds")
 }
 
 func (repo *repository) local(addr *net.TCPAddr) *net.TCPAddr {
