@@ -24,12 +24,12 @@ type peer struct {
 	you   *wire.NetAddress
 	state uint32
 
-	wg        *sync.WaitGroup
-	sigSend   chan struct{}
-	sigRecv   chan struct{}
-	sigMsgs   chan struct{}
-	sendQueue chan wire.Message
-	recvQueue chan wire.Message
+	wg      *sync.WaitGroup
+	sigSend chan struct{}
+	sigRecv chan struct{}
+	sigMsgs chan struct{}
+	sendQ   chan wire.Message
+	recvQ   chan wire.Message
 }
 
 func newPeer(mgr *manager, incoming bool) *peer {
@@ -40,12 +40,12 @@ func newPeer(mgr *manager, incoming bool) *peer {
 		version:  mgr.GetVersion(),
 		nonce:    mgr.GetNonce(),
 
-		wg:        &sync.WaitGroup{},
-		sigSend:   make(chan struct{}, 1),
-		sigRecv:   make(chan struct{}, 1),
-		sigMsgs:   make(chan struct{}, 1),
-		sendQueue: make(chan wire.Message, bufferPeerSend),
-		recvQueue: make(chan wire.Message, bufferPeerRecv),
+		wg:      &sync.WaitGroup{},
+		sigSend: make(chan struct{}, 1),
+		sigRecv: make(chan struct{}, 1),
+		sigMsgs: make(chan struct{}, 1),
+		sendQ:   make(chan wire.Message, bufferPeerSend),
+		recvQ:   make(chan wire.Message, bufferPeerRecv),
 	}
 
 	return peer
@@ -199,7 +199,7 @@ SendLoop:
 				peer.Stop()
 			}
 
-		case msg := <-peer.sendQueue:
+		case msg := <-peer.sendQ:
 			err := peer.sendMessage(msg)
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				continue SendLoop
@@ -239,7 +239,7 @@ RecvLoop:
 			}
 
 			idleTimer.Reset(timeoutIdle)
-			peer.recvQueue <- msg
+			peer.recvQ <- msg
 		}
 	}
 }
@@ -255,7 +255,7 @@ MsgsLoop:
 				break MsgsLoop
 			}
 
-		case msg := <-peer.recvQueue:
+		case msg := <-peer.recvQ:
 			switch m := msg.(type) {
 			case *wire.MsgVersion:
 				peer.handleVersionMsg(m)

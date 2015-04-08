@@ -5,4 +5,5 @@ const (
 	stateConnected
 	stateRunning
 	stateShutdown
+	stateBusy
 )

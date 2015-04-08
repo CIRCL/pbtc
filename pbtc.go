@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"math/rand"
-	"net"
 	"os"
 	"os/signal"
 	"runtime"
@@ -28,34 +27,13 @@ func main() {
 	// seed the random generator
 	rand.Seed(time.Now().UnixNano())
 
-	// find all our interfaces & their ips to listen
-	ips := all.FindIPs()
-
-	// create list of dns seeds to bootstrap discovery
-	seeds := []string{
-		//"testnet-seed.alexykot.me",
-		"testnet-seed.bitcoin.petertodd.org",
-		"testnet-seed.bluematt.me",
-		"testnet-seed.bitcoin.schildbach.de",
-	}
-
 	// create everything
+	repo := all.NewRepository()
 	mgr := all.NewManager()
-	svr := all.NewServer()
-	dsc := all.NewDiscovery()
 
 	// start everything
+	repo.Start()
 	mgr.Start(wire.TestNet3, wire.RejectVersion)
-
-	// feed listen ips into server
-	for _, ip := range ips {
-		svr.GetAddrIn() <- net.JoinHostPort(ip, "18333")
-	}
-
-	// feed dns seeds into discovery
-	for _, seed := range seeds {
-		dsc.GetSeedIn() <- seed
-	}
 
 	// check for signals
 SigLoop:
@@ -76,9 +54,7 @@ SigLoop:
 	}
 
 	// stop everything
-	dsc.Stop()
-	svr.Stop()
-	mgr.Stop()
+	repo.Stop()
 
 	log.Println("PBTC STOPPED")
 

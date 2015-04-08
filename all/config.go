@@ -7,17 +7,14 @@ import (
 )
 
 const (
-	bufferManagerAddress    = 1
-	bufferManagerPeer       = 1
-	bufferManagerConnection = 1
-	bufferManagerEvent      = 1
-
+	bufferManagerNew    = 1
+	bufferManagerDone   = 1
 	bufferDiscoverySeed = 1
-
 	bufferServerAddress = 1
-
-	bufferPeerRecv = 1
-	bufferPeerSend = 1
+	bufferPeerRecv      = 1
+	bufferPeerSend      = 1
+	bufferRepoAddr      = 1
+	bufferRepoNode      = 1
 )
 
 const (
