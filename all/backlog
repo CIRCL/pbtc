@@ -1,11 +1,10 @@
-* Rewrite manager to work with repo
--- Creating outgoing connections
--- Receiving inbound connections
--- Handling disconnected peers
-* Rewrite peer struct to work with repo
--- Handshaking logic part of normal send/receive
--- Flag indicates state of connection anyway
-* Collector: flexible logger to write binary files for selected categories of events
-* Whitelist: a list of nodes that we will always try to connect to
-* Blacklist: a list of nodes that we will never connect to
-* Logger: add flexibility to select logging detail & categories
+[META] add extensive comments to all files
+[LOGGER] create flexible global logger with module, severity & timestamp
+[WRITER] create flexible writer to write connection events to files
+[WRITER] implement regular time-based & size-based log rotation
+[REPO] add blacklist of nodes we will never connect to
+[REPO] add banning capability for temporarily blacklisting nodes
+[REPO] add white list of nodes we always try to preferentially connect to
+[MANAGER] option to limit outgoing port range
+[MANAGER] possibility to define local IPs
+[SHELL] change to command line interface that allows creating separate nodes
