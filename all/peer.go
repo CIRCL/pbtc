@@ -433,6 +433,7 @@ MsgsLoop:
 }
 
 func (peer *peer) handleVersionMsg(msg *wire.MsgVersion) {
+
 }
 
 func (peer *peer) handleVerAckMsg(msg *wire.MsgVerAck) {
