@@ -31,6 +31,9 @@ type peer struct {
 	recvQ   chan wire.Message
 }
 
+// newPeer creates a new peer for the given manager, indicating whether the connection
+// is incoming or outgoing. It will also set the network and version for communication.
+// The peer will be fully initialized, but remain unconnected and in idle state.
 func newPeer(mgr *manager, incoming bool, network wire.BitcoinNet, version uint32,
 	nonce uint64) *peer {
 	peer := &peer{
@@ -51,134 +54,202 @@ func newPeer(mgr *manager, incoming bool, network wire.BitcoinNet, version uint3
 	return peer
 }
 
+// NewIncomingPeer creates a new incoming peer for the given manager and connection.
+// It will initialize the peer and then try to parse the necessary information from the connection.
+// It does not return the peer as the peer will notify the manager by itself once a
+// successful connection was set up.
 func NewIncomingPeer(mgr *manager, conn net.Conn, network wire.BitcoinNet, version uint32,
-	nonce uint64) (*peer, error) {
+	nonce uint64) error {
+	// create the peer with basic required varibales
 	peer := newPeer(mgr, true, network, version, nonce)
 
+	// here, we try to parse the remote adress as TCP address
 	addr, ok := conn.RemoteAddr().(*net.TCPAddr)
 	if !ok {
-		return nil, errors.New("Can only use TCP connections for peers")
+		return errors.New("Can only use TCP connections for peers")
 	}
 
+	// try to create a net address for the remote address
 	you, err := wire.NewNetAddress(addr, wire.SFNodeNetwork)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	local := conn.LocalAddr()
+	// try to parse the local address as TCP address
+	local, ok := conn.LocalAddr().(*net.TCPAddr)
+	if !ok {
+		return errors.New("Can only use TCP connections for source")
+	}
+
+	// try to create a net address for the local address
 	me, err := wire.NewNetAddress(local, wire.SFNodeNetwork)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
+	// set connection paramaters and use the given connection for communication
 	peer.addr = addr
 	peer.you = you
 	peer.me = me
 	peer.Use(conn)
-	return peer, nil
+
+	return nil
 }
 
+// NewOutgoingPeer creates a new outgoing peer for the given manager and address.
+// It will initialize the peer and start connection procedures.
+// It does not return the peer, as it will notify the manager on its own after successful
+// connection.
 func NewOutgoingPeer(mgr *manager, addr *net.TCPAddr, network wire.BitcoinNet, version uint32,
-	nonce uint64) (*peer, error) {
+	nonce uint64) error {
+	// create peer with all basic required information
 	peer := newPeer(mgr, false, network, version, nonce)
 
+	// try to create a net address for the given TCP adress
 	you, err := wire.NewNetAddress(addr, wire.SFNodeNetwork)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
+	// set remote connection parameters and try connecting to finish up
 	peer.addr = addr
 	peer.you = you
 	go peer.Connect()
-	return peer, nil
+
+	return nil
 }
 
+// String returns the remote address of the given peer in string format for printing.
 func (peer *peer) String() string {
 	return peer.addr.String()
 }
 
+// Connect will try to use the configured remote address to set up a connection. If the
+// connection fails, we immediately stop the peer as it can't communicate.
 func (peer *peer) Connect() {
+	// we can only start the peer if it is currently in idle mode
 	if !atomic.CompareAndSwapUint32(&peer.state, stateIdle, stateBusy) {
 		return
 	}
 
+	// if we can't establish the connection, abort
 	conn, err := net.DialTimeout("tcp", peer.addr.String(), timeoutDial)
 	if err != nil {
 		peer.Stop()
 		return
 	}
 
-	local := conn.LocalAddr()
+	// try to parse the local address as tcp address
+	local, ok := conn.LocalAddr().(*net.TCPAddr)
+	if !ok {
+		peer.Stop()
+		return
+	}
+
+	// try to create a net address for the local address
 	me, err := wire.NewNetAddress(local, wire.SFNodeNetwork)
 	if err != nil {
 		peer.Stop()
 		return
 	}
 
+	// set the remaining connection parameters and save the connection
+	peer.me = me
+	peer.conn = conn
+
+	// if we have shutdown this peer in the mean time, just dump it
+	// otherwise, set the state to connected
 	if !atomic.CompareAndSwapUint32(&peer.state, stateBusy, stateConnected) {
+		peer.Stop()
 		return
 	}
 
-	peer.me = me
-	peer.conn = conn
 	peer.mgr.peerNew <- peer
 }
 
+// Use will try to use a given connection to communicate with a peer.
 func (peer *peer) Use(conn net.Conn) {
+	// we can only use a connection if we are still idle
 	if !atomic.CompareAndSwapUint32(&peer.state, stateIdle, stateBusy) {
 		return
 	}
 
+	// if the connection is nil, dump the peer
 	if conn == nil {
 		peer.Stop()
 		return
 	}
 
+	// save the given connection
+	peer.conn = conn
+
+	// if we have shutdown, simply dump the peer, otherwise, we are now connected
 	if !atomic.CompareAndSwapUint32(&peer.state, stateBusy, stateConnected) {
+		peer.Stop()
 		return
 	}
 
-	peer.conn = conn
 	peer.mgr.peerNew <- peer
 }
 
+// Start will try to start the peer. It only works if the peer is already connected.
 func (peer *peer) Start() {
+	// check if we are in connected state to launch
 	if !atomic.CompareAndSwapUint32(&peer.state, stateConnected, stateBusy) {
 		return
 	}
 
+	// if we are talking to an outgoing peer, we should send the version first
+	// if this fails, the handshake broke down and we are done with this peer
 	if !peer.incoming {
 		err := peer.pushVersion()
 		if err != nil {
-			peer.Stop()
+			peer.mgr.peerDone <- peer
 		}
 	}
 
-	if !atomic.CompareAndSwapUint32(&peer.state, stateBusy, stateRunning) {
-		return
-	}
-
+	// add three handlers to our waitgroup and launch them
+	// they take care of sending, queuing received messages and processing them
 	peer.wg.Add(3)
 	go peer.handleSend()
 	go peer.handleReceive()
 	go peer.handleMessages()
+
+	// if we have shut down in the mean-time, we can dump the peer
+	if !atomic.CompareAndSwapUint32(&peer.state, stateBusy, stateRunning) {
+		peer.mgr.peerDone <- peer
+		return
+	}
 }
 
+// Stop will cleanly shutdown the peer and wait for handlers to quit. In contrast to
+// other modules, a stop on a peer is irreversible.
 func (peer *peer) Stop() {
+	// if we already called shutdown, we don't need to do it twice
 	if atomic.SwapUint32(&peer.state, stateShutdown) == stateShutdown {
 		return
 	}
 
+	// if we have a connection established, close it
 	if peer.conn != nil {
 		peer.conn.Close()
 	}
 
+	// signal all handlers to stop
 	close(peer.sigSend)
 	close(peer.sigRecv)
 	close(peer.sigMsgs)
+
+	// wait for the handlers to stop
 	peer.wg.Wait()
+
+	// we will simply stay in a shutdown state here; no further actions are supposed
+	// to be executed on this peer now
 }
 
+// sendMessage will attempt to write a message on our connection. It will set the write
+// deadline in order to respect the timeout defined in our configuration. It will return
+// the error if we didn't succeed.
 func (peer *peer) sendMessage(msg wire.Message) error {
 	peer.conn.SetWriteDeadline(time.Now().Add(timeoutSend))
 	err := wire.WriteMessage(peer.conn, msg, peer.version, peer.network)
@@ -186,6 +257,9 @@ func (peer *peer) sendMessage(msg wire.Message) error {
 	return err
 }
 
+// recvMessage will attempt to read a message from our connection. It will set the read
+// deadline in order to respect the timeout defined in our configuration. It will return
+/// the read message as well as the error.
 func (peer *peer) recvMessage() (wire.Message, error) {
 	peer.conn.SetReadDeadline(time.Now().Add(timeoutRecv))
 	msg, _, err := wire.ReadMessage(peer.conn, peer.version, peer.network)
@@ -193,25 +267,34 @@ func (peer *peer) recvMessage() (wire.Message, error) {
 	return msg, err
 }
 
+// handleSend is the handler responsible for sending messages in the queue. It will
+// send messages from the queue and push ping messages if the connection is idling.
 func (peer *peer) handleSend() {
+	// let the waitgroup know when we are done
 	defer peer.wg.Done()
 
+	// initialize the idle timer to see when we didn't send for a while
 	idleTimer := time.NewTimer(timeoutPing)
 
 SendLoop:
 	for {
 		select {
+		// signal for shutdown, so break outer loop
 		case _, ok := <-peer.sigSend:
 			if !ok {
 				break SendLoop
 			}
 
+		// we didnt's send a message in a long time, so send a ping
 		case <-idleTimer.C:
 			err := peer.pushPing()
 			if err != nil {
 				peer.Stop()
+				peer.mgr.peerDone <- peer
 			}
 
+		// try to send the next message in the queue
+		// on timeouts, we try the next one, on other errors, we stop the peer
 		case msg := <-peer.sendQ:
 			err := peer.sendMessage(msg)
 			if e, ok := err.(net.Error); ok && e.Timeout() {
@@ -219,29 +302,41 @@ SendLoop:
 			}
 			if err != nil {
 				peer.Stop()
+				peer.mgr.peerDone <- peer
 			}
 
+			// we successfully sent a message, so reset the idle timer
 			idleTimer.Reset(timeoutPing)
 		}
 	}
 }
 
+// handleReceive is the handler responsible for receiving messages and pushing them onto
+// the reception queue. It does not do any processing so that we read all messages as quickly
+// as possible.
 func (peer *peer) handleReceive() {
+	// let the waitgroup know when we are done
 	defer peer.wg.Done()
 
+	// initialize the timer to see when we didn't receive in a long time
 	idleTimer := time.NewTimer(timeoutIdle)
 
 RecvLoop:
 	for {
 		select {
+		// the peer has shutdown so break outer loop
 		case _, ok := <-peer.sigRecv:
 			if !ok {
 				break RecvLoop
 			}
 
+		// we didn't receive a message for too long, so time this peer out and dump
 		case <-idleTimer.C:
 			peer.Stop()
+			peer.mgr.peerDone <- peer
 
+		// each iteration without other action, we try receiving a message for a while
+		// if we time out, we try again, on error we quit
 		default:
 			msg, err := peer.recvMessage()
 			if e, ok := err.(net.Error); ok && e.Timeout() {
@@ -249,25 +344,32 @@ RecvLoop:
 			}
 			if err != nil {
 				peer.Stop()
+				peer.mgr.peerDone <- peer
 			}
 
+			// we successfully received a message, so reset the idle timer and push it
+			// onte the reception queue for further processing
 			idleTimer.Reset(timeoutIdle)
 			peer.recvQ <- msg
 		}
 	}
 }
 
+// handleMessages is the handler to process messages from our reception queue.
 func (peer *peer) handleMessages() {
+	// let the waitgroup know when we are done
 	defer peer.wg.Done()
 
 MsgsLoop:
 	for {
 		select {
+		// shutdown signal, break outer loop
 		case _, ok := <-peer.sigMsgs:
 			if !ok {
 				break MsgsLoop
 			}
 
+		// we read a message from the queue, process it depending on type
 		case msg := <-peer.recvQ:
 			switch m := msg.(type) {
 			case *wire.MsgVersion:
@@ -373,6 +475,7 @@ func (peer *peer) handleAlertMsg(msg *wire.MsgAlert) {
 
 }
 
+// pushVersion will try to directly send a version message on the wire, bypassing the queue.
 func (peer *peer) pushVersion() error {
 	msg := wire.NewMsgVersion(peer.me, peer.you, peer.nonce, 0)
 	msg.AddUserAgent(userAgentName, userAgentVersion)
@@ -383,12 +486,14 @@ func (peer *peer) pushVersion() error {
 	return peer.sendMessage(msg)
 }
 
-func (peer *peer) pushGetaddr() error {
+// pushGetAddr will try to directly send a getaddr message on the wire, bypassing the queue.
+func (peer *peer) pushGetAddr() error {
 	msg := wire.NewMsgGetAddr()
 
 	return peer.sendMessage(msg)
 }
 
+// pushPing will try to directly send a ping message on the wire, bypassing the queue.
 func (peer *peer) pushPing() error {
 	msg := wire.NewMsgPing(peer.nonce)
 

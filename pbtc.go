@@ -27,15 +27,15 @@ func main() {
 	// seed the random generator
 	rand.Seed(time.Now().UnixNano())
 
-	// create everything
+	// initialize our modules
 	repo := all.NewRepository()
 	mgr := all.NewManager()
 
-	// start everything
+	// start our modules
 	repo.Start()
 	mgr.Start(repo, wire.TestNet3, wire.RejectVersion)
 
-	// check for signals
+	// wait for signals in blocking loop
 SigLoop:
 	for sig := range sigc {
 		switch sig {
@@ -53,7 +53,7 @@ SigLoop:
 		}
 	}
 
-	// stop everything
+	// stop our modules
 	mgr.Stop()
 	repo.Stop()
 

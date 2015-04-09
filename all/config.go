@@ -7,23 +7,24 @@ import (
 )
 
 const (
-	bufferManagerNew  = 1 // new peers queue in manager
-	bufferManagerDone = 1 // done peers queue in manager
-	bufferPeerRecv    = 1 // message reception queue for peers
-	bufferPeerSend    = 1 // message expedition queue for peers
-	bufferRepoAddr    = 1 // address update queue for repository
-	bufferRepoNode    = 1 // node addition queue for repository
+	bufferManagerNew  = 1 // how many new peers can be queued for adding to the manager
+	bufferManagerDone = 1 // how many stopped peers can be queued for removal from manager
+	bufferPeerRecv    = 1 // the amount of messages that can be queued after reception
+	bufferPeerSend    = 1 // the amount of messages that can be queued for sending
+	bufferRepoAddr    = 1 // how many addresses can be queued for updating in repository
+	bufferRepoNode    = 1 // how many new nodes can be queued for adding to repository
 )
 
 const (
-	protocolNetwork = wire.TestNet3      // bitcoin network to connect to
-	protocolVersion = wire.RejectVersion // maximum protocol version for peers
+	protocolNetwork = wire.TestNet3      // what bitcoin network do we connect to
+	protocolVersion = wire.RejectVersion // what protocol version do we try to use
 )
 
 const (
-	maxConnsPerSec = 4     // maximum outgoing tcp connections per second
-	maxPeerCount   = 1024  // maximum number of concurrent connected peers
-	maxNodeCount   = 32768 // maximum number of records in node repository
+	maxConnsPerSec  = 4     // maximum outgoing tcp connections per second
+	maxAddrAttempts = 128   // maximum times we try to get a good address to connect to
+	maxPeerCount    = 1024  // maximum number of concurrent connected peers
+	maxNodeCount    = 32768 // maximum number of records in node repository
 )
 
 const (
@@ -50,4 +51,8 @@ const (
 const (
 	userAgentName    = "satoshi" // user agent that we identify to peers with
 	userAgentVersion = "0.8.2"   // user agent version we indicate to peers
+)
+
+const (
+	nodeSaveInterval = time.Minute * 1 // interval at which we save the node index to file
 )

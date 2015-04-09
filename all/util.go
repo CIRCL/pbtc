@@ -7,6 +7,7 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
+// FindLocalIPs finds all IPs associated with local interfaces.
 func FindLocalIPs() []net.IP {
 	// create empty slice of ips to return
 	var ips []net.IP
@@ -72,6 +73,8 @@ func FindLocalIPs() []net.IP {
 	return ips
 }
 
+// MinUint32 returns the smaller of two uint32. It is used as a shortcut
+// to negotiate the version number with new peers.
 func MinUint32(x uint32, y uint32) uint32 {
 	if x > y {
 		return x
@@ -80,6 +83,8 @@ func MinUint32(x uint32, y uint32) uint32 {
 	return y
 }
 
+// GetDefaultPort returns the default port for the type of network that
+// was defined in the configuration options.
 func GetDefaultPort() int {
 	switch protocolNetwork {
 	case wire.SimNet:

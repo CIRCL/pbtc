@@ -25,7 +25,7 @@ type manager struct {
 	nonce       uint64
 }
 
-// NewManager creates a new manager with all necessary initializations done.
+// NewManager returns a new manager with all necessary variables initialized.
 func NewManager() *manager {
 	mgr := &manager{
 		peerIndex: make(map[string]*peer),
@@ -43,84 +43,114 @@ func NewManager() *manager {
 	return mgr
 }
 
-// Start starts the manager, with run-time options passed in as parameters.
+// Start starts the manager, with run-time options passed in as parameters. This allows
+// us to stop and restart the manager with a different protocol version, network or even
+// repository of nodes.
 func (mgr *manager) Start(repo *repository, network wire.BitcoinNet, version uint32) {
+	// we can only start the manager if it is in idle state and ready to be started
 	if !atomic.CompareAndSwapUint32(&mgr.state, stateIdle, stateBusy) {
 		return
 	}
 
+	// set the parameters for the nodes and connections we will create
 	mgr.nodeRepo = repo
 	mgr.network = network
 	mgr.version = version
 
+	// here, we start all handlers that execute concurrently
+	// we add them to the waitgrop so that we can cleanly shutdown later
 	mgr.wg.Add(3)
 	go mgr.handleListeners()
 	go mgr.handleConnections()
 	go mgr.handlePeers()
 
+	// at this point, start-up is complete and we can set the new state
 	atomic.StoreUint32(&mgr.state, stateRunning)
 }
 
 // Stop cleanly shuts down the manager so it can be restarted later.
 func (mgr *manager) Stop() {
+	// we can only stop the manager if we are currently in running state
 	if !atomic.CompareAndSwapUint32(&mgr.state, stateRunning, stateBusy) {
 		return
 	}
 
+	// first we will stop every peer - this is a blocking operation
 	for _, peer := range mgr.peerIndex {
 		peer.Stop()
 	}
 
+	// here, we close the channel to signal the connection handler to stop
 	close(mgr.sigConn)
 
+	// the listener handler already quits after launching all listeners
+	// we thus only need to close all listeners and wait for their routines to stop
 	for _, listener := range mgr.listenIndex {
 		listener.Close()
 	}
 
+	// finally, we signal the peer listener to stop processing as well
 	close(mgr.sigPeer)
 
+	// we then wait for all handlers to finish cleanly
 	mgr.wg.Wait()
 
+	// at this point, all handlers have stopped and we are back in idle state
 	atomic.StoreUint32(&mgr.state, stateIdle)
 }
 
+// handleListeners tries to start a listener on every local IP to accept
+// connections. It should be called as a go routine.
 func (mgr *manager) handleListeners() {
+	// let the waitgroup know when we are done
 	defer mgr.wg.Done()
 
+	// get all IPs on local interfaces and iterate through them
 	ips := FindLocalIPs()
 	for _, ip := range ips {
+		// if we can't convert into a TCP address, skip
 		addr, err := net.ResolveTCPAddr("tcp", ip.String())
 		if err != nil {
 			continue
 		}
 
+		// if we are already listening on this address, skip
 		_, ok := mgr.listenIndex[addr.String()]
 		if ok {
 			continue
 		}
 
+		// if we can't create the listener, skip
 		listener, err := net.ListenTCP("tcp", addr)
 		if err != nil {
 			continue
 		}
 
+		// add the listener to our index and start an accepting handler
+		// we again need to add it to the waitgroup if we want to exit cleanly
 		mgr.listenIndex[addr.String()] = listener
 		mgr.wg.Add(1)
 		go mgr.processListener(listener)
 	}
 }
 
+// handleConnections attempts to establish new connections at the configured
+// rate as long as we are not at the maximum number of connections.
 func (mgr *manager) handleConnections() {
+	// let the waitgroup know when we are done
 	defer mgr.wg.Done()
 
 ConnLoop:
 	for {
 		select {
+		// this is the signal to quit, so break the outer loop
 		case _, ok := <-mgr.sigConn:
 			if !ok {
 				break ConnLoop
 			}
 
+		// the ticker will signal each time we can attempt a new connection
+		// if we don't have too many peers yet, try to create a new one
 		case <-mgr.connTicker.C:
 			if len(mgr.peerIndex) <= maxPeerCount {
 				mgr.addPeer()
@@ -129,58 +159,77 @@ ConnLoop:
 	}
 }
 
+// handlePeers will execute householding operations on new peers and peers
+// that have expired. It should be used to keep track of peers and to convey
+// application state to the peers.
 func (mgr *manager) handlePeers() {
+	// let the waitgroup know when we are done
 	defer mgr.wg.Done()
 
 PeerLoop:
 	for {
 		select {
+		// this is the signal to quit, so break the outer loop
 		case _, ok := <-mgr.sigPeer:
 			if !ok {
 				break PeerLoop
 			}
 
+		// whenever there is a new peer to be added, process it
 		case peer := <-mgr.peerNew:
 			mgr.processNewPeer(peer)
 
+		// whenever there is an expired peer to be removed, process it
 		case peer := <-mgr.peerDone:
 			mgr.processDonePeer(peer)
 		}
 	}
 }
 
+// addPeer will try to connect to a new peer and start it on success.
 func (mgr *manager) addPeer() {
 	tries := 0
 	var addr *net.TCPAddr
 	for {
+		// if we tried too many times, give up for this time
+		tries++
+		if tries > maxAddrAttempts {
+			return
+		}
+
+		// try to get the best address from the repository
 		addr, err := mgr.nodeRepo.Get()
 		if err != nil {
 			return
 		}
 
-		tries++
-		if tries > 128 {
-			return
-		}
-
+		// check if the address in still unused
 		_, ok := mgr.peerIndex[addr.String()]
 		if !ok {
 			continue
 		}
 	}
 
-	peer, err := NewOutgoingPeer(mgr, addr, mgr.network, mgr.version, mgr.nonce)
+	// at this point, we have a good address we can try connecting to
+	// we initialize a new peer which will callback through a channel on success
+	err := NewOutgoingPeer(mgr, addr, mgr.network, mgr.version, mgr.nonce)
 	if err != nil {
 		return
 	}
-
-	mgr.peerNew <- peer
 }
 
+// processNewPeer is what we do with new initialized peers that are added to
+// the manager. The peers should be in a connected state so we can start them
+// and add them to our index.
 func (mgr *manager) processNewPeer(peer *peer) {
+	peer.Start()
+
 	mgr.peerIndex[peer.String()] = peer
 }
 
+// processDonePeer is what we do to expired peers. They failed in some way and
+// already initialized shutdown on their own, so we just need to remove them
+// from our index.
 func (mgr *manager) processDonePeer(peer *peer) {
 	_, ok := mgr.peerIndex[peer.String()]
 	if !ok {
@@ -190,20 +239,25 @@ func (mgr *manager) processDonePeer(peer *peer) {
 	delete(mgr.peerIndex, peer.String())
 }
 
+// processListener is a dedicated loop to be run for every local IP that we
+// want to listen on. It should be run as a go routine and will try accepting
+// new connections.
 func (mgr *manager) processListener(listener *net.TCPListener) {
+	// let the waitgroup know when we are done
 	defer mgr.wg.Done()
 
 	for {
+		// try accepting a new connection
 		conn, err := listener.Accept()
 		if err != nil {
 			break
 		}
 
-		peer, err := NewIncomingPeer(mgr, conn, mgr.network, mgr.version, mgr.nonce)
+		// create a new incoming peer for the given connection
+		// if the connection is valid, the peer will notify the manager on its own
+		err = NewIncomingPeer(mgr, conn, mgr.network, mgr.version, mgr.nonce)
 		if err != nil {
 			continue
 		}
-
-		mgr.peerNew <- peer
 	}
 }
