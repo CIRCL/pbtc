@@ -16,6 +16,7 @@ import (
 // repository to get addresses to connect to and notifies it about changes
 // relevant to address selection.
 type Manager struct {
+	logger      *LogHelper
 	repo        *Repository
 	peerIndex   map[string]*peer
 	listenIndex map[string]*net.TCPListener
@@ -34,16 +35,15 @@ type Manager struct {
 // NewManager returns a new manager with all necessary variables initialized.
 func NewManager() *Manager {
 	mgr := &Manager{
-		peerIndex: make(map[string]*peer),
-		sigPeer:   make(chan struct{}, 1),
-		sigConn:   make(chan struct{}, 1),
-		peerNew:   make(chan *peer, bufferManagerNew),
-		peerDone:  make(chan *peer, bufferManagerDone),
-
+		logger:     GetLogHelper("[MGR]"),
+		peerIndex:  make(map[string]*peer),
+		sigPeer:    make(chan struct{}, 1),
+		sigConn:    make(chan struct{}, 1),
+		peerNew:    make(chan *peer, bufferManagerNew),
+		peerDone:   make(chan *peer, bufferManagerDone),
 		connTicker: time.NewTicker(time.Second / maxConnsPerSec),
-
-		wg:    &sync.WaitGroup{},
-		state: stateIdle,
+		wg:         &sync.WaitGroup{},
+		state:      stateIdle,
 	}
 
 	return mgr
@@ -55,10 +55,12 @@ func NewManager() *Manager {
 func (mgr *Manager) Start(repo *Repository, network wire.BitcoinNet, version uint32) {
 	// we can only start the manager if it is in idle state and ready to be started
 	if !atomic.CompareAndSwapUint32(&mgr.state, stateIdle, stateBusy) {
+		mgr.logger.Logln(LogWarning, "Cannot start from non-idle state")
 		return
 	}
 
 	// set the parameters for the nodes and connections we will create
+	mgr.logger.Logln(LogTrace, "Assigning configuration parameters")
 	mgr.repo = repo
 	mgr.network = network
 	mgr.version = version

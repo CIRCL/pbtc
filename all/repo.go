@@ -3,7 +3,6 @@ package all
 import (
 	"encoding/gob"
 	"errors"
-	"log"
 	"math/rand"
 	"net"
 	"os"
@@ -18,6 +17,7 @@ import (
 // evaluate the node quality / reliability. It also stores this information in a file
 // and restores it on start.
 type Repository struct {
+	logger    *LogHelper
 	nodeIndex map[string]*node
 	sigSave   chan struct{}
 	sigNode   chan struct{}
@@ -30,6 +30,7 @@ type Repository struct {
 // NewRepository creates a new repository with all necessary variables initialized.
 func NewRepository() *Repository {
 	repo := &Repository{
+		logger:    GetLogHelper("[REPO]"),
 		nodeIndex: make(map[string]*node),
 		sigSave:   make(chan struct{}, 1),
 		sigNode:   make(chan struct{}, 1),
@@ -172,12 +173,11 @@ func (repo *Repository) Get() (*net.TCPAddr, error) {
 }
 
 // save will try to save all current nodes to a file on disk.
-func (repo *Repository) save() {
+func (repo *Repository) save() error {
 	// create the file, truncating if it already exists
 	file, err := os.Create("nodes.dat")
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 	defer file.Close()
 
@@ -185,20 +185,18 @@ func (repo *Repository) save() {
 	enc := gob.NewEncoder(file)
 	err = enc.Encode(repo.nodeIndex)
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 
-	log.Println("Node index saved to file", len(repo.nodeIndex))
+	return nil
 }
 
 // restore will try to load the previously saved node file.
-func (repo *Repository) restore() {
+func (repo *Repository) restore() error {
 	// open the nodes file in read-only mode
 	file, err := os.Open("nodes.dat")
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 	defer file.Close()
 
@@ -206,11 +204,10 @@ func (repo *Repository) restore() {
 	dec := gob.NewDecoder(file)
 	err = dec.Decode(&repo.nodeIndex)
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 
-	log.Println("Node index restored from file", len(repo.nodeIndex))
+	return nil
 }
 
 // bootstrap will use a number of dns seeds to discover nodes.
@@ -223,18 +220,13 @@ func (repo *Repository) bootstrap() {
 		"testnet-seed.bitcoin.schildbach.de",
 	}
 
-	log.Println("Bootstrapping from DNS seeds", len(seeds))
-
 	// iterate over the seeds and try to get the ips
 	for _, seed := range seeds {
 		// check if we can look up the ip addresses
 		ips, err := net.LookupIP(seed)
 		if err != nil {
-			log.Println("Could not look up IPs", seed)
 			continue
 		}
-
-		log.Println("Looked up IPs", seed, len(ips))
 
 		// range over the ips and add them to the repository
 		for _, ip := range ips {
@@ -255,8 +247,6 @@ func (repo *Repository) bootstrap() {
 			repo.Update(addr, repo.local(addr))
 		}
 	}
-
-	log.Println("Finished bootstrapping from DNS seeds")
 }
 
 // local will return the best local IP address to route to the given remote address.

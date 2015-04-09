@@ -15,7 +15,24 @@ import (
 )
 
 func main() {
-	log.Println("PBTC STARTING")
+	// get main program logger
+	logger := all.GetLogHelper("[PBTC]")
+
+	// configure console logging
+	agent := all.GetLogAgent()
+	agent.AddOutput(log.New(os.Stdout, "", 0), all.LogInfo)
+
+	// configure file logging
+	file, err := os.Create("pbtc.log")
+	if err != nil {
+		logger.Logln(all.LogFatal, "Could not create log file")
+		os.Exit(1)
+	}
+	agent.AddOutput(log.New(file, "", 0), all.LogTrace)
+	defer file.Close()
+
+	// start program logic
+	logger.Logln(all.LogInfo, "Starting")
 
 	// catch signals
 	sigc := make(chan os.Signal, 1)
@@ -40,7 +57,7 @@ SigLoop:
 	for sig := range sigc {
 		switch sig {
 		case os.Interrupt:
-			log.Println("PBTC SHUTTING DOWN")
+			logger.Logln(all.LogInfo, "Stopping")
 			break SigLoop
 
 		case syscall.SIGTERM:
@@ -57,7 +74,7 @@ SigLoop:
 	mgr.Stop()
 	repo.Stop()
 
-	log.Println("PBTC CLOSING")
+	logger.Logln(all.LogInfo, "Exiting")
 
 	os.Exit(0)
 }

@@ -10,7 +10,16 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
+const (
+	stateIdle      = iota // initial state where module is ready to start
+	stateConnected        // peer state when it is connected
+	stateRunning          // module state after a module was started
+	stateBusy             // state used during state changes
+	stateShutdown         // irreversible shutdown of module
+)
+
 type peer struct {
+	logger   *LogHelper
 	mgr      *Manager
 	incoming bool
 	network  wire.BitcoinNet
@@ -62,6 +71,9 @@ func newIncomingPeer(mgr *Manager, conn net.Conn, network wire.BitcoinNet, versi
 	nonce uint64) error {
 	// create the peer with basic required varibales
 	peer := newPeer(mgr, true, network, version, nonce)
+
+	logString := "[PEER] (" + conn.RemoteAddr().String() + ")"
+	peer.logger = GetLogHelper(logString)
 
 	// here, we try to parse the remote adress as TCP address
 	addr, ok := conn.RemoteAddr().(*net.TCPAddr)

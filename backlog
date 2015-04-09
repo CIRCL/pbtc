@@ -1,5 +1,5 @@
-[LOGGER] create flexible global logger with module, severity & timestamp
 [META] add logging messages throughout program
+[LOGGER] refactor logger into own package to make it less intrusive
 [PEER] add handling for relevant messages to test program functionality
 [WRITER] create flexible writer to write connection events to files
 [WRITER] implement regular time-based & size-based log rotation
