@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-type repository struct {
+type Repository struct {
 	nodeIndex map[string]*node
 	sigSave   chan struct{}
 	sigNode   chan struct{}
@@ -34,8 +34,8 @@ type node struct {
 }
 
 // NewRepository creates a new repository with all necessary variables initialized.
-func NewRepository() *repository {
-	repo := &repository{
+func NewRepository() *Repository {
+	repo := &Repository{
 		nodeIndex: make(map[string]*node),
 		sigSave:   make(chan struct{}, 1),
 		sigNode:   make(chan struct{}, 1),
@@ -142,7 +142,7 @@ func (node *node) GobDecode(buf []byte) error {
 // It will also launch two handlers to handle new added nodes and to
 // regularly save our nodes to disk. Finally, it will bootstrap the
 // given DNS seeds in case we could not find nodes in our file.
-func (repo *repository) Start() {
+func (repo *Repository) Start() {
 	// we can only start the repository if we are in idle state
 	if !atomic.CompareAndSwapUint32(&repo.state, stateIdle, stateBusy) {
 		return
@@ -164,7 +164,7 @@ func (repo *repository) Start() {
 }
 
 // Stop will save all known nodes to disk after shutting down our handlers.
-func (repo *repository) Stop() {
+func (repo *Repository) Stop() {
 	// we can only stop the repository if we are running
 	if !atomic.CompareAndSwapUint32(&repo.state, stateRunning, stateBusy) {
 		return
@@ -184,7 +184,7 @@ func (repo *repository) Stop() {
 // Update will update the information of a given address in our repository.
 // At this point, this is only the address that has last seen the node.
 // If the node doesn't exist yet, we create one.
-func (repo *repository) Update(addr *net.TCPAddr, src *net.TCPAddr) {
+func (repo *Repository) Update(addr *net.TCPAddr, src *net.TCPAddr) {
 	// check if a node with the given address already exists
 	// if so, simply update the source address
 	n, ok := repo.nodeIndex[addr.String()]
@@ -200,7 +200,7 @@ func (repo *repository) Update(addr *net.TCPAddr, src *net.TCPAddr) {
 
 // Attempt will update the last connection attempt on the given address
 // and increase the attempt counter accordingly.
-func (repo *repository) Attempt(addr *net.TCPAddr) {
+func (repo *Repository) Attempt(addr *net.TCPAddr) {
 	// if we don't know this address, ignore
 	n, ok := repo.nodeIndex[addr.String()]
 	if !ok {
@@ -217,7 +217,7 @@ func (repo *repository) Attempt(addr *net.TCPAddr) {
 // maximum once every 20 minutes. We will not give out any such information,
 // but it can still be useful to determine which addresses to try to connect to
 // next.
-func (repo *repository) Connected(addr *net.TCPAddr) {
+func (repo *Repository) Connected(addr *net.TCPAddr) {
 	n, ok := repo.nodeIndex[addr.String()]
 	if !ok {
 		return
@@ -231,7 +231,7 @@ func (repo *repository) Connected(addr *net.TCPAddr) {
 // counter and timestamp last success. The reference client timestamps
 // the other fields as well, but all we do with that is lose some extra
 // information that we could use to choose our addresses.
-func (repo *repository) Good(addr *net.TCPAddr) {
+func (repo *Repository) Good(addr *net.TCPAddr) {
 	n, ok := repo.nodeIndex[addr.String()]
 	if !ok {
 		return
@@ -246,7 +246,7 @@ func (repo *repository) Good(addr *net.TCPAddr) {
 // know this address, how many times we already tried/succeeded, how long
 // ago we last saw/connected to the node, what the reputation of nodes is
 // that we receive the address from.
-func (repo *repository) Get() (*net.TCPAddr, error) {
+func (repo *Repository) Get() (*net.TCPAddr, error) {
 	// if we know no nodes, we return an error and nil value
 	if len(repo.nodeIndex) == 0 {
 		return nil, errors.New("No nodes in repository")
@@ -268,7 +268,7 @@ func (repo *repository) Get() (*net.TCPAddr, error) {
 }
 
 // save will try to save all current nodes to a file on disk.
-func (repo *repository) save() {
+func (repo *Repository) save() {
 	// create the file, truncating if it already exists
 	file, err := os.Create("nodes.dat")
 	if err != nil {
@@ -289,7 +289,7 @@ func (repo *repository) save() {
 }
 
 // restore will try to load the previously saved node file.
-func (repo *repository) restore() {
+func (repo *Repository) restore() {
 	// open the nodes file in read-only mode
 	file, err := os.Open("nodes.dat")
 	if err != nil {
@@ -310,7 +310,7 @@ func (repo *repository) restore() {
 }
 
 // bootstrap will use a number of dns seeds to discover nodes.
-func (repo *repository) bootstrap() {
+func (repo *Repository) bootstrap() {
 	// at this point, we simply define the seeds here
 	seeds := []string{
 		"testnet-seed.alexykot.me",
@@ -356,7 +356,7 @@ func (repo *repository) bootstrap() {
 }
 
 // local will return the best local IP address to route to the given remote address.
-func (repo *repository) local(addr *net.TCPAddr) *net.TCPAddr {
+func (repo *Repository) local(addr *net.TCPAddr) *net.TCPAddr {
 	local := &net.TCPAddr{}
 
 	// Right now, we simply return the zero address for either IPv4 or IPv6.
@@ -370,7 +370,7 @@ func (repo *repository) local(addr *net.TCPAddr) *net.TCPAddr {
 }
 
 // handleSave is the handler to regularly save our node index to disk.
-func (repo *repository) handleSave() {
+func (repo *Repository) handleSave() {
 	// let the waitgroup know when we are done
 	defer repo.wg.Done()
 
@@ -394,7 +394,7 @@ SaveLoop:
 }
 
 // handleNodes will take new added nodes and put them into the index.
-func (repo *repository) handleNodes() {
+func (repo *Repository) handleNodes() {
 	// let the waitgroup know when we are done
 	defer repo.wg.Done()
 

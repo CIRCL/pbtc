@@ -11,7 +11,7 @@ import (
 )
 
 type peer struct {
-	mgr      *manager
+	mgr      *Manager
 	incoming bool
 	network  wire.BitcoinNet
 	version  uint32
@@ -34,7 +34,7 @@ type peer struct {
 // newPeer creates a new peer for the given manager, indicating whether the connection
 // is incoming or outgoing. It will also set the network and version for communication.
 // The peer will be fully initialized, but remain unconnected and in idle state.
-func newPeer(mgr *manager, incoming bool, network wire.BitcoinNet, version uint32,
+func newPeer(mgr *Manager, incoming bool, network wire.BitcoinNet, version uint32,
 	nonce uint64) *peer {
 	peer := &peer{
 		mgr:      mgr,
@@ -58,7 +58,7 @@ func newPeer(mgr *manager, incoming bool, network wire.BitcoinNet, version uint3
 // It will initialize the peer and then try to parse the necessary information from the connection.
 // It does not return the peer as the peer will notify the manager by itself once a
 // successful connection was set up.
-func NewIncomingPeer(mgr *manager, conn net.Conn, network wire.BitcoinNet, version uint32,
+func NewIncomingPeer(mgr *Manager, conn net.Conn, network wire.BitcoinNet, version uint32,
 	nonce uint64) error {
 	// create the peer with basic required varibales
 	peer := newPeer(mgr, true, network, version, nonce)
@@ -100,7 +100,7 @@ func NewIncomingPeer(mgr *manager, conn net.Conn, network wire.BitcoinNet, versi
 // It will initialize the peer and start connection procedures.
 // It does not return the peer, as it will notify the manager on its own after successful
 // connection.
-func NewOutgoingPeer(mgr *manager, addr *net.TCPAddr, network wire.BitcoinNet, version uint32,
+func NewOutgoingPeer(mgr *Manager, addr *net.TCPAddr, network wire.BitcoinNet, version uint32,
 	nonce uint64) error {
 	// create peer with all basic required information
 	peer := newPeer(mgr, false, network, version, nonce)
