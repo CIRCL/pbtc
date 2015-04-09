@@ -1,7 +1,6 @@
 package all
 
 import (
-	"bytes"
 	"encoding/gob"
 	"errors"
 	"log"
@@ -14,6 +13,10 @@ import (
 	"time"
 )
 
+// Repository is the module responsible for managing all known node addresses. It creates
+// a node for every new address and keeps track of all necessary information require to
+// evaluate the node quality / reliability. It also stores this information in a file
+// and restores it on start.
 type Repository struct {
 	nodeIndex map[string]*node
 	sigSave   chan struct{}
@@ -22,15 +25,6 @@ type Repository struct {
 	nodeQ     chan *node
 	wg        *sync.WaitGroup
 	state     uint32
-}
-
-type node struct {
-	addr        *net.TCPAddr
-	src         *net.TCPAddr
-	attempts    uint32
-	lastAttempt time.Time
-	lastSuccess time.Time
-	lastConnect time.Time
 }
 
 // NewRepository creates a new repository with all necessary variables initialized.
@@ -46,96 +40,6 @@ func NewRepository() *Repository {
 	}
 
 	return repo
-}
-
-// newNode creates a new node for the given address and source.
-func newNode(addr *net.TCPAddr, src *net.TCPAddr) *node {
-	n := &node{
-		addr: addr,
-		src:  src,
-	}
-
-	return n
-}
-
-// GobEncode is required to implement the GobEncoder interface.
-// It allows us to serialize the unexported fields of our nodes.
-// We could also change them to exported, but as nodes are only
-// handled internally in the repository, this is the better choice.
-func (node *node) GobEncode() ([]byte, error) {
-	buffer := &bytes.Buffer{}
-	enc := gob.NewEncoder(buffer)
-
-	err := enc.Encode(node.addr)
-	if err != nil {
-		return nil, err
-	}
-
-	err = enc.Encode(node.src)
-	if err != nil {
-		return nil, err
-	}
-
-	err = enc.Encode(node.attempts)
-	if err != nil {
-		return nil, err
-	}
-
-	err = enc.Encode(node.lastAttempt)
-	if err != nil {
-		return nil, err
-	}
-
-	err = enc.Encode(node.lastSuccess)
-	if err != nil {
-		return nil, err
-	}
-
-	err = enc.Encode(node.lastConnect)
-	if err != nil {
-		return nil, err
-	}
-
-	return buffer.Bytes(), nil
-}
-
-// GobDecode is required to implement the GobDecoder interface.
-// It allows us to deserialize the unexported fields of our nodes.
-func (node *node) GobDecode(buf []byte) error {
-	buffer := bytes.NewBuffer(buf)
-	dec := gob.NewDecoder(buffer)
-
-	err := dec.Decode(&node.addr)
-	if err != nil {
-		return err
-	}
-
-	err = dec.Decode(&node.src)
-	if err != nil {
-		return err
-	}
-
-	err = dec.Decode(&node.attempts)
-	if err != nil {
-		return err
-	}
-
-	err = dec.Decode(&node.lastAttempt)
-	if err != nil {
-		return err
-	}
-
-	err = dec.Decode(&node.lastSuccess)
-	if err != nil {
-		return err
-	}
-
-	err = dec.Decode(&node.lastConnect)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // Start will restore our previous repository state from disk.

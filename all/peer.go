@@ -54,11 +54,11 @@ func newPeer(mgr *Manager, incoming bool, network wire.BitcoinNet, version uint3
 	return peer
 }
 
-// NewIncomingPeer creates a new incoming peer for the given manager and connection.
+// newIncomingPeer creates a new incoming peer for the given manager and connection.
 // It will initialize the peer and then try to parse the necessary information from the connection.
 // It does not return the peer as the peer will notify the manager by itself once a
 // successful connection was set up.
-func NewIncomingPeer(mgr *Manager, conn net.Conn, network wire.BitcoinNet, version uint32,
+func newIncomingPeer(mgr *Manager, conn net.Conn, network wire.BitcoinNet, version uint32,
 	nonce uint64) error {
 	// create the peer with basic required varibales
 	peer := newPeer(mgr, true, network, version, nonce)
@@ -96,11 +96,11 @@ func NewIncomingPeer(mgr *Manager, conn net.Conn, network wire.BitcoinNet, versi
 	return nil
 }
 
-// NewOutgoingPeer creates a new outgoing peer for the given manager and address.
+// newOutgoingPeer creates a new outgoing peer for the given manager and address.
 // It will initialize the peer and start connection procedures.
 // It does not return the peer, as it will notify the manager on its own after successful
 // connection.
-func NewOutgoingPeer(mgr *Manager, addr *net.TCPAddr, network wire.BitcoinNet, version uint32,
+func newOutgoingPeer(mgr *Manager, addr *net.TCPAddr, network wire.BitcoinNet, version uint32,
 	nonce uint64) error {
 	// create peer with all basic required information
 	peer := newPeer(mgr, false, network, version, nonce)

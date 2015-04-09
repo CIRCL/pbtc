@@ -9,6 +9,12 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
+// Manager is the module responsible for managing the connections to peers and
+// keep them in line with application level state and requirements. It accepts
+// inbound connections, establishes the desired number of outgoing connections
+// and manages the creation and disposal of peers. It will use a provided
+// repository to get addresses to connect to and notifies it about changes
+// relevant to address selection.
 type Manager struct {
 	repo        *Repository
 	peerIndex   map[string]*peer
@@ -214,7 +220,7 @@ func (mgr *Manager) addPeer() {
 	}
 
 	// we initialize a new peer which will callback through a channel on success
-	err := NewOutgoingPeer(mgr, addr, mgr.network, mgr.version, mgr.nonce)
+	err := newOutgoingPeer(mgr, addr, mgr.network, mgr.version, mgr.nonce)
 	if err != nil {
 		return
 	}
@@ -257,7 +263,7 @@ func (mgr *Manager) processListener(listener *net.TCPListener) {
 
 		// create a new incoming peer for the given connection
 		// if the connection is valid, the peer will notify the manager on its own
-		err = NewIncomingPeer(mgr, conn, mgr.network, mgr.version, mgr.nonce)
+		err = newIncomingPeer(mgr, conn, mgr.network, mgr.version, mgr.nonce)
 		if err != nil {
 			continue
 		}
