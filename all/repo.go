@@ -10,6 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/op/go-logging"
 )
 
 // Repository is the module responsible for managing all known node addresses. It creates
@@ -51,8 +53,14 @@ func (repo *Repository) Start() {
 		return
 	}
 
+	log := logging.MustGetLogger("pbtc")
+	log.Info("Repository starting up...")
+
 	// restore nodes from the disk
-	repo.restore()
+	err := repo.restore()
+	if err != nil {
+		log.Warning("Could not restore node index (%v)", err)
+	}
 
 	// add two handlers to waitgroup and launch them as goroutines
 	repo.wg.Add(2)
@@ -73,14 +81,24 @@ func (repo *Repository) Stop() {
 		return
 	}
 
+	log := logging.MustGetLogger("pbtc")
+
 	// signal our handlers to quit
 	close(repo.sigSave)
 	close(repo.sigNode)
 
 	// save the nodes to disk one last time
-	repo.save()
+	err := repo.save()
+	if err != nil {
+		log.Warning("Could not save node index (%v)", err)
+	}
+
+	// wait for handlers to return
+	log.Debug("Waiting for handlers to quit")
+	repo.wg.Wait()
 
 	// we are not no longer running, so set new state
+	log.Info("Repository shutdown complete")
 	atomic.StoreUint32(&repo.state, stateIdle)
 }
 
@@ -88,29 +106,37 @@ func (repo *Repository) Stop() {
 // At this point, this is only the address that has last seen the node.
 // If the node doesn't exist yet, we create one.
 func (repo *Repository) Update(addr *net.TCPAddr, src *net.TCPAddr) {
+	log := logging.MustGetLogger("pbtc")
+
 	// check if a node with the given address already exists
 	// if so, simply update the source address
 	n, ok := repo.nodeIndex[addr.String()]
 	if ok {
+		log.Debug("%v: updated source address (%v -> %v)", n, n.src, src)
 		n.src = src
 		return
 	}
 
 	// if we don't know this address yet, create node and add to repo
 	n = newNode(addr, src)
+	log.Debug("%v: created new node", n)
 	repo.nodeQ <- n
 }
 
 // Attempt will update the last connection attempt on the given address
 // and increase the attempt counter accordingly.
 func (repo *Repository) Attempt(addr *net.TCPAddr) {
+	log := logging.MustGetLogger("pbtc")
+
 	// if we don't know this address, ignore
 	n, ok := repo.nodeIndex[addr.String()]
 	if !ok {
+		log.Notice("%v: attempt on non-existing node", addr)
 		return
 	}
 
 	// increase number of attempts and timestamp last attempt
+	log.Debug("%v: tagged attempt", n)
 	n.attempts++
 	n.lastAttempt = time.Now()
 }
@@ -121,11 +147,15 @@ func (repo *Repository) Attempt(addr *net.TCPAddr) {
 // but it can still be useful to determine which addresses to try to connect to
 // next.
 func (repo *Repository) Connected(addr *net.TCPAddr) {
+	log := logging.MustGetLogger("pbtc")
+
 	n, ok := repo.nodeIndex[addr.String()]
 	if !ok {
+		log.Notice("%v: connected on non-existing node", addr)
 		return
 	}
 
+	log.Debug("%v: tagged connected", n)
 	n.lastConnect = time.Now()
 }
 
@@ -135,11 +165,15 @@ func (repo *Repository) Connected(addr *net.TCPAddr) {
 // the other fields as well, but all we do with that is lose some extra
 // information that we could use to choose our addresses.
 func (repo *Repository) Good(addr *net.TCPAddr) {
+	log := logging.MustGetLogger("pbtc")
+
 	n, ok := repo.nodeIndex[addr.String()]
 	if !ok {
+		log.Notice("%v: good on non-existing node", addr)
 		return
 	}
 
+	log.Debug("%v: tagged good", n)
 	n.attempts = 0
 	n.lastSuccess = time.Now()
 }
@@ -156,22 +190,40 @@ func (repo *Repository) Get() (*net.TCPAddr, error) {
 	}
 
 	// for now, this simply picks a random node from our index
+	for tries := 0; tries < 128; tries++ {
+		node := repo.getRandomNode()
+		if node == nil {
+			continue
+		}
+
+		if node.attempts > 5 {
+			continue
+		}
+
+		if node.lastAttempt.Add(time.Minute).After(time.Now()) {
+			continue
+		}
+
+		return node.addr, nil
+	}
+
+	// we should never get here at this point
+	return nil, errors.New("no qualified node found")
+}
+
+// getRandomNode selects a random node from the repository.
+func (repo *Repository) getRandomNode() *node {
 	index := rand.Int() % len(repo.nodeIndex)
 	i := 0
 	for _, node := range repo.nodeIndex {
 		if i == index {
-			if node.attempts > 5 || node.lastAttempt.Add(time.Minute).After(time.Now()) {
-				return nil, errors.New("Node tried too often or too recently")
-			}
-
-			return node.addr, nil
+			return node
 		}
 
 		i++
 	}
 
-	// we should never get here at this point
-	return nil, errors.New("no qualified node found")
+	return nil
 }
 
 // save will try to save all current nodes to a file on disk.
@@ -214,6 +266,8 @@ func (repo *Repository) restore() error {
 
 // bootstrap will use a number of dns seeds to discover nodes.
 func (repo *Repository) bootstrap() {
+	log := logging.MustGetLogger("pbtc")
+
 	// at this point, we simply define the seeds here
 	seeds := []string{
 		"testnet-seed.alexykot.me",
@@ -222,13 +276,18 @@ func (repo *Repository) bootstrap() {
 		"testnet-seed.bitcoin.schildbach.de",
 	}
 
+	log.Info("Bootstrapping from %v DNS seeds", len(seeds))
+
 	// iterate over the seeds and try to get the ips
 	for _, seed := range seeds {
 		// check if we can look up the ip addresses
 		ips, err := net.LookupIP(seed)
 		if err != nil {
+			log.Warning("%v: could not look up IPs", seed)
 			continue
 		}
+
+		log.Info("%v: %v IP(s) found", seed, len(ips))
 
 		// range over the ips and add them to the repository
 		for _, ip := range ips {
@@ -236,16 +295,19 @@ func (repo *Repository) bootstrap() {
 			port := GetDefaultPort()
 			addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(ip.String(), strconv.Itoa(port)))
 			if err != nil {
+				log.Error("%v: could not resolve TCP address", ip)
 				continue
 			}
 
 			// check if we already know this address, if so we skip
 			_, ok := repo.nodeIndex[addr.String()]
 			if ok {
+				log.Debug("%v: node already known", addr)
 				continue
 			}
 
 			// now we can use update to add the address to our repository
+			log.Debug("%v: adding to repository", addr)
 			repo.Update(addr, repo.local(addr))
 		}
 	}
@@ -267,6 +329,9 @@ func (repo *Repository) local(addr *net.TCPAddr) *net.TCPAddr {
 
 // handleSave is the handler to regularly save our node index to disk.
 func (repo *Repository) handleSave() {
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("Save handler started")
+
 	// let the waitgroup know when we are done
 	defer repo.wg.Done()
 
@@ -287,10 +352,15 @@ SaveLoop:
 			repo.save()
 		}
 	}
+
+	log.Debug("Save handler stopped")
 }
 
 // handleNodes will take new added nodes and put them into the index.
 func (repo *Repository) handleNodes() {
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("Node handler started")
+
 	// let the waitgroup know when we are done
 	defer repo.wg.Done()
 
@@ -319,4 +389,6 @@ NodeLoop:
 			repo.nodeIndex[node.addr.String()] = node
 		}
 	}
+
+	log.Debug("Node handler stopped")
 }

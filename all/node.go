@@ -26,6 +26,10 @@ func newNode(addr *net.TCPAddr, src *net.TCPAddr) *node {
 	return n
 }
 
+func (node *node) String() string {
+	return node.addr.String()
+}
+
 // GobEncode is required to implement the GobEncoder interface.
 // It allows us to serialize the unexported fields of our nodes.
 // We could also change them to exported, but as nodes are only
