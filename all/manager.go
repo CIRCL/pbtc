@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
+	"github.com/op/go-logging"
 )
 
 // Manager is the module responsible for managing the connections to peers and
@@ -56,6 +57,9 @@ func (mgr *Manager) Start(repo *Repository, network wire.BitcoinNet, version uin
 		return
 	}
 
+	log := logging.MustGetLogger("pbtc")
+	log.Info("Starting manager")
+
 	// set the parameters for the nodes and connections we will create
 	mgr.repo = repo
 	mgr.network = network
@@ -68,6 +72,8 @@ func (mgr *Manager) Start(repo *Repository, network wire.BitcoinNet, version uin
 	go mgr.handleConnections()
 	go mgr.handlePeers()
 
+	log.Info("Manager started")
+
 	// at this point, start-up is complete and we can set the new state
 	atomic.StoreUint32(&mgr.state, stateRunning)
 }
@@ -79,13 +85,21 @@ func (mgr *Manager) Stop() {
 		return
 	}
 
+	log := logging.MustGetLogger("pbtc")
+	log.Info("Stopping manager")
+	log.Debug("Stopping peers")
+
 	// first we will stop every peer - this is a blocking operation
 	for _, peer := range mgr.peerIndex {
 		peer.Stop()
 	}
 
+	log.Debug("Sending connection handler stop signal")
+
 	// here, we close the channel to signal the connection handler to stop
 	close(mgr.sigConn)
+
+	log.Debug("Closing listeners")
 
 	// the listener handler already quits after launching all listeners
 	// we thus only need to close all listeners and wait for their routines to stop
@@ -93,11 +107,17 @@ func (mgr *Manager) Stop() {
 		listener.Close()
 	}
 
+	log.Debug("Sending peer handler stop signal")
+
 	// finally, we signal the peer listener to stop processing as well
 	close(mgr.sigPeer)
 
+	log.Debug("Waiting for handlers to return")
+
 	// we then wait for all handlers to finish cleanly
 	mgr.wg.Wait()
+
+	log.Info("Manager stopped")
 
 	// at this point, all handlers have stopped and we are back in idle state
 	atomic.StoreUint32(&mgr.state, stateIdle)
@@ -106,27 +126,38 @@ func (mgr *Manager) Stop() {
 // handleListeners tries to start a listener on every local IP to accept
 // connections. It should be called as a go routine.
 func (mgr *Manager) handleListeners() {
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("Starting listen handler")
+
 	// let the waitgroup know when we are done
 	defer mgr.wg.Done()
 
+	log.Debug("Finding local IPs")
+
 	// get all IPs on local interfaces and iterate through them
 	ips := FindLocalIPs()
+
+	log.Debug("Found", len(ips), "IPs to listen on")
+
 	for _, ip := range ips {
 		// if we can't convert into a TCP address, skip
 		addr, err := net.ResolveTCPAddr("tcp", ip.String())
 		if err != nil {
+			log.Warning("Could not convert to valid TCP address")
 			continue
 		}
 
 		// if we are already listening on this address, skip
 		_, ok := mgr.listenIndex[addr.String()]
 		if ok {
+			log.Notice("Already listening on address")
 			continue
 		}
 
 		// if we can't create the listener, skip
 		listener, err := net.ListenTCP("tcp", addr)
 		if err != nil {
+			log.Warning("Could not create TCP listener")
 			continue
 		}
 
@@ -136,11 +167,16 @@ func (mgr *Manager) handleListeners() {
 		mgr.wg.Add(1)
 		go mgr.processListener(listener)
 	}
+
+	log.Debug("Listen handler returning")
 }
 
 // handleConnections attempts to establish new connections at the configured
 // rate as long as we are not at the maximum number of connections.
 func (mgr *Manager) handleConnections() {
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("Starting connection handler")
+
 	// let the waitgroup know when we are done
 	defer mgr.wg.Done()
 
@@ -150,6 +186,7 @@ ConnLoop:
 		// this is the signal to quit, so break the outer loop
 		case _, ok := <-mgr.sigConn:
 			if !ok {
+				log.Debug("Connection handler received stop signal")
 				break ConnLoop
 			}
 
@@ -157,16 +194,22 @@ ConnLoop:
 		// if we don't have too many peers yet, try to create a new one
 		case <-mgr.connTicker.C:
 			if len(mgr.peerIndex) <= maxPeerCount {
+				log.Debug("Maximum peer number not reached, adding peer")
 				mgr.addPeer()
 			}
 		}
 	}
+
+	log.Debug("Connection handler returning")
 }
 
 // handlePeers will execute householding operations on new peers and peers
 // that have expired. It should be used to keep track of peers and to convey
 // application state to the peers.
 func (mgr *Manager) handlePeers() {
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("Starting per handler")
+
 	// let the waitgroup know when we are done
 	defer mgr.wg.Done()
 
@@ -176,40 +219,51 @@ PeerLoop:
 		// this is the signal to quit, so break the outer loop
 		case _, ok := <-mgr.sigPeer:
 			if !ok {
+				log.Debug("Peer handler received stop signal")
 				break PeerLoop
 			}
 
 		// whenever there is a new peer to be added, process it
 		case peer := <-mgr.peerNew:
+			log.Debug("Peer handler processing new peer")
 			mgr.processNewPeer(peer)
 
 		// whenever there is an expired peer to be removed, process it
 		case peer := <-mgr.peerDone:
+			log.Debug("Peer handler processing done peer")
 			mgr.processDonePeer(peer)
 		}
 	}
+
+	log.Debug("Peer handler returning")
 }
 
 // addPeer will try to connect to a new peer and start it on success.
 func (mgr *Manager) addPeer() {
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("Trying to add new peer")
+
 	tries := 0
 	var addr *net.TCPAddr
 	for {
 		// if we tried too many times, give up for this time
 		tries++
 		if tries > maxAddrAttempts {
+			//log.Notice("Reached maximum attempts to find good address")
 			return
 		}
 
 		// try to get the best address from the repository
 		addr, err := mgr.repo.Get()
 		if err != nil {
+			//log.Notice("Repository could not return an address")
 			return
 		}
 
 		// check if the address in still unused
 		_, ok := mgr.peerIndex[addr.String()]
 		if !ok {
+			//log.Notice("New address already connected", addr)
 			continue
 		}
 
@@ -217,9 +271,11 @@ func (mgr *Manager) addPeer() {
 		break
 	}
 
+	log.Debug("New peer address found, creating peer")
 	// we initialize a new peer which will callback through a channel on success
 	err := newOutgoingPeer(mgr, addr, mgr.network, mgr.version, mgr.nonce)
 	if err != nil {
+		log.Error("Could not create peer")
 		return
 	}
 }
@@ -228,8 +284,11 @@ func (mgr *Manager) addPeer() {
 // the manager. The peers should be in a connected state so we can start them
 // and add them to our index.
 func (mgr *Manager) processNewPeer(peer *peer) {
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("Starting new peer")
 	peer.Start()
 
+	log.Debug("Adding new peer to peer index")
 	mgr.peerIndex[peer.String()] = peer
 }
 
@@ -237,11 +296,14 @@ func (mgr *Manager) processNewPeer(peer *peer) {
 // already initialized shutdown on their own, so we just need to remove them
 // from our index.
 func (mgr *Manager) processDonePeer(peer *peer) {
+	log := logging.MustGetLogger("pbtc")
 	_, ok := mgr.peerIndex[peer.String()]
 	if !ok {
+		log.Notice("Done peer already removed from peer index")
 		return
 	}
 
+	log.Debug("Removing done peer from peer index")
 	delete(mgr.peerIndex, peer.String())
 }
 
@@ -249,6 +311,9 @@ func (mgr *Manager) processDonePeer(peer *peer) {
 // want to listen on. It should be run as a go routine and will try accepting
 // new connections.
 func (mgr *Manager) processListener(listener *net.TCPListener) {
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("Starting accept handler for listener")
+
 	// let the waitgroup know when we are done
 	defer mgr.wg.Done()
 
@@ -256,6 +321,7 @@ func (mgr *Manager) processListener(listener *net.TCPListener) {
 		// try accepting a new connection
 		conn, err := listener.Accept()
 		if err != nil {
+			log.Warning("Could not accept connection on listener")
 			break
 		}
 
@@ -263,7 +329,10 @@ func (mgr *Manager) processListener(listener *net.TCPListener) {
 		// if the connection is valid, the peer will notify the manager on its own
 		err = newIncomingPeer(mgr, conn, mgr.network, mgr.version, mgr.nonce)
 		if err != nil {
+			log.Error("Could not create incoming peer")
 			continue
 		}
 	}
+
+	log.Debug("Accept handler returning")
 }
