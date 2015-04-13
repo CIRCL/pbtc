@@ -1,5 +1,5 @@
-[META] add logging messages throughout the program
 [PEER] add protocol conform handling of all messages
+[PEER/MGR/REPO] notify correctly on attempt, connected & good
 [WRITER] create flexible writer to write connection events to files
 [WRITER] implement regular time-based & size-based log rotation
 [REPO] add blacklist of nodes we will never connect to

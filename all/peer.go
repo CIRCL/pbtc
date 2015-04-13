@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
+	"github.com/op/go-logging"
 )
 
 const (
@@ -24,6 +25,7 @@ type peer struct {
 	network  wire.BitcoinNet
 	version  uint32
 	nonce    uint64
+	shaked   bool
 
 	addr  *net.TCPAddr
 	conn  *net.TCPConn
@@ -213,10 +215,7 @@ func (peer *peer) Start() {
 	// if we are talking to an outgoing peer, we should send the version first
 	// if this fails, the handshake broke down and we are done with this peer
 	if !peer.incoming {
-		err := peer.pushVersion()
-		if err != nil {
-			peer.mgr.peerDone <- peer
-		}
+		peer.pushVersion()
 	}
 
 	// add three handlers to our waitgroup and launch them
@@ -298,11 +297,7 @@ SendLoop:
 
 		// we didnt's send a message in a long time, so send a ping
 		case <-idleTimer.C:
-			err := peer.pushPing()
-			if err != nil {
-				peer.Stop()
-				peer.mgr.peerDone <- peer
-			}
+			peer.pushPing()
 
 		// try to send the next message in the queue
 		// on timeouts, we try the next one, on other errors, we stop the peer
@@ -432,82 +427,135 @@ MsgsLoop:
 }
 
 func (peer *peer) handleVersionMsg(msg *wire.MsgVersion) {
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("%v: received version message", peer)
 
+	if msg.Nonce == peer.nonce {
+		log.Warning("%v: detected connection to self, disconnecting", peer)
+		peer.Stop()
+		peer.mgr.peerDone <- peer
+		return
+	}
+
+	if peer.shaked {
+		log.Notice("%v: received version after handshake", peer)
+		return
+	}
+
+	if msg.ProtocolVersion < int32(wire.MultipleAddressVersion) {
+		log.Notice("%v: detected outdated protocol version", peer)
+	}
+
+	peer.version = MinUint32(peer.version, uint32(msg.ProtocolVersion))
+	peer.shaked = true
+
+	if peer.incoming {
+		peer.pushVersion()
+	}
+
+	peer.pushVerAck()
+	peer.pushGetAddr()
 }
 
 func (peer *peer) handleVerAckMsg(msg *wire.MsgVerAck) {
-
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("%v: received verack message", peer)
 }
 
 func (peer *peer) handlePingMsg(msg *wire.MsgPing) {
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("%v: received ping message", peer)
 
+	if peer.version > wire.BIP0031Version {
+		peer.pushPong(msg.Nonce)
+	}
 }
 
 func (peer *peer) handlePongMsg(msg *wire.MsgPong) {
-
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("%v: received pong message", peer)
 }
 
 func (peer *peer) handleGetAddrMsg(msg *wire.MsgGetAddr) {
-
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("%v: received getaddr message", peer)
 }
 
 func (peer *peer) handleAddrMsg(msg *wire.MsgAddr) {
-
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("%v: received addr message", peer)
 }
 
 func (peer *peer) handleInvMsg(msg *wire.MsgInv) {
-
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("%v: received inv message", peer)
 }
 
 func (peer *peer) handleGetHeadersMsg(msg *wire.MsgGetHeaders) {
-
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("%v: received getheaders message", peer)
 }
 
 func (peer *peer) handleHeadersMsg(msg *wire.MsgHeaders) {
-
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("%v: received headers message", peer)
 }
 
 func (peer *peer) handleGetBlocksMsg(msg *wire.MsgGetBlocks) {
-
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("%v: received getblocks message", peer)
 }
 
 func (peer *peer) handleBlockMsg(msg *wire.MsgBlock) {
-
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("%v: received block message", peer)
 }
 
 func (peer *peer) handleGetDataMsg(msg *wire.MsgGetData) {
-
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("%v: received getdata message", peer)
 }
 
 func (peer *peer) handleTxMsg(msg *wire.MsgTx) {
-
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("%v: received tx message", peer)
 }
 
 func (peer *peer) handleAlertMsg(msg *wire.MsgAlert) {
-
+	log := logging.MustGetLogger("pbtc")
+	log.Debug("%v: received alert message", peer)
 }
 
-// pushVersion will try to directly send a version message on the wire, bypassing the queue.
-func (peer *peer) pushVersion() error {
+func (peer *peer) pushVersion() {
 	msg := wire.NewMsgVersion(peer.me, peer.you, peer.nonce, 0)
 	msg.AddUserAgent(userAgentName, userAgentVersion)
 	msg.AddrYou.Services = wire.SFNodeNetwork
 	msg.Services = wire.SFNodeNetwork
 	msg.ProtocolVersion = int32(wire.RejectVersion)
 
-	return peer.sendMessage(msg)
+	peer.sendQ <- msg
 }
 
-// pushGetAddr will try to directly send a getaddr message on the wire, bypassing the queue.
-func (peer *peer) pushGetAddr() error {
+func (peer *peer) pushVerAck() {
+	msg := wire.NewMsgVerAck()
+
+	peer.sendQ <- msg
+}
+
+func (peer *peer) pushGetAddr() {
 	msg := wire.NewMsgGetAddr()
 
-	return peer.sendMessage(msg)
+	peer.sendQ <- msg
 }
 
-// pushPing will try to directly send a ping message on the wire, bypassing the queue.
-func (peer *peer) pushPing() error {
+func (peer *peer) pushPing() {
 	msg := wire.NewMsgPing(peer.nonce)
 
-	return peer.sendMessage(msg)
+	peer.sendQ <- msg
+}
+
+func (peer *peer) pushPong(nonce uint64) {
+	msg := wire.NewMsgPong(nonce)
+
+	peer.sendQ <- msg
 }
