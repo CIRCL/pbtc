@@ -19,7 +19,6 @@ const (
 )
 
 type peer struct {
-	logger   *LogHelper
 	mgr      *Manager
 	incoming bool
 	network  wire.BitcoinNet
@@ -71,9 +70,6 @@ func newIncomingPeer(mgr *Manager, conn net.Conn, network wire.BitcoinNet, versi
 	nonce uint64) error {
 	// create the peer with basic required varibales
 	peer := newPeer(mgr, true, network, version, nonce)
-
-	logString := "[PEER] (" + conn.RemoteAddr().String() + ")"
-	peer.logger = GetLogHelper(logString)
 
 	// here, we try to parse the remote adress as TCP address
 	addr, ok := conn.RemoteAddr().(*net.TCPAddr)

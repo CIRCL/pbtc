@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -10,29 +9,42 @@ import (
 	"time"
 
 	"github.com/CIRCL/pbtc/all"
-
 	"github.com/btcsuite/btcd/wire"
+	"github.com/op/go-logging"
+)
+
+const (
+	consoleFormat = "%{color}%{time} %{level} %{message}%{color:reset}"
+	fileFormat    = "%{time} %{level} %{message}"
 )
 
 func main() {
-	// get main program logger
-	logger := all.GetLogHelper("[PBTC]")
+	// initialize backend for console logging
+	consoleBackend := logging.NewLogBackend(os.Stderr, "", 0)
+	consoleFormatter := logging.MustStringFormatter(consoleFormat)
+	consoleFormatted := logging.NewBackendFormatter(consoleBackend, consoleFormatter)
+	consoleLeveled := logging.AddModuleLevel(consoleFormatted)
+	consoleLeveled.SetLevel(logging.INFO, "pbtc")
+	logging.SetBackend(consoleLeveled)
 
-	// configure console logging
-	agent := all.GetLogAgent()
-	agent.AddOutput(log.New(os.Stdout, "", 0), all.LogInfo)
+	// set up the logging frontend
+	log := logging.MustGetLogger("pbtc")
 
-	// configure file logging
+	// initialize backend for file logging
 	file, err := os.Create("pbtc.log")
 	if err != nil {
-		logger.Logln(all.LogFatal, "Could not create log file")
-		os.Exit(1)
+		log.Fatal("Could not create log file")
 	}
-	agent.AddOutput(log.New(file, "", 0), all.LogTrace)
 	defer file.Close()
+	fileBackend := logging.NewLogBackend(file, "", 0)
+	fileFormatter := logging.MustStringFormatter(fileFormat)
+	fileFormatted := logging.NewBackendFormatter(fileBackend, fileFormatter)
+	fileLeveled := logging.AddModuleLevel(fileFormatted)
+	fileLeveled.SetLevel(logging.DEBUG, "pbtc")
+	logging.SetBackend(consoleLeveled, fileLeveled)
 
 	// start program logic
-	logger.Logln(all.LogInfo, "Starting")
+	log.Info("Starting")
 
 	// catch signals
 	sigc := make(chan os.Signal, 1)
@@ -57,7 +69,7 @@ SigLoop:
 	for sig := range sigc {
 		switch sig {
 		case os.Interrupt:
-			logger.Logln(all.LogInfo, "Stopping")
+			log.Info("Stopping")
 			break SigLoop
 
 		case syscall.SIGTERM:
@@ -74,7 +86,7 @@ SigLoop:
 	mgr.Stop()
 	repo.Stop()
 
-	logger.Logln(all.LogInfo, "Exiting")
+	log.Info("Exiting")
 
 	os.Exit(0)
 }

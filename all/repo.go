@@ -17,7 +17,6 @@ import (
 // evaluate the node quality / reliability. It also stores this information in a file
 // and restores it on start.
 type Repository struct {
-	logger    *LogHelper
 	nodeIndex map[string]*node
 	sigSave   chan struct{}
 	sigNode   chan struct{}
@@ -30,7 +29,6 @@ type Repository struct {
 // NewRepository creates a new repository with all necessary variables initialized.
 func NewRepository() *Repository {
 	repo := &Repository{
-		logger:    GetLogHelper("[REPO]"),
 		nodeIndex: make(map[string]*node),
 		sigSave:   make(chan struct{}, 1),
 		sigNode:   make(chan struct{}, 1),
