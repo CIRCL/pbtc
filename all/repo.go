@@ -152,7 +152,7 @@ func (repo *Repository) Good(addr *net.TCPAddr) {
 func (repo *Repository) Get() (*net.TCPAddr, error) {
 	// if we know no nodes, we return an error and nil value
 	if len(repo.nodeIndex) == 0 {
-		return nil, errors.New("No nodes in repository")
+		return nil, errors.New("no nodes in repository")
 	}
 
 	// for now, this simply picks a random node from our index
@@ -160,6 +160,10 @@ func (repo *Repository) Get() (*net.TCPAddr, error) {
 	i := 0
 	for _, node := range repo.nodeIndex {
 		if i == index {
+			if node.attempts > 5 || node.lastAttempt.Add(time.Minute).After(time.Now()) {
+				return nil, errors.New("Node tried too often or too recently")
+			}
+
 			return node.addr, nil
 		}
 
@@ -167,7 +171,7 @@ func (repo *Repository) Get() (*net.TCPAddr, error) {
 	}
 
 	// we should never get here at this point
-	return nil, errors.New("No qualified node found")
+	return nil, errors.New("no qualified node found")
 }
 
 // save will try to save all current nodes to a file on disk.

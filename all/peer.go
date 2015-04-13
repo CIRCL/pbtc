@@ -26,7 +26,7 @@ type peer struct {
 	nonce    uint64
 
 	addr  *net.TCPAddr
-	conn  net.Conn
+	conn  *net.TCPConn
 	me    *wire.NetAddress
 	you   *wire.NetAddress
 	state uint32
@@ -66,9 +66,9 @@ func newPeer(mgr *Manager, incoming bool, network wire.BitcoinNet, version uint3
 // It will initialize the peer and then try to parse the necessary information from the connection.
 // It does not return the peer as the peer will notify the manager by itself once a
 // successful connection was set up.
-func newIncomingPeer(mgr *Manager, conn net.Conn, network wire.BitcoinNet, version uint32,
+func newIncomingPeer(mgr *Manager, conn *net.TCPConn, network wire.BitcoinNet, version uint32,
 	nonce uint64) error {
-	// create the peer with basic required varibales
+	// create the peer with basic required variables
 	peer := newPeer(mgr, true, network, version, nonce)
 
 	// here, we try to parse the remote adress as TCP address
@@ -141,11 +141,14 @@ func (peer *peer) Connect() {
 	}
 
 	// if we can't establish the connection, abort
-	conn, err := net.DialTimeout("tcp", peer.addr.String(), timeoutDial)
+	connGen, err := net.DialTimeout("tcp", peer.addr.String(), timeoutDial)
 	if err != nil {
 		peer.Stop()
 		return
 	}
+
+	// this should always work
+	conn := connGen.(*net.TCPConn)
 
 	// try to parse the local address as tcp address
 	local, ok := conn.LocalAddr().(*net.TCPAddr)
@@ -176,7 +179,7 @@ func (peer *peer) Connect() {
 }
 
 // Use will try to use a given connection to communicate with a peer.
-func (peer *peer) Use(conn net.Conn) {
+func (peer *peer) Use(conn *net.TCPConn) {
 	// we can only use a connection if we are still idle
 	if !atomic.CompareAndSwapUint32(&peer.state, stateIdle, stateBusy) {
 		return

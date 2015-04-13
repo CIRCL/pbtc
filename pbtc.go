@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	consoleFormat = "%{color}%{time} %{level} %{message}%{color:reset}"
-	fileFormat    = "%{time} %{level} %{message}"
+	consoleFormat = "%{color}%{time} %{level} %{shortfile} %{message}%{color:reset}"
+	fileFormat    = "%{time} %{level} %{shortfile} %{message}"
 )
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 	consoleFormatter := logging.MustStringFormatter(consoleFormat)
 	consoleFormatted := logging.NewBackendFormatter(consoleBackend, consoleFormatter)
 	consoleLeveled := logging.AddModuleLevel(consoleFormatted)
-	consoleLeveled.SetLevel(logging.INFO, "pbtc")
+	consoleLeveled.SetLevel(logging.DEBUG, "pbtc")
 	logging.SetBackend(consoleLeveled)
 
 	// set up the logging frontend
@@ -44,7 +44,7 @@ func main() {
 	logging.SetBackend(consoleLeveled, fileLeveled)
 
 	// start program logic
-	log.Info("Starting")
+	log.Info("PBTC starting")
 
 	// catch signals
 	sigc := make(chan os.Signal, 1)
@@ -69,7 +69,7 @@ SigLoop:
 	for sig := range sigc {
 		switch sig {
 		case os.Interrupt:
-			log.Info("Stopping")
+			log.Info("PBTC stopping")
 			break SigLoop
 
 		case syscall.SIGTERM:
@@ -86,7 +86,7 @@ SigLoop:
 	mgr.Stop()
 	repo.Stop()
 
-	log.Info("Exiting")
+	log.Info("PBTC stopped")
 
 	os.Exit(0)
 }

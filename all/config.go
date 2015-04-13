@@ -23,7 +23,7 @@ const (
 const (
 	maxConnsPerSec  = 4     // maximum outgoing tcp connections per second
 	maxAddrAttempts = 128   // maximum times we try to get a good address to connect to
-	maxPeerCount    = 1024  // maximum number of concurrent connected peers
+	maxPeerCount    = 16    // maximum number of concurrent connected peers
 	maxNodeCount    = 32768 // maximum number of records in node repository
 )
 

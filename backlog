@@ -1,6 +1,5 @@
-[LOGGER] refactor logger into own package to make it less intrusive
 [META] add logging messages throughout the program
-[PEER] add handling for relevant messages to test program functionality
+[PEER] add protocol conform handling of all messages
 [WRITER] create flexible writer to write connection events to files
 [WRITER] implement regular time-based & size-based log rotation
 [REPO] add blacklist of nodes we will never connect to
