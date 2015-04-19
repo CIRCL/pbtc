@@ -8,9 +8,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/CIRCL/pbtc/all"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/op/go-logging"
+
+	"github.com/CIRCL/pbtc/application"
 )
 
 const (
@@ -57,12 +58,10 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	// initialize our modules
-	repo := all.NewRepository()
-	mgr := all.NewManager()
+	mon := application.NewMonitor()
 
 	// start our modules
-	repo.Start()
-	mgr.Start(repo, wire.TestNet3, wire.RejectVersion)
+	mon.Start(wire.TestNet3, wire.RejectVersion)
 
 	// wait for signals in blocking loop
 SigLoop:
@@ -83,8 +82,7 @@ SigLoop:
 	}
 
 	// stop our modules
-	mgr.Stop()
-	repo.Stop()
+	mon.Stop()
 
 	log.Info("PBTC stopped")
 

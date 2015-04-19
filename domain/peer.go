@@ -1,4 +1,4 @@
-package peer
+package domain
 
 import (
 	"errors"
@@ -8,10 +8,6 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
-	"github.com/op/go-logging"
-
-	"github.com/CIRCL/pbtc/log"
-	"github.com/CIRCL/pbtc/util"
 )
 
 const (
@@ -35,7 +31,7 @@ type Peer struct {
 	recvQ   chan wire.Message
 
 	mgr Manager
-	log log.Logger
+	log Logger
 
 	network wire.BitcoinNet
 	version uint32
@@ -48,7 +44,7 @@ type Peer struct {
 	done uint32
 }
 
-func New(options ...func(*Peer)) (*Peer, error) {
+func NewPeer(options ...func(*Peer)) (*Peer, error) {
 	peer := &Peer{
 		wg:      &sync.WaitGroup{},
 		sigSend: make(chan struct{}, 1),
@@ -67,11 +63,11 @@ func New(options ...func(*Peer)) (*Peer, error) {
 	}
 
 	if peer.mgr == nil {
-		peer.mgr = &ManagerStub{}
+		peer.mgr = NewManagerStub()
 	}
 
 	if peer.log == nil {
-		peer.log = &log.LoggerStub{}
+		peer.log = NewLoggerStub()
 	}
 
 	if peer.network == 0 {
@@ -107,7 +103,7 @@ func SetManager(mgr Manager) func(*Peer) {
 	}
 }
 
-func SetLogger(log log.Logger) func(*Peer) {
+func SetLogger(log Logger) func(*Peer) {
 	return func(peer *Peer) {
 		peer.log = log
 	}
@@ -388,25 +384,24 @@ func (peer *Peer) goMessages() {
 }
 
 func (peer *Peer) handleVersionMsg(msg *wire.MsgVersion) {
-	log := logging.MustGetLogger("pbtc")
-	log.Debug("%v: received version message", peer)
+	peer.log.Debug("%v: received version message", peer)
 
 	if msg.Nonce == peer.nonce {
-		log.Warning("%v: detected connection to self, disconnecting", peer)
+		peer.log.Warning("%v: detected connection to self, disconnecting", peer)
 		peer.shutdown()
 		return
 	}
 
 	/*if peer.shaked {
-		log.Notice("%v: received version after handshake", peer)
+		peer.log.Notice("%v: received version after handshake", peer)
 		return
 	}*/
 
 	if msg.ProtocolVersion < int32(wire.MultipleAddressVersion) {
-		log.Notice("%v: detected outdated protocol version", peer)
+		peer.log.Notice("%v: detected outdated protocol version", peer)
 	}
 
-	peer.version = util.MinUint32(peer.version, uint32(msg.ProtocolVersion))
+	peer.version = MinUint32(peer.version, uint32(msg.ProtocolVersion))
 	//peer.shaked = true
 
 	/*if peer.incoming {

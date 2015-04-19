@@ -1,4 +1,4 @@
-package peer
+package domain
 
 type Manager interface {
 	Started(peer *Peer)

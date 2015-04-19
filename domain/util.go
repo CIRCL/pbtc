@@ -1,23 +1,21 @@
-package all
+package domain
 
 import (
-	"log"
 	"net"
-
-	"github.com/btcsuite/btcd/wire"
 )
 
 // FindLocalIPs finds all IPs associated with local interfaces.
-func FindLocalIPs() []net.IP {
+func FindLocalIPs() ([]net.IP, error) {
 	// create empty slice of ips to return
 	var ips []net.IP
 
 	// get all network interfaces
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		log.Println(err)
-		return ips
+		return nil, err
 	}
+
+	var last_err error
 
 	// iterate through interfaces to find valid ips
 	for _, iface := range ifaces {
@@ -35,13 +33,11 @@ func FindLocalIPs() []net.IP {
 		// get all interface addresses
 		addrs, err := iface.Addrs()
 		if err != nil {
-			log.Println(err)
-			continue
+			last_err = err
 		}
 
 		// iterate through addresses to get valid ips
 		for _, addr := range addrs {
-
 			// get the IP for valid IP types
 			var ip net.IP
 			switch t := addr.(type) {
@@ -69,8 +65,12 @@ func FindLocalIPs() []net.IP {
 		}
 	}
 
+	if len(ips) == 0 {
+		return nil, last_err
+	}
+
 	// return the slice of valid IPs, can be zero length and empty
-	return ips
+	return ips, nil
 }
 
 // MinUint32 returns the smaller of two uint32. It is used as a shortcut
@@ -81,25 +81,4 @@ func MinUint32(x uint32, y uint32) uint32 {
 	}
 
 	return y
-}
-
-// GetDefaultPort returns the default port for the type of network that
-// was defined in the configuration options.
-func GetDefaultPort() int {
-	switch protocolNetwork {
-	case wire.SimNet:
-		return 18555
-
-	case wire.TestNet:
-		return 18444
-
-	case wire.TestNet3:
-		return 18333
-
-	case wire.MainNet:
-		return 8333
-
-	default:
-		return 0
-	}
 }

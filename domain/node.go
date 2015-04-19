@@ -1,4 +1,4 @@
-package all
+package domain
 
 import (
 	"bytes"
@@ -8,12 +8,12 @@ import (
 )
 
 type node struct {
-	addr        *net.TCPAddr
-	src         *net.TCPAddr
-	attempts    uint32
-	lastAttempt time.Time
-	lastSuccess time.Time
-	lastConnect time.Time
+	addr          *net.TCPAddr
+	src           *net.TCPAddr
+	numAttempts   uint32
+	lastAttempted time.Time
+	lastConnected time.Time
+	lastSucceeded time.Time
 }
 
 // newNode creates a new node for the given address and source.
@@ -48,22 +48,22 @@ func (node *node) GobEncode() ([]byte, error) {
 		return nil, err
 	}
 
-	err = enc.Encode(node.attempts)
+	err = enc.Encode(node.numAttempts)
 	if err != nil {
 		return nil, err
 	}
 
-	err = enc.Encode(node.lastAttempt)
+	err = enc.Encode(node.lastAttempted)
 	if err != nil {
 		return nil, err
 	}
 
-	err = enc.Encode(node.lastSuccess)
+	err = enc.Encode(node.lastConnected)
 	if err != nil {
 		return nil, err
 	}
 
-	err = enc.Encode(node.lastConnect)
+	err = enc.Encode(node.lastSucceeded)
 	if err != nil {
 		return nil, err
 	}
@@ -87,22 +87,22 @@ func (node *node) GobDecode(buf []byte) error {
 		return err
 	}
 
-	err = dec.Decode(&node.attempts)
+	err = dec.Decode(&node.numAttempts)
 	if err != nil {
 		return err
 	}
 
-	err = dec.Decode(&node.lastAttempt)
+	err = dec.Decode(&node.lastAttempted)
 	if err != nil {
 		return err
 	}
 
-	err = dec.Decode(&node.lastSuccess)
+	err = dec.Decode(&node.lastConnected)
 	if err != nil {
 		return err
 	}
 
-	err = dec.Decode(&node.lastConnect)
+	err = dec.Decode(&node.lastSucceeded)
 	if err != nil {
 		return err
 	}
