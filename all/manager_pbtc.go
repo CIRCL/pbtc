@@ -10,6 +10,16 @@ import (
 
 	"github.com/btcsuite/btcd/wire"
 	"github.com/op/go-logging"
+
+	"github.com/CIRCL/pbtc/peer"
+)
+
+const (
+	stateIdle      = iota // initial state where module is ready to start
+	stateConnected        // peer state when it is connected
+	stateRunning          // module state after a module was started
+	stateBusy             // state used during state changes
+	stateShutdown         // irreversible shutdown of module
 )
 
 // Manager is the module responsible for managing the connections to peers and
@@ -20,12 +30,12 @@ import (
 // relevant to address selection.
 type Manager struct {
 	repo        *Repository
-	peerIndex   map[string]*peer
+	peerIndex   map[string]*peer.Peer
 	listenIndex map[string]*net.TCPListener
 	sigPeer     chan struct{}
 	sigConn     chan struct{}
-	peerNew     chan *peer
-	peerDone    chan *peer
+	peerNew     chan *peer.Peer
+	peerDone    chan *peer.Peer
 	connTicker  *time.Ticker
 	wg          *sync.WaitGroup
 	state       uint32
@@ -37,18 +47,30 @@ type Manager struct {
 // NewManager returns a new manager with all necessary variables initialized.
 func NewManager() *Manager {
 	mgr := &Manager{
-		peerIndex:   make(map[string]*peer),
+		peerIndex:   make(map[string]*peer.Peer),
 		listenIndex: make(map[string]*net.TCPListener),
 		sigPeer:     make(chan struct{}, 1),
 		sigConn:     make(chan struct{}, 1),
-		peerNew:     make(chan *peer, bufferManagerNew),
-		peerDone:    make(chan *peer, bufferManagerDone),
+		peerNew:     make(chan *peer.Peer, bufferManagerNew),
+		peerDone:    make(chan *peer.Peer, bufferManagerDone),
 		connTicker:  time.NewTicker(time.Second / maxConnsPerSec),
 		wg:          &sync.WaitGroup{},
 		state:       stateIdle,
 	}
 
 	return mgr
+}
+
+func (mgr *Manager) Connected(peer *peer.Peer) {
+
+}
+
+func (mgr *Manager) Started(peer *peer.Peer) {
+
+}
+
+func (mgr *Manager) Stopped(peer *peer.Peer) {
+
 }
 
 // Start starts the manager, with run-time options passed in as parameters. This allows
@@ -246,11 +268,19 @@ func (mgr *Manager) handleListener(listener *net.TCPListener) {
 
 		// create a new incoming peer for the given connection
 		// if the connection is valid, the peer will notify the manager on its own
-		err = newIncomingPeer(mgr, conn, mgr.network, mgr.version, mgr.nonce)
+		p, err := peer.New(
+			peer.SetManager(mgr),
+			peer.SetNetwork(mgr.network),
+			peer.SetVersion(mgr.version),
+			peer.SetNonce(mgr.nonce),
+			peer.SetConnection(conn),
+		)
 		if err != nil {
 			log.Error("%v: could not create incoming peer (%v)", conn.RemoteAddr(), err)
 			continue
 		}
+
+		_ = p
 	}
 
 	log.Debug("%v: listener handler stopped", listener.Addr())
@@ -284,11 +314,19 @@ func (mgr *Manager) addPeer() {
 		}
 
 		// we initialize a new peer which will callback through a channel on success
-		err = newOutgoingPeer(mgr, addr, mgr.network, mgr.version, mgr.nonce)
+		p, err := peer.New(
+			peer.SetManager(mgr),
+			peer.SetNetwork(mgr.network),
+			peer.SetVersion(mgr.version),
+			peer.SetNonce(mgr.nonce),
+			peer.SetAddress(addr),
+		)
 		if err != nil {
 			log.Error("%v: couldn't create peer (%v)", addr, err)
 			return
 		}
+
+		_ = p
 
 		log.Info("%v: new peer initialized", addr)
 		mgr.repo.Attempt(addr)
@@ -299,10 +337,10 @@ func (mgr *Manager) addPeer() {
 // processNewPeer is what we do with new initialized peers that are added to
 // the manager. The peers should be in a connected state so we can start them
 // and add them to our index.
-func (mgr *Manager) processNewPeer(peer *peer) {
+func (mgr *Manager) processNewPeer(peer *peer.Peer) {
 	log := logging.MustGetLogger("pbtc")
-	mgr.repo.Connected(peer.addr)
-	mgr.repo.Good(peer.addr)
+	mgr.repo.Connected(peer.Addr())
+	mgr.repo.Good(peer.Addr())
 
 	_, ok := mgr.peerIndex[peer.String()]
 	if ok {
@@ -316,14 +354,13 @@ func (mgr *Manager) processNewPeer(peer *peer) {
 	}
 
 	log.Debug("%v: starting connected peer", peer)
-	peer.Start()
 	mgr.peerIndex[peer.String()] = peer
 }
 
 // processDonePeer is what we do to expired peers. They failed in some way and
 // already initialized shutdown on their own, so we just need to remove them
 // from our index.
-func (mgr *Manager) processDonePeer(peer *peer) {
+func (mgr *Manager) processDonePeer(peer *peer.Peer) {
 	log := logging.MustGetLogger("pbtc")
 	_, ok := mgr.peerIndex[peer.String()]
 	if !ok {
