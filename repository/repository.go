@@ -1,4 +1,4 @@
-package domain
+package repository
 
 import (
 	"encoding/gob"
@@ -6,80 +6,86 @@ import (
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/CIRCL/pbtc/logger"
 )
 
 // Repository is the module responsible for managing all known node addresses. It creates
 // a node for every new address and keeps track of all necessary information require to
 // evaluate the node quality / reliability. It also stores this information in a file
 // and restores it on start.
-type RepositoryStub struct {
+type Repository struct {
 	nodeIndex map[string]*node
 
-	log Logger
+	seeds      []string
+	backupPath string
+
+	log logger.Logger
 }
 
 // NewRepository creates a new repository with all necessary variables initialized.
-func NewRepositoryStub(options ...func(repo *RepositoryStub)) *RepositoryStub {
-	repo := &RepositoryStub{
+func New(options ...func(repo *Repository)) (*Repository, error) {
+	repo := &Repository{
 		nodeIndex: make(map[string]*node),
-		log:       NewLoggerStub(),
 	}
 
-	return repo
+	for _, option := range options {
+		option(repo)
+	}
+
+	return repo, nil
 }
 
-func (repo *RepositoryStub) Count() int {
-	return len(repo.nodeIndex)
+func SetLogger(log logger.Logger) func(*Repository) {
+	return func(mem *Repository) {
+		mem.log = log
+	}
+}
+
+func SetSeeds(seeds []string) func(*Repository) {
+	return func(mem *Repository) {
+		mem.seeds = seeds
+	}
+}
+
+func SetBackupPath(path string) func(*Repository) {
+	return func(mem *Repository) {
+		mem.backupPath = path
+	}
 }
 
 // bootstrap will use a number of dns seeds to discover nodes.
-func (repo *RepositoryStub) Bootstrap() {
-	// at this point, we simply define the seeds here
-	seeds := []string{
-		"testnet-seed.alexykot.me",
-		"testnet-seed.bitcoin.petertodd.org",
-		"testnet-seed.bluematt.me",
-		"testnet-seed.bitcoin.schildbach.de",
-	}
-
-	repo.log.Info("Bootstrapping from %v DNS seeds", len(seeds))
-
+func (repo *Repository) Bootstrap() {
 	// iterate over the seeds and try to get the ips
-	for _, seed := range seeds {
+	for _, seed := range repo.seeds {
 		// check if we can look up the ip addresses
 		ips, err := net.LookupIP(seed)
 		if err != nil {
-			repo.log.Warning("%v: could not look up IPs", seed)
 			continue
 		}
-
-		repo.log.Info("%v: %v IP(s) found", seed, len(ips))
 
 		// range over the ips and add them to the repository
 		for _, ip := range ips {
 			// try creating a TCP address from the given IP and default port
 			addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(ip.String(), strconv.Itoa(18333)))
 			if err != nil {
-				repo.log.Error("%v: could not resolve TCP address", ip)
 				continue
 			}
 
 			// check if we already know this address, if so we skip
 			_, ok := repo.nodeIndex[addr.String()]
 			if ok {
-				repo.log.Debug("%v: node already known", addr)
 				continue
 			}
 
 			// now we can use update to add the address to our repository
-			repo.log.Debug("%v: adding to repository", addr)
-			repo.Discovered(addr, addr)
+			repo.Discovered(addr)
 		}
 	}
 }
 
 // save will try to save all current nodes to a file on disk.
-func (repo *RepositoryStub) Save() error {
+func (repo *Repository) Save() error {
 	// create the file, truncating if it already exists
 	file, err := os.Create("nodes.dat")
 	if err != nil {
@@ -98,7 +104,7 @@ func (repo *RepositoryStub) Save() error {
 }
 
 // restore will try to load the previously saved node file.
-func (repo *RepositoryStub) Load() error {
+func (repo *Repository) Load() error {
 	// open the nodes file in read-only mode
 	file, err := os.Open("nodes.dat")
 	if err != nil {
@@ -119,34 +125,29 @@ func (repo *RepositoryStub) Load() error {
 // Update will update the information of a given address in our repository.
 // At this point, this is only the address that has last seen the node.
 // If the node doesn't exist yet, we create one.
-func (repo *RepositoryStub) Discovered(addr *net.TCPAddr, src *net.TCPAddr) {
+func (repo *Repository) Discovered(addr *net.TCPAddr) {
 	// check if a node with the given address already exists
 	// if so, simply update the source address
 	n, ok := repo.nodeIndex[addr.String()]
 	if ok {
-		repo.log.Debug("%v: updated source address (%v -> %v)", n, n.src, src)
-		n.src = src
 		return
 	}
 
 	// if we don't know this address yet, create node and add to repo
-	n = newNode(addr, src)
-	repo.log.Debug("%v: created new node", n)
+	n = newNode(addr)
 	repo.nodeIndex[addr.String()] = n
 }
 
 // Attempt will update the last connection attempt on the given address
 // and increase the attempt counter accordingly.
-func (repo *RepositoryStub) Attempted(addr *net.TCPAddr) {
+func (repo *Repository) Attempted(addr *net.TCPAddr) {
 	// if we don't know this address, ignore
 	n, ok := repo.nodeIndex[addr.String()]
 	if !ok {
-		repo.log.Notice("%v: attempted on non-existing node", addr)
 		return
 	}
 
 	// increase number of attempts and timestamp last attempt
-	repo.log.Debug("%v: tagged attempted", n)
 	n.numAttempts++
 	n.lastAttempted = time.Now()
 }
@@ -156,14 +157,12 @@ func (repo *RepositoryStub) Attempted(addr *net.TCPAddr) {
 // maximum once every 20 minutes. We will not give out any such information,
 // but it can still be useful to determine which addresses to try to connect to
 // next.
-func (repo *RepositoryStub) Connected(addr *net.TCPAddr) {
+func (repo *Repository) Connected(addr *net.TCPAddr) {
 	n, ok := repo.nodeIndex[addr.String()]
 	if !ok {
-		repo.log.Notice("%v: connected on non-existing node", addr)
 		return
 	}
 
-	repo.log.Debug("%v: tagged connected", n)
 	n.lastConnected = time.Now()
 }
 
@@ -172,14 +171,16 @@ func (repo *RepositoryStub) Connected(addr *net.TCPAddr) {
 // counter and timestamp last success. The reference client timestamps
 // the other fields as well, but all we do with that is lose some extra
 // information that we could use to choose our addresses.
-func (repo *RepositoryStub) Succeeded(addr *net.TCPAddr) {
+func (repo *Repository) Succeeded(addr *net.TCPAddr) {
 	n, ok := repo.nodeIndex[addr.String()]
 	if !ok {
-		repo.log.Notice("%v: succeeded on non-existing node", addr)
 		return
 	}
 
-	repo.log.Debug("%v: tagged succeeded", n)
 	n.numAttempts = 0
 	n.lastSucceeded = time.Now()
+}
+
+func (repo *Repository) Retrieve() *net.TCPAddr {
+	return nil
 }

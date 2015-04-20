@@ -1,4 +1,4 @@
-package domain
+package peer
 
 import (
 	"errors"
@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
+
+	"github.com/CIRCL/pbtc/logger"
+	"github.com/CIRCL/pbtc/util"
 )
 
 const (
@@ -31,7 +34,7 @@ type Peer struct {
 	recvQ   chan wire.Message
 
 	mgr Manager
-	log Logger
+	log logger.Logger
 
 	network wire.BitcoinNet
 	version uint32
@@ -44,8 +47,8 @@ type Peer struct {
 	done uint32
 }
 
-func NewPeer(options ...func(*Peer)) (*Peer, error) {
-	peer := &Peer{
+func New(options ...func(*Peer)) (*Peer, error) {
+	p := &Peer{
 		wg:      &sync.WaitGroup{},
 		sigSend: make(chan struct{}, 1),
 		sigRecv: make(chan struct{}, 1),
@@ -55,132 +58,124 @@ func NewPeer(options ...func(*Peer)) (*Peer, error) {
 	}
 
 	for _, option := range options {
-		option(peer)
+		option(p)
 	}
 
-	if peer.addr == nil && peer.conn == nil {
+	if p.addr == nil && p.conn == nil {
 		return nil, errors.New("Must provide address or connection")
 	}
 
-	if peer.mgr == nil {
-		peer.mgr = NewManagerStub()
+	if p.network == 0 {
+		p.network = wire.TestNet3
 	}
 
-	if peer.log == nil {
-		peer.log = NewLoggerStub()
+	if p.version == 0 {
+		p.version = wire.RejectVersion
 	}
 
-	if peer.network == 0 {
-		peer.network = wire.TestNet3
+	if p.nonce == 0 {
+		p.nonce, _ = wire.RandomUint64()
 	}
 
-	if peer.version == 0 {
-		peer.version = wire.RejectVersion
+	if p.conn == nil {
+		p.connect()
+		return p, nil
 	}
 
-	if peer.nonce == 0 {
-		peer.nonce, _ = wire.RandomUint64()
-	}
-
-	if peer.conn == nil {
-		peer.connect()
-		return peer, nil
-	}
-
-	err := peer.parse()
+	err := p.parse()
 	if err != nil {
 		return nil, err
 	}
 
-	peer.start()
+	p.start()
 
-	return peer, nil
+	return p, nil
 }
 
 func SetManager(mgr Manager) func(*Peer) {
-	return func(peer *Peer) {
-		peer.mgr = mgr
+	return func(p *Peer) {
+		p.mgr = mgr
 	}
 }
 
-func SetLogger(log Logger) func(*Peer) {
-	return func(peer *Peer) {
-		peer.log = log
+func SetLogger(log logger.Logger) func(*Peer) {
+	return func(p *Peer) {
+		p.log = log
 	}
 }
 
 func SetNetwork(network wire.BitcoinNet) func(*Peer) {
-	return func(peer *Peer) {
-		peer.network = network
+	return func(p *Peer) {
+		p.network = network
 	}
 }
 
 func SetVersion(version uint32) func(*Peer) {
-	return func(peer *Peer) {
-		peer.version = version
+	return func(p *Peer) {
+		p.version = version
 	}
 }
 
 func SetNonce(nonce uint64) func(*Peer) {
-	return func(peer *Peer) {
-		peer.nonce = nonce
+	return func(p *Peer) {
+		p.nonce = nonce
 	}
 }
 
 func SetAddress(addr *net.TCPAddr) func(*Peer) {
-	return func(peer *Peer) {
-		peer.addr = addr
+	return func(p *Peer) {
+		p.addr = addr
 	}
 }
 
 func SetConnection(conn *net.TCPConn) func(*Peer) {
-	return func(peer *Peer) {
-		peer.conn = conn
+	return func(p *Peer) {
+		p.conn = conn
 	}
 }
 
-func (peer *Peer) String() string {
-	return peer.addr.String()
+func (p *Peer) String() string {
+	return p.addr.String()
 }
 
-func (peer *Peer) Addr() *net.TCPAddr {
-	return peer.addr
+func (p *Peer) Addr() *net.TCPAddr {
+	return p.addr
 }
 
-func (peer *Peer) Stop() {
-	peer.shutdown()
-	peer.wg.Wait()
+func (p *Peer) Stop() {
+	p.shutdown()
+	p.wg.Wait()
 }
 
-func (peer *Peer) connect() {
+func (p *Peer) connect() {
 	// if we can't establish the connection, abort
-	connGen, err := net.DialTimeout("tcp", peer.addr.String(), timeoutDial)
+	connGen, err := net.DialTimeout("tcp", p.addr.String(), timeoutDial)
 	if err != nil {
-		peer.shutdown()
+		p.shutdown()
 		return
 	}
 
 	// this should always work
 	conn, ok := connGen.(*net.TCPConn)
 	if !ok {
-		peer.shutdown()
+		p.shutdown()
 		return
 	}
 
-	peer.conn = conn
+	p.conn = conn
 
 	// this should also always work...
-	err = peer.parse()
+	err = p.parse()
 	if err != nil {
-		peer.shutdown()
+		p.shutdown()
 		return
 	}
 
-	peer.start()
+	p.start()
 }
 
-func (peer *Peer) parse() error {
-	addr, ok := peer.conn.RemoteAddr().(*net.TCPAddr)
+func (p *Peer) parse() error {
+	addr, ok := p.conn.RemoteAddr().(*net.TCPAddr)
 	if !ok {
 		return errors.New("Could not parse remote address from connection")
 	}
@@ -190,7 +185,7 @@ func (peer *Peer) parse() error {
 		return err
 	}
 
-	local, ok := peer.conn.LocalAddr().(*net.TCPAddr)
+	local, ok := p.conn.LocalAddr().(*net.TCPAddr)
 	if !ok {
 		return errors.New("Could not parse local address from connection")
 	}
@@ -200,45 +195,45 @@ func (peer *Peer) parse() error {
 		return err
 	}
 
-	peer.addr = addr
-	peer.you = you
-	peer.me = me
+	p.addr = addr
+	p.you = you
+	p.me = me
 
 	return nil
 }
 
-func (peer *Peer) start() {
-	peer.wg.Add(3)
-	go peer.goSend()
-	go peer.goReceive()
-	go peer.goMessages()
+func (p *Peer) start() {
+	p.wg.Add(3)
+	go p.goSend()
+	go p.goReceive()
+	go p.goMessages()
 }
 
-func (peer *Peer) shutdown() {
+func (p *Peer) shutdown() {
 	// if we already called shutdown, we don't need to do it twice
-	if atomic.SwapUint32(&peer.done, 1) == 1 {
+	if atomic.SwapUint32(&p.done, 1) == 1 {
 		return
 	}
 
 	// if we have a connection established, close it
-	if peer.conn != nil {
-		peer.conn.Close()
+	if p.conn != nil {
+		p.conn.Close()
 	}
 
 	// signal all handlers to stop
-	close(peer.sigSend)
-	close(peer.sigRecv)
-	close(peer.sigMsgs)
+	close(p.sigSend)
+	close(p.sigRecv)
+	close(p.sigMsgs)
 
-	peer.mgr.Stopped(peer)
+	p.mgr.Stopped(p)
 }
 
 // sendMessage will attempt to write a message on our connection. It will set the write
 // deadline in order to respect the timeout defined in our configuration. It will return
 // the error if we didn't succeed.
-func (peer *Peer) sendMessage(msg wire.Message) error {
-	peer.conn.SetWriteDeadline(time.Now().Add(timeoutSend))
-	err := wire.WriteMessage(peer.conn, msg, peer.version, peer.network)
+func (p *Peer) sendMessage(msg wire.Message) error {
+	p.conn.SetWriteDeadline(time.Now().Add(timeoutSend))
+	err := wire.WriteMessage(p.conn, msg, p.version, p.network)
 
 	return err
 }
@@ -246,43 +241,43 @@ func (peer *Peer) sendMessage(msg wire.Message) error {
 // recvMessage will attempt to read a message from our connection. It will set the read
 // deadline in order to respect the timeout defined in our configuration. It will return
 /// the read message as well as the error.
-func (peer *Peer) recvMessage() (wire.Message, error) {
-	peer.conn.SetReadDeadline(time.Now().Add(timeoutRecv))
-	msg, _, err := wire.ReadMessage(peer.conn, peer.version, peer.network)
+func (p *Peer) recvMessage() (wire.Message, error) {
+	p.conn.SetReadDeadline(time.Now().Add(timeoutRecv))
+	msg, _, err := wire.ReadMessage(p.conn, p.version, p.network)
 
 	return msg, err
 }
 
 // handleSend is the handler responsible for sending messages in the queue. It will
 // send messages from the queue and push ping messages if the connection is idling.
-func (peer *Peer) goSend() {
+func (p *Peer) goSend() {
 	// let the waitgroup know when we are done
-	defer peer.wg.Done()
+	defer p.wg.Done()
 
 	// initialize the idle timer to see when we didn't send for a while
 	idleTimer := time.NewTimer(timeoutPing)
 
-	for atomic.LoadUint32(&peer.done) == 0 {
+	for atomic.LoadUint32(&p.done) == 0 {
 		select {
 		// signal for shutdown, so break outer loop
-		case _, ok := <-peer.sigSend:
+		case _, ok := <-p.sigSend:
 			if !ok {
 				break
 			}
 
 		// we didnt's send a message in a long time, so send a ping
 		case <-idleTimer.C:
-			peer.sendQ <- peer.createPingMsg()
+			p.sendQ <- p.createPingMsg()
 
 		// try to send the next message in the queue
-		// on timeouts, we skip to next one, on other errors, we stop the peer
-		case msg := <-peer.sendQ:
-			err := peer.sendMessage(msg)
+		// on timeouts, we skip to next one, on other errors, we stop the p
+		case msg := <-p.sendQ:
+			err := p.sendMessage(msg)
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				continue
 			}
 			if err != nil {
-				peer.shutdown()
+				p.shutdown()
 			}
 
 			// we successfully sent a message, so reset the idle timer
@@ -294,59 +289,59 @@ func (peer *Peer) goSend() {
 // handleReceive is the handler responsible for receiving messages and pushing them onto
 // the reception queue. It does not do any processing so that we read all messages as quickly
 // as possible.
-func (peer *Peer) goReceive() {
+func (p *Peer) goReceive() {
 	// let the waitgroup know when we are done
-	defer peer.wg.Done()
+	defer p.wg.Done()
 
 	// initialize the timer to see when we didn't receive in a long time
 	idleTimer := time.NewTimer(timeoutIdle)
 
-	for atomic.LoadUint32(&peer.done) == 0 {
+	for atomic.LoadUint32(&p.done) == 0 {
 		select {
-		// the peer has shutdown so break outer loop
-		case _, ok := <-peer.sigRecv:
+		// the p has shutdown so break outer loop
+		case _, ok := <-p.sigRecv:
 			if !ok {
 				break
 			}
 
-		// we didn't receive a message for too long, so time this peer out and dump
+		// we didn't receive a message for too long, so time this p out and dump
 		case <-idleTimer.C:
-			peer.shutdown()
+			p.shutdown()
 
 		// each iteration without other action, we try receiving a message for a while
 		// if we time out, we try again, on error we quit
 		default:
-			msg, err := peer.recvMessage()
+			msg, err := p.recvMessage()
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				continue
 			}
 			if err != nil {
-				peer.shutdown()
+				p.shutdown()
 			}
 
 			// we successfully received a message, so reset the idle timer and push it
 			// onte the reception queue for further processing
 			idleTimer.Reset(timeoutIdle)
-			peer.recvQ <- msg
+			p.recvQ <- msg
 		}
 	}
 }
 
 // handleMessages is the handler to process messages from our reception queue.
-func (peer *Peer) goMessages() {
+func (p *Peer) goMessages() {
 	// let the waitgroup know when we are done
-	defer peer.wg.Done()
+	defer p.wg.Done()
 
-	for atomic.LoadUint32(&peer.done) == 0 {
+	for atomic.LoadUint32(&p.done) == 0 {
 		select {
 		// shutdown signal, break outer loop
-		case _, ok := <-peer.sigMsgs:
+		case _, ok := <-p.sigMsgs:
 			if !ok {
 				break
 			}
 
 		// we read a message from the queue, process it depending on type
-		case msg := <-peer.recvQ:
+		case msg := <-p.recvQ:
 			switch msg.(type) {
 			case *wire.MsgVersion:
 
@@ -383,36 +378,36 @@ func (peer *Peer) goMessages() {
 	}
 }
 
-func (peer *Peer) handleVersionMsg(msg *wire.MsgVersion) {
-	peer.log.Debug("%v: received version message", peer)
+func (p *Peer) handleVersionMsg(msg *wire.MsgVersion) {
+	p.log.Debug("%v: received version message", p)
 
-	if msg.Nonce == peer.nonce {
-		peer.log.Warning("%v: detected connection to self, disconnecting", peer)
-		peer.shutdown()
+	if msg.Nonce == p.nonce {
+		p.log.Warning("%v: detected connection to self, disconnecting", p)
+		p.shutdown()
 		return
 	}
 
-	/*if peer.shaked {
-		peer.log.Notice("%v: received version after handshake", peer)
+	/*if p.shaked {
+		p.log.Notice("%v: received version after handshake", p)
 		return
 	}*/
 
 	if msg.ProtocolVersion < int32(wire.MultipleAddressVersion) {
-		peer.log.Notice("%v: detected outdated protocol version", peer)
+		p.log.Notice("%v: detected outdated protocol version", p)
 	}
 
-	peer.version = MinUint32(peer.version, uint32(msg.ProtocolVersion))
-	//peer.shaked = true
+	p.version = util.MinUint32(p.version, uint32(msg.ProtocolVersion))
+	//p.shaked = true
 
-	/*if peer.incoming {
-		peer.pushVersion()
+	/*if p.incoming {
+		p.pushVersion()
 	}
 
-	peer.pushVerAck()*/
+	p.pushVerAck()*/
 }
 
-func (peer *Peer) createVersionMsg() *wire.MsgVersion {
-	msg := wire.NewMsgVersion(peer.me, peer.you, peer.nonce, 0)
+func (p *Peer) createVersionMsg() *wire.MsgVersion {
+	msg := wire.NewMsgVersion(p.me, p.you, p.nonce, 0)
 	msg.AddUserAgent(agentName, agentVersion)
 	msg.AddrYou.Services = wire.SFNodeNetwork
 	msg.Services = wire.SFNodeNetwork
@@ -421,25 +416,25 @@ func (peer *Peer) createVersionMsg() *wire.MsgVersion {
 	return msg
 }
 
-func (peer *Peer) createVerAckMsg() *wire.MsgVerAck {
+func (p *Peer) createVerAckMsg() *wire.MsgVerAck {
 	msg := wire.NewMsgVerAck()
 
 	return msg
 }
 
-func (peer *Peer) createGetAddrMsg() *wire.MsgGetAddr {
+func (p *Peer) createGetAddrMsg() *wire.MsgGetAddr {
 	msg := wire.NewMsgGetAddr()
 
 	return msg
 }
 
-func (peer *Peer) createPingMsg() *wire.MsgPing {
-	msg := wire.NewMsgPing(peer.nonce)
+func (p *Peer) createPingMsg() *wire.MsgPing {
+	msg := wire.NewMsgPing(p.nonce)
 
 	return msg
 }
 
-func (peer *Peer) createPongMsg(nonce uint64) *wire.MsgPong {
+func (p *Peer) createPongMsg(nonce uint64) *wire.MsgPong {
 	msg := wire.NewMsgPong(nonce)
 
 	return msg

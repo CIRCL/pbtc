@@ -1,4 +1,4 @@
-package domain
+package repository
 
 import (
 	"bytes"
@@ -9,7 +9,6 @@ import (
 
 type node struct {
 	addr          *net.TCPAddr
-	src           *net.TCPAddr
 	numAttempts   uint32
 	lastAttempted time.Time
 	lastConnected time.Time
@@ -17,10 +16,9 @@ type node struct {
 }
 
 // newNode creates a new node for the given address and source.
-func newNode(addr *net.TCPAddr, src *net.TCPAddr) *node {
+func newNode(addr *net.TCPAddr) *node {
 	n := &node{
 		addr: addr,
-		src:  src,
 	}
 
 	return n
@@ -39,11 +37,6 @@ func (node *node) GobEncode() ([]byte, error) {
 	enc := gob.NewEncoder(buffer)
 
 	err := enc.Encode(node.addr)
-	if err != nil {
-		return nil, err
-	}
-
-	err = enc.Encode(node.src)
 	if err != nil {
 		return nil, err
 	}
@@ -78,11 +71,6 @@ func (node *node) GobDecode(buf []byte) error {
 	dec := gob.NewDecoder(buffer)
 
 	err := dec.Decode(&node.addr)
-	if err != nil {
-		return err
-	}
-
-	err = dec.Decode(&node.src)
 	if err != nil {
 		return err
 	}

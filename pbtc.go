@@ -8,45 +8,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/btcsuite/btcd/wire"
 	"github.com/op/go-logging"
 
-	"github.com/CIRCL/pbtc/application"
-)
-
-const (
-	consoleFormat = "%{color}%{time} %{level} %{shortfile} %{message}%{color:reset}"
-	fileFormat    = "%{time} %{level} %{shortfile} %{message}"
+	"github.com/CIRCL/pbtc/logger"
+	"github.com/CIRCL/pbtc/manager"
+	"github.com/CIRCL/pbtc/repository"
 )
 
 func main() {
-	// initialize backend for console logging
-	consoleBackend := logging.NewLogBackend(os.Stderr, "", 0)
-	consoleFormatter := logging.MustStringFormatter(consoleFormat)
-	consoleFormatted := logging.NewBackendFormatter(consoleBackend, consoleFormatter)
-	consoleLeveled := logging.AddModuleLevel(consoleFormatted)
-	consoleLeveled.SetLevel(logging.DEBUG, "pbtc")
-	logging.SetBackend(consoleLeveled)
-
-	// set up the logging frontend
-	log := logging.MustGetLogger("pbtc")
-
-	// initialize backend for file logging
-	file, err := os.Create("pbtc.log")
-	if err != nil {
-		log.Fatal("Could not create log file")
-	}
-	defer file.Close()
-	fileBackend := logging.NewLogBackend(file, "", 0)
-	fileFormatter := logging.MustStringFormatter(fileFormat)
-	fileFormatted := logging.NewBackendFormatter(fileBackend, fileFormatter)
-	fileLeveled := logging.AddModuleLevel(fileFormatted)
-	fileLeveled.SetLevel(logging.DEBUG, "pbtc")
-	logging.SetBackend(consoleLeveled, fileLeveled)
-
-	// start program logic
-	log.Info("PBTC starting")
-
 	// catch signals
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, os.Interrupt)
@@ -57,18 +26,45 @@ func main() {
 	// seed the random generator
 	rand.Seed(time.Now().UnixNano())
 
-	// initialize our modules
-	mon := application.NewMonitor()
+	// logging
+	log, err := logger.New(
+		logger.EnableConsole(),
+		logger.SetConsoleLevel(logging.DEBUG),
+		logger.EnableFile(),
+		logger.SetFileLevel(logging.INFO),
+	)
+	if err != nil {
+		os.Exit(1)
+	}
 
-	// start our modules
-	mon.Start(wire.TestNet3, wire.RejectVersion)
+	// repository
+	repo, err := repository.New(
+		repository.SetLogger(log),
+		repository.SetSeeds([]string{"testnet-seed.alexykot.me",
+			"testnet-seed.bitcoin.petertodd.org",
+			"testnet-seed.bluematt.me",
+			"testnet-seed.bitcoin.schildbach.de"}),
+	)
+	if err != nil {
+		log.Critical("%v", err)
+		os.Exit(2)
+	}
+
+	// manager
+	mgr, err := manager.New(
+		manager.SetLogger(log),
+		manager.SetRepository(repo),
+	)
+	if err != nil {
+		log.Critical("%v", err)
+		os.Exit(3)
+	}
 
 	// wait for signals in blocking loop
 SigLoop:
 	for sig := range sigc {
 		switch sig {
 		case os.Interrupt:
-			log.Info("PBTC stopping")
 			break SigLoop
 
 		case syscall.SIGTERM:
@@ -81,10 +77,6 @@ SigLoop:
 		}
 	}
 
-	// stop our modules
-	mon.Stop()
-
-	log.Info("PBTC stopped")
-
+	mgr.Stop()
 	os.Exit(0)
 }
