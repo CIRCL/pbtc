@@ -55,6 +55,10 @@ func New(options ...func(*Peer)) (*Peer, error) {
 		sigMsgs: make(chan struct{}, 1),
 		sendQ:   make(chan wire.Message, bufferSend),
 		recvQ:   make(chan wire.Message, bufferRecv),
+
+		network: wire.TestNet3,
+		version: wire.RejectVersion,
+		nonce:   0,
 	}
 
 	for _, option := range options {
@@ -63,18 +67,6 @@ func New(options ...func(*Peer)) (*Peer, error) {
 
 	if p.addr == nil && p.conn == nil {
 		return nil, errors.New("Must provide address or connection")
-	}
-
-	if p.network == 0 {
-		p.network = wire.TestNet3
-	}
-
-	if p.version == 0 {
-		p.version = wire.RejectVersion
-	}
-
-	if p.nonce == 0 {
-		p.nonce, _ = wire.RandomUint64()
 	}
 
 	if p.conn == nil {

@@ -97,7 +97,7 @@ func SetRepository(repo Repository) func(*Manager) {
 	}
 }
 
-func (ctr *Manager) Stop() {
+func (ctr *Manager) Cleanup() {
 	ctr.shutdown()
 	ctr.wg.Wait()
 }

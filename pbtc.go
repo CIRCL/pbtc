@@ -46,8 +46,8 @@ func main() {
 			"testnet-seed.bitcoin.schildbach.de"}),
 	)
 	if err != nil {
-		log.Critical("%v", err)
-		os.Exit(2)
+		log.Critical("Unable to create repositor (%v)", err)
+		os.Exit(1)
 	}
 
 	// manager
@@ -56,27 +56,24 @@ func main() {
 		manager.SetRepository(repo),
 	)
 	if err != nil {
-		log.Critical("%v", err)
-		os.Exit(3)
+		log.Critical("Unable to create manager (%v)", err)
+		os.Exit(1)
 	}
 
 	// wait for signals in blocking loop
 SigLoop:
 	for sig := range sigc {
 		switch sig {
-		case os.Interrupt:
+		case syscall.SIGINT:
 			break SigLoop
 
-		case syscall.SIGTERM:
-
-		case syscall.SIGHUP:
-
-		case syscall.SIGINT:
-
-		case syscall.SIGQUIT:
+		default:
+			log.Notice("Signal caught (%v)", sig.String())
 		}
 	}
 
-	mgr.Stop()
+	mgr.Cleanup()
+	repo.Cleanup()
+
 	os.Exit(0)
 }
