@@ -13,6 +13,7 @@ import (
 
 	"github.com/CIRCL/pbtc/logger"
 	"github.com/CIRCL/pbtc/manager"
+	"github.com/CIRCL/pbtc/recorder"
 	"github.com/CIRCL/pbtc/repository"
 )
 
@@ -41,13 +42,20 @@ func main() {
 	// repository
 	repo, err := repository.New(
 		repository.SetLogger(log),
-		repository.SetSeeds([]string{"testnet-seed.alexykot.me",
-			"testnet-seed.bitcoin.petertodd.org",
-			"testnet-seed.bluematt.me",
-			"testnet-seed.bitcoin.schildbach.de"}),
+		repository.SetSeeds("testnet-seed.bitcoin.schildbach.de"),
 	)
 	if err != nil {
 		log.Critical("Unable to create repository (%v)", err)
+		os.Exit(1)
+	}
+
+	// recorder
+	rec, err := recorder.New(
+		recorder.SetLogger(log),
+		recorder.SetTypes(wire.CmdAddr, wire.CmdTx, wire.CmdBlock),
+	)
+	if err != nil {
+		log.Critical("Unable to initialize recorder (%v)", err)
 		os.Exit(1)
 	}
 
@@ -55,6 +63,7 @@ func main() {
 	mgr, err := manager.New(
 		manager.SetLogger(log),
 		manager.SetRepository(repo),
+		manager.SetRecorder(rec),
 		manager.SetNetwork(wire.TestNet3),
 		manager.SetVersion(wire.RejectVersion),
 	)

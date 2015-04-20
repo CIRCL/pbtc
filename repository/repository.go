@@ -9,11 +9,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/CIRCL/pbtc/logger"
+	"github.com/CIRCL/pbtc/adaptor"
 )
 
 // Repository is the default implementation of the repository interface of the
-// Manager module. It creates a simply in-memory mapping for known nodes and
+// Manager module. It creates a simply in-repoory mapping for known nodes and
 // regularly save them on the disk.
 type Repository struct {
 	wg              *sync.WaitGroup
@@ -25,7 +25,7 @@ type Repository struct {
 	seeds      []string
 	backupPath string
 
-	log logger.Logger
+	log adaptor.Logger
 
 	done uint32
 }
@@ -59,21 +59,25 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 	return repo, nil
 }
 
-func SetLogger(log logger.Logger) func(*Repository) {
-	return func(mem *Repository) {
-		mem.log = log
+func SetLogger(log adaptor.Logger) func(*Repository) {
+	return func(repo *Repository) {
+		repo.log = log
 	}
 }
 
-func SetSeeds(seeds []string) func(*Repository) {
-	return func(mem *Repository) {
-		mem.seeds = seeds
+func SetSeeds(seeds ...string) func(*Repository) {
+	return func(repo *Repository) {
+		repo.seeds = make([]string, len(seeds))
+
+		for i, seed := range seeds {
+			repo.seeds[i] = seed
+		}
 	}
 }
 
 func SetBackupPath(path string) func(*Repository) {
-	return func(mem *Repository) {
-		mem.backupPath = path
+	return func(repo *Repository) {
+		repo.backupPath = path
 	}
 }
 

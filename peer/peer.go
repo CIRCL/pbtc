@@ -3,13 +3,14 @@ package peer
 import (
 	"errors"
 	"net"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
 
-	"github.com/CIRCL/pbtc/logger"
+	"github.com/CIRCL/pbtc/adaptor"
 	"github.com/CIRCL/pbtc/util"
 )
 
@@ -32,8 +33,10 @@ type Peer struct {
 	sendQ   chan wire.Message
 	recvQ   chan wire.Message
 
-	mgr Manager
-	log logger.Logger
+	log  adaptor.Logger
+	mgr  adaptor.Manager
+	rec  adaptor.Recorder
+	repo adaptor.Repository
 
 	network wire.BitcoinNet
 	version uint32
@@ -84,15 +87,27 @@ func New(options ...func(*Peer)) (*Peer, error) {
 	return p, nil
 }
 
-func SetManager(mgr Manager) func(*Peer) {
+func SetLogger(log adaptor.Logger) func(*Peer) {
+	return func(p *Peer) {
+		p.log = log
+	}
+}
+
+func SetManager(mgr adaptor.Manager) func(*Peer) {
 	return func(p *Peer) {
 		p.mgr = mgr
 	}
 }
 
-func SetLogger(log logger.Logger) func(*Peer) {
+func SetRecorder(rec adaptor.Recorder) func(*Peer) {
 	return func(p *Peer) {
-		p.log = log
+		p.rec = rec
+	}
+}
+
+func SetRepository(repo adaptor.Repository) func(*Peer) {
+	return func(p *Peer) {
+		p.repo = repo
 	}
 }
 
@@ -322,7 +337,7 @@ func (p *Peer) goReceive() {
 // handleMessages is the handler to process messages from our reception queue.
 func (p *Peer) processMessage(msg wire.Message) {
 
-	p.mgr.Message(msg)
+	p.rec.Message(msg)
 
 	if atomic.LoadUint32(&p.rcvd) == 0 {
 		_, ok := msg.(*wire.MsgVersion)
@@ -374,6 +389,15 @@ func (p *Peer) processMessage(msg wire.Message) {
 		p.pushAddr()
 
 	case *wire.MsgAddr:
+		for _, na := range m.AddrList {
+			as := net.JoinHostPort(na.IP.String(), strconv.Itoa(int(na.Port)))
+			addr, err := net.ResolveTCPAddr("tcp", as)
+			if err != nil {
+				continue
+			}
+
+			p.repo.Discovered(addr)
+		}
 
 	case *wire.MsgInv:
 

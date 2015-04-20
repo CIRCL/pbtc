@@ -1,6 +1,8 @@
-package manager
+package adaptor
 
-import "net"
+import (
+	"net"
+)
 
 type Repository interface {
 	Discovered(addr *net.TCPAddr)
