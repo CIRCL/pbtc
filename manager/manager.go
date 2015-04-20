@@ -30,15 +30,15 @@ const (
 // repository to get addresses to connect to and notifies it about changes
 // relevant to address selection.
 type Manager struct {
-	peerIndex   map[string]*peer.Peer
-	listenIndex map[string]*net.TCPListener
+	wg          *sync.WaitGroup
 	sigPeer     chan struct{}
 	sigConn     chan struct{}
 	peerStarted chan *peer.Peer
 	peerReady   chan *peer.Peer
 	peerStopped chan *peer.Peer
 	connTicker  *time.Ticker
-	wg          *sync.WaitGroup
+	peerIndex   map[string]*peer.Peer
+	listenIndex map[string]*net.TCPListener
 
 	log  logger.Logger
 	repo Repository
@@ -53,32 +53,25 @@ type Manager struct {
 // NewManager returns a new manager with all necessary variables initialized.
 func New(options ...func(ctr *Manager)) (*Manager, error) {
 	ctr := &Manager{
-		peerIndex:   make(map[string]*peer.Peer),
-		listenIndex: make(map[string]*net.TCPListener),
+		wg:          &sync.WaitGroup{},
 		sigPeer:     make(chan struct{}, 1),
 		sigConn:     make(chan struct{}, 1),
 		peerStarted: make(chan *peer.Peer, 1),
 		peerReady:   make(chan *peer.Peer, 1),
 		peerStopped: make(chan *peer.Peer, 1),
 		connTicker:  time.NewTicker(time.Second / 4),
-		wg:          &sync.WaitGroup{},
+		peerIndex:   make(map[string]*peer.Peer),
+		listenIndex: make(map[string]*net.TCPListener),
+
+		network: wire.TestNet3,
+		version: wire.RejectVersion,
 	}
 
 	for _, option := range options {
 		option(ctr)
 	}
 
-	if ctr.network == 0 {
-		ctr.network = wire.TestNet3
-	}
-
-	if ctr.version == 0 {
-		ctr.version = wire.RejectVersion
-	}
-
-	if ctr.nonce == 0 {
-		ctr.nonce, _ = wire.RandomUint64()
-	}
+	ctr.nonce, _ = wire.RandomUint64()
 
 	ctr.startup()
 
@@ -94,6 +87,18 @@ func SetLogger(log logger.Logger) func(*Manager) {
 func SetRepository(repo Repository) func(*Manager) {
 	return func(ctr *Manager) {
 		ctr.repo = repo
+	}
+}
+
+func SetNetwork(network wire.BitcoinNet) func(*Manager) {
+	return func(ctr *Manager) {
+		ctr.network = network
+	}
+}
+
+func SetVersion(version uint32) func(*Manager) {
+	return func(ctr *Manager) {
+		ctr.version = version
 	}
 }
 
@@ -141,7 +146,7 @@ func (ctr *Manager) shutdown() {
 
 	// first we will stop every peer - this is a blocking operation
 	for _, peer := range ctr.peerIndex {
-		peer.Stop()
+		peer.Cleanup()
 	}
 
 	// here, we close the channel to signal the connection handler to stop
@@ -250,8 +255,7 @@ PeerLoop:
 
 			ctr.peerIndex[peer.String()] = peer
 
-		case peer := <-ctr.peerReady:
-			peer.Stop()
+		case <-ctr.peerReady:
 
 		// whenever there is an expired peer to be removed, process it
 		case peer := <-ctr.peerStopped:

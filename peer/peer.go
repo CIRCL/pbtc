@@ -29,7 +29,6 @@ type Peer struct {
 	wg      *sync.WaitGroup
 	sigSend chan struct{}
 	sigRecv chan struct{}
-	sigMsgs chan struct{}
 	sendQ   chan wire.Message
 	recvQ   chan wire.Message
 
@@ -45,6 +44,8 @@ type Peer struct {
 	you     *wire.NetAddress
 
 	done uint32
+	sent uint32
+	rcvd uint32
 }
 
 func New(options ...func(*Peer)) (*Peer, error) {
@@ -52,7 +53,6 @@ func New(options ...func(*Peer)) (*Peer, error) {
 		wg:      &sync.WaitGroup{},
 		sigSend: make(chan struct{}, 1),
 		sigRecv: make(chan struct{}, 1),
-		sigMsgs: make(chan struct{}, 1),
 		sendQ:   make(chan wire.Message, bufferSend),
 		recvQ:   make(chan wire.Message, bufferRecv),
 
@@ -134,9 +134,13 @@ func (p *Peer) Addr() *net.TCPAddr {
 	return p.addr
 }
 
-func (p *Peer) Stop() {
+func (p *Peer) Cleanup() {
 	p.shutdown()
 	p.wg.Wait()
+}
+
+func (p *Peer) Poll() {
+	p.pushGetAddr()
 }
 
 func (p *Peer) connect() {
@@ -195,10 +199,9 @@ func (p *Peer) parse() error {
 }
 
 func (p *Peer) start() {
-	p.wg.Add(3)
+	p.wg.Add(2)
 	go p.goSend()
 	go p.goReceive()
-	go p.goMessages()
 }
 
 func (p *Peer) shutdown() {
@@ -215,9 +218,6 @@ func (p *Peer) shutdown() {
 	// signal all handlers to stop
 	close(p.sigSend)
 	close(p.sigRecv)
-	close(p.sigMsgs)
-
-	p.mgr.Stopped(p)
 }
 
 // sendMessage will attempt to write a message on our connection. It will set the write
@@ -259,7 +259,7 @@ func (p *Peer) goSend() {
 
 		// we didnt's send a message in a long time, so send a ping
 		case <-idleTimer.C:
-			p.sendQ <- p.createPingMsg()
+			p.pushPing()
 
 		// try to send the next message in the queue
 		// on timeouts, we skip to next one, on other errors, we stop the p
@@ -314,120 +314,113 @@ func (p *Peer) goReceive() {
 			// we successfully received a message, so reset the idle timer and push it
 			// onte the reception queue for further processing
 			idleTimer.Reset(timeoutIdle)
-			p.recvQ <- msg
+			p.processMessage(msg)
 		}
 	}
 }
 
 // handleMessages is the handler to process messages from our reception queue.
-func (p *Peer) goMessages() {
-	// let the waitgroup know when we are done
-	defer p.wg.Done()
+func (p *Peer) processMessage(msg wire.Message) {
 
-	for atomic.LoadUint32(&p.done) == 0 {
-		select {
-		// shutdown signal, break outer loop
-		case _, ok := <-p.sigMsgs:
-			if !ok {
-				break
-			}
+	p.mgr.Message(msg)
 
-		// we read a message from the queue, process it depending on type
-		case msg := <-p.recvQ:
-			switch msg.(type) {
-			case *wire.MsgVersion:
-
-			case *wire.MsgVerAck:
-
-			case *wire.MsgPing:
-
-			case *wire.MsgPong:
-
-			case *wire.MsgGetAddr:
-
-			case *wire.MsgAddr:
-
-			case *wire.MsgInv:
-
-			case *wire.MsgGetHeaders:
-
-			case *wire.MsgHeaders:
-
-			case *wire.MsgGetBlocks:
-
-			case *wire.MsgBlock:
-
-			case *wire.MsgGetData:
-
-			case *wire.MsgTx:
-
-			case *wire.MsgAlert:
-
-			default:
-
-			}
+	if atomic.LoadUint32(&p.rcvd) == 0 {
+		_, ok := msg.(*wire.MsgVersion)
+		if !ok {
+			p.log.Warning("%v: out of order non-version message")
+			p.shutdown()
+			return
 		}
 	}
+
+	// we read a message from the queue, process it depending on type
+	switch m := msg.(type) {
+	case *wire.MsgVersion:
+		if m.Nonce == p.nonce {
+			p.log.Warning("%v: detected connection to self")
+			p.shutdown()
+			return
+		}
+
+		if uint32(m.ProtocolVersion) < wire.MultipleAddressVersion {
+			p.log.Warning("%v: connected to obsolete peer")
+			p.shutdown()
+			return
+		}
+
+		if atomic.SwapUint32(&p.rcvd, 1) == 1 {
+			p.log.Warning("%v: out of order version message")
+			p.shutdown()
+			return
+		}
+
+		p.version = util.MinUint32(p.version, uint32(m.ProtocolVersion))
+
+		if atomic.SwapUint32(&p.sent, 1) == 0 {
+			p.pushVersion()
+		}
+
+		p.pushVerAck()
+		p.pushAddr()
+
+	case *wire.MsgVerAck:
+
+	case *wire.MsgPing:
+		p.pushPong(m.Nonce)
+
+	case *wire.MsgPong:
+
+	case *wire.MsgGetAddr:
+		p.pushAddr()
+
+	case *wire.MsgAddr:
+
+	case *wire.MsgInv:
+
+	case *wire.MsgGetHeaders:
+
+	case *wire.MsgHeaders:
+
+	case *wire.MsgGetBlocks:
+
+	case *wire.MsgBlock:
+
+	case *wire.MsgGetData:
+
+	case *wire.MsgTx:
+
+	case *wire.MsgAlert:
+
+	default:
+
+	}
 }
 
-func (p *Peer) handleVersionMsg(msg *wire.MsgVersion) {
-	p.log.Debug("%v: received version message", p)
-
-	if msg.Nonce == p.nonce {
-		p.log.Warning("%v: detected connection to self, disconnecting", p)
-		p.shutdown()
-		return
-	}
-
-	/*if p.shaked {
-		p.log.Notice("%v: received version after handshake", p)
-		return
-	}*/
-
-	if msg.ProtocolVersion < int32(wire.MultipleAddressVersion) {
-		p.log.Notice("%v: detected outdated protocol version", p)
-	}
-
-	p.version = util.MinUint32(p.version, uint32(msg.ProtocolVersion))
-	//p.shaked = true
-
-	/*if p.incoming {
-		p.pushVersion()
-	}
-
-	p.pushVerAck()*/
+func (p *Peer) pushVerAck() {
+	p.sendQ <- wire.NewMsgVerAck()
 }
 
-func (p *Peer) createVersionMsg() *wire.MsgVersion {
+func (p *Peer) pushVersion() {
 	msg := wire.NewMsgVersion(p.me, p.you, p.nonce, 0)
 	msg.AddUserAgent(agentName, agentVersion)
 	msg.AddrYou.Services = wire.SFNodeNetwork
 	msg.Services = wire.SFNodeNetwork
 	msg.ProtocolVersion = int32(wire.RejectVersion)
-
-	return msg
+	p.sendQ <- msg
 }
 
-func (p *Peer) createVerAckMsg() *wire.MsgVerAck {
-	msg := wire.NewMsgVerAck()
-
-	return msg
+func (p *Peer) pushPing() {
+	p.sendQ <- wire.NewMsgPing(p.nonce)
 }
 
-func (p *Peer) createGetAddrMsg() *wire.MsgGetAddr {
-	msg := wire.NewMsgGetAddr()
-
-	return msg
+func (p *Peer) pushPong(nonce uint64) {
+	p.sendQ <- wire.NewMsgPong(nonce)
 }
 
-func (p *Peer) createPingMsg() *wire.MsgPing {
-	msg := wire.NewMsgPing(p.nonce)
-
-	return msg
+func (p *Peer) pushGetAddr() {
+	p.sendQ <- wire.NewMsgGetAddr()
 }
 
-func (p *Peer) createPongMsg(nonce uint64) *wire.MsgPong {
-	msg := wire.NewMsgPong(nonce)
-
-	return msg
+func (p *Peer) pushAddr() {
+	p.sendQ <- wire.NewMsgAddr()
 }

@@ -12,15 +12,15 @@ import (
 	"github.com/CIRCL/pbtc/logger"
 )
 
-// Repository is the module responsible for managing all known node addresses. It creates
-// a node for every new address and keeps track of all necessary information require to
-// evaluate the node quality / reliability. It also stores this information in a file
-// and restores it on start.
+// Repository is the default implementation of the repository interface of the
+// Manager module. It creates a simply in-memory mapping for known nodes and
+// regularly save them on the disk.
 type Repository struct {
-	wg          *sync.WaitGroup
-	backupSig   chan struct{}
-	backupTimer *time.Timer
-	nodeIndex   map[string]*node
+	wg              *sync.WaitGroup
+	backupSig       chan struct{}
+	backupTicker    *time.Ticker
+	bootstrapTicker *time.Ticker
+	nodeIndex       map[string]*node
 
 	seeds      []string
 	backupPath string
@@ -30,16 +30,18 @@ type Repository struct {
 	done uint32
 }
 
-// NewRepository creates a new repository with all necessary variables initialized.
+// New creates a new repository initialized with default values. A variable list
+// of options can be provided to override default behaviour.
 func New(options ...func(repo *Repository)) (*Repository, error) {
 	repo := &Repository{
-		wg:          &sync.WaitGroup{},
-		nodeIndex:   make(map[string]*node),
-		backupSig:   make(chan struct{}, 1),
-		backupTimer: time.NewTimer(1 * time.Minute),
+		wg:              &sync.WaitGroup{},
+		nodeIndex:       make(map[string]*node),
+		backupSig:       make(chan struct{}, 1),
+		backupTicker:    time.NewTicker(5 * time.Second),
+		bootstrapTicker: time.NewTicker(30 * time.Second),
 
 		seeds:      []string{"testnet-seed.bitcoin.petertodd.org"},
-		backupPath: "nodes.dat",
+		backupPath: "pbtc.dat",
 	}
 
 	for _, option := range options {
@@ -55,12 +57,6 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 	repo.start()
 
 	return repo, nil
-}
-
-func (repo *Repository) Cleanup() {
-	repo.shutdown()
-	repo.wg.Wait()
-	repo.backup()
 }
 
 func SetLogger(log logger.Logger) func(*Repository) {
@@ -79,6 +75,13 @@ func SetBackupPath(path string) func(*Repository) {
 	return func(mem *Repository) {
 		mem.backupPath = path
 	}
+}
+
+// Cleanup is used to clean up all resources associated with a repository
+// instance. It will return once all go routines have ended and all resources
+// are ready to be collected by the GC.
+func (repo *Repository) Cleanup() {
+	repo.shutdown()
 }
 
 // Update will update the information of a given address in our repository.
@@ -144,36 +147,6 @@ func (repo *Repository) Retrieve() *net.TCPAddr {
 	return nil
 }
 
-// bootstrap will use a number of dns seeds to discover nodes.
-func (repo *Repository) bootstrap() {
-	// iterate over the seeds and try to get the ips
-	for _, seed := range repo.seeds {
-		// check if we can look up the ip addresses
-		ips, err := net.LookupIP(seed)
-		if err != nil {
-			continue
-		}
-
-		// range over the ips and add them to the repository
-		for _, ip := range ips {
-			// try creating a TCP address from the given IP and default port
-			addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(ip.String(), strconv.Itoa(18333)))
-			if err != nil {
-				continue
-			}
-
-			// check if we already know this address, if so we skip
-			_, ok := repo.nodeIndex[addr.String()]
-			if ok {
-				continue
-			}
-
-			// now we can use update to add the address to our repository
-			repo.Discovered(addr)
-		}
-	}
-}
-
 func (repo *Repository) start() {
 	repo.wg.Add(1)
 	go repo.goBackups()
@@ -184,18 +157,64 @@ func (repo *Repository) shutdown() {
 		return
 	}
 
-	repo.backupTimer.Stop()
+	repo.bootstrapTicker.Stop()
+	repo.backupTicker.Stop()
 	close(repo.backupSig)
+	repo.save()
 	repo.wg.Wait()
-	repo.backup()
+}
+
+// bootstrap will use a number of dns seeds to discover nodes.
+func (repo *Repository) bootstrap() {
+	count, failed, known := 0, 0, 0
+
+	repo.log.Info("bootstrapping from %v dns seeds", len(repo.seeds))
+
+	// iterate over the seeds and try to get the ips
+	for _, seed := range repo.seeds {
+		// check if we can look up the ip addresses
+		ips, err := net.LookupIP(seed)
+		if err != nil {
+			repo.log.Notice("could not lookup %v (%v)", seed, err)
+			continue
+		}
+
+		repo.log.Info("%v: found %v ips", seed, len(ips))
+
+		// range over the ips and add them to the repository
+		for _, ip := range ips {
+			// try creating a TCP address from the given IP and default port
+			host := net.JoinHostPort(ip.String(), strconv.Itoa(18333))
+			addr, err := net.ResolveTCPAddr("tcp", host)
+			if err != nil {
+				failed++
+				continue
+			}
+
+			// check if we already know this address, if so we skip
+			_, ok := repo.nodeIndex[addr.String()]
+			if ok {
+				known++
+				continue
+			}
+
+			// now we can use update to add the address to our repository
+			count++
+			repo.Discovered(addr)
+		}
+	}
+
+	repo.log.Info("added %v nodes from bootstrap (%v failed, %v known)",
+		count, failed, known)
 }
 
 // save will try to save all current nodes to a file on disk.
-func (repo *Repository) backup() error {
+func (repo *Repository) save() {
 	// create the file, truncating if it already exists
 	file, err := os.Create(repo.backupPath)
 	if err != nil {
-		return err
+		repo.log.Warning("could not save backup (%v)", err)
+		return
 	}
 	defer file.Close()
 
@@ -203,18 +222,20 @@ func (repo *Repository) backup() error {
 	enc := gob.NewEncoder(file)
 	err = enc.Encode(repo.nodeIndex)
 	if err != nil {
-		return err
+		repo.log.Warning("could not encode backup (%v)", err)
+		return
 	}
 
-	return nil
+	repo.log.Info("saved %v nodes to backup", len(repo.nodeIndex))
 }
 
 // restore will try to load the previously saved node file.
-func (repo *Repository) restore() error {
+func (repo *Repository) restore() {
 	// open the nodes file in read-only mode
 	file, err := os.Open(repo.backupPath)
 	if err != nil {
-		return err
+		repo.log.Warning("could not restore backup (%v)", err)
+		return
 	}
 	defer file.Close()
 
@@ -222,25 +243,28 @@ func (repo *Repository) restore() error {
 	dec := gob.NewDecoder(file)
 	err = dec.Decode(&repo.nodeIndex)
 	if err != nil {
-		return err
+		repo.log.Warning("could not decode backup (%v)", err)
+		return
 	}
 
-	return nil
+	repo.log.Info("restored %v nodes from backup", len(repo.nodeIndex))
 }
 
 func (repo *Repository) goBackups() {
 	defer repo.wg.Done()
 
-Loop:
-	for {
+	for atomic.LoadUint32(&repo.done) != 1 {
 		select {
 		case _, ok := <-repo.backupSig:
 			if !ok {
-				break Loop
+				repo.shutdown()
 			}
 
-		case <-repo.backupTimer.C:
-			repo.backup()
+		case <-repo.backupTicker.C:
+			repo.save()
+
+		case <-repo.bootstrapTicker.C:
+			repo.bootstrap()
 		}
 	}
 }

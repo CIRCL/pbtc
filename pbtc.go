@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/btcsuite/btcd/wire"
 	"github.com/op/go-logging"
 
 	"github.com/CIRCL/pbtc/logger"
@@ -46,7 +47,7 @@ func main() {
 			"testnet-seed.bitcoin.schildbach.de"}),
 	)
 	if err != nil {
-		log.Critical("Unable to create repositor (%v)", err)
+		log.Critical("Unable to create repository (%v)", err)
 		os.Exit(1)
 	}
 
@@ -54,6 +55,8 @@ func main() {
 	mgr, err := manager.New(
 		manager.SetLogger(log),
 		manager.SetRepository(repo),
+		manager.SetNetwork(wire.TestNet3),
+		manager.SetVersion(wire.RejectVersion),
 	)
 	if err != nil {
 		log.Critical("Unable to create manager (%v)", err)
