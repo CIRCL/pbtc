@@ -36,8 +36,8 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 		wg:              &sync.WaitGroup{},
 		nodeIndex:       make(map[string]*node),
 		backupSig:       make(chan struct{}, 1),
-		backupTicker:    time.NewTicker(5 * time.Second),
-		bootstrapTicker: time.NewTicker(30 * time.Second),
+		backupTicker:    time.NewTicker(90 * time.Second),
+		bootstrapTicker: time.NewTicker(30 * time.Minute),
 
 		seeds:      []string{"testnet-seed.bitcoin.petertodd.org"},
 		backupPath: "pbtc.dat",

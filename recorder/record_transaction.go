@@ -11,20 +11,19 @@ import (
 
 type TransactionRecord struct {
 	hash     [32]byte
-	in_list  []*OutputRecord
+	in_list  []*InputRecord
 	out_list []*OutputRecord
 }
 
 func NewTransactionRecord(msg *wire.MsgTx) *TransactionRecord {
-	in_list := make([]*OutputRecord, len(msg.TxIn))
+	in_list := make([]*InputRecord, len(msg.TxIn))
 	for i, txin := range msg.TxIn {
-		_ = txin
-		in_list[i], _ = NewOutputRecord(nil)
+		in_list[i] = NewInputRecord(txin)
 	}
 
 	out_list := make([]*OutputRecord, len(msg.TxOut))
 	for i, txout := range msg.TxOut {
-		out_list[i], _ = NewOutputRecord(txout)
+		out_list[i] = NewOutputRecord(txout)
 	}
 
 	tr := &TransactionRecord{
@@ -45,12 +44,14 @@ func (tr *TransactionRecord) String() string {
 	buf.WriteString(" ")
 	buf.WriteString(strconv.Itoa(len(tr.out_list)))
 	buf.WriteString("\n")
-	for _, partial := range tr.in_list {
-		buf.WriteString(partial.String())
+
+	for _, input := range tr.in_list {
+		buf.WriteString(input.String())
 		buf.WriteString("\n")
 	}
-	for _, partial := range tr.out_list {
-		buf.WriteString(partial.String())
+
+	for _, output := range tr.out_list {
+		buf.WriteString(output.String())
 		buf.WriteString("\n")
 	}
 
@@ -63,11 +64,13 @@ func (tr *TransactionRecord) Bytes() []byte {
 	binary.Write(buf, binary.LittleEndian, tr.hash)
 	binary.Write(buf, binary.LittleEndian, len(tr.in_list))
 	binary.Write(buf, binary.LittleEndian, len(tr.out_list))
-	for _, partial := range tr.in_list {
-		binary.Write(buf, binary.LittleEndian, partial.Bytes())
+
+	for _, input := range tr.in_list {
+		binary.Write(buf, binary.LittleEndian, input.Bytes())
 	}
-	for _, partial := range tr.out_list {
-		binary.Write(buf, binary.LittleEndian, partial.Bytes())
+
+	for _, output := range tr.out_list {
+		binary.Write(buf, binary.LittleEndian, output.Bytes())
 	}
 
 	return buf.Bytes()

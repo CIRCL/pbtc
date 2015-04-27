@@ -3,7 +3,6 @@ package recorder
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"strconv"
 
 	"github.com/btcsuite/btcd/chaincfg"
@@ -17,18 +16,14 @@ type OutputRecord struct {
 	address btcutil.Address
 }
 
-func NewOutputRecord(txout *wire.TxOut) (*OutputRecord, error) {
-	if txout == nil {
-		return &OutputRecord{}, nil
-	}
-
+func NewOutputRecord(txout *wire.TxOut) *OutputRecord {
 	_, addrs, _, err := txscript.ExtractPkScriptAddrs(txout.PkScript,
 		&chaincfg.TestNet3Params)
 	if err != nil {
-		return nil, err
+		return &OutputRecord{value: 0}
 	}
 	if len(addrs) != 1 {
-		return nil, errors.New("Multiple pub keys in txout not yet supported")
+		return &OutputRecord{value: -1}
 	}
 
 	or := &OutputRecord{
@@ -36,7 +31,7 @@ func NewOutputRecord(txout *wire.TxOut) (*OutputRecord, error) {
 		address: addrs[0],
 	}
 
-	return or, nil
+	return or
 }
 
 func (or *OutputRecord) String() string {

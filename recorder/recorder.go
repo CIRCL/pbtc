@@ -50,6 +50,9 @@ func (rec *Recorder) Message(msg wire.Message) {
 	case *wire.MsgAddr:
 		rec.recordAddr(m)
 
+	case *wire.MsgInv:
+		rec.recordInv(m)
+
 	case *wire.MsgTx:
 		rec.recordTx(m)
 	}
@@ -96,8 +99,7 @@ func (rec *Recorder) recordTx(msg *wire.MsgTx) {
 }
 
 func (rec *Recorder) recordBlock(msg *wire.MsgBlock) {
-	record := NewBlockRecord(msg)
-	rec.log.Debug(record.String())
+
 }
 
 func (rec *Recorder) recordHeaders(msg *wire.MsgHeaders) {
