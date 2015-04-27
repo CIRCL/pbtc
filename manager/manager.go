@@ -2,7 +2,6 @@ package manager
 
 import (
 	"net"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -176,10 +175,7 @@ func (mgr *Manager) createListeners() {
 
 	for _, ip := range ips {
 		// if we can't convert into a TCP address, skip
-		addr, err := net.ResolveTCPAddr("tcp", ip.String()+":"+strconv.Itoa(18333))
-		if err != nil {
-			continue
-		}
+		addr := &net.TCPAddr{IP: ip, Port: 18333}
 
 		// if we are already listening on this address, skip
 		_, ok := mgr.listenIndex[addr.String()]

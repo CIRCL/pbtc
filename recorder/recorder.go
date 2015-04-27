@@ -59,18 +59,96 @@ func (rec *Recorder) Message(msg wire.Message) {
 	}
 }
 
+func (rec *Recorder) recordVersion(msg *wire.MsgVersion) {
+	record := NewVersionRecord(msg)
+	rec.log.Debug(record.String())
+}
+
+func (rec *Recorder) recordVerAck(msg *wire.MsgVerAck) {
+	// nothing
+}
+
 func (rec *Recorder) recordAddr(msg *wire.MsgAddr) {
+	for _, addr := range msg.AddrList {
+		record := NewAddressRecord(addr)
+		rec.log.Debug(record.String())
+	}
+
+}
+
+func (rec *Recorder) recordInv(msg *wire.MsgInv) {
+	for _, inv := range msg.InvList {
+		record := NewInventoryRecord(inv)
+		rec.log.Debug(record.String())
+	}
+}
+
+func (rec *Recorder) recordGetData(msg *wire.MsgGetData) {
+
+}
+
+func (rec *Recorder) recordNotFound(msg *wire.MsgNotFound) {
+
+}
+
+func (rec *Recorder) recordGetBlocks(msg *wire.MsgGetBlocks) {
+
+}
+
+func (rec *Recorder) recordGetHeaders(msg *wire.MsgGetHeaders) {
 
 }
 
 func (rec *Recorder) recordTx(msg *wire.MsgTx) {
+	record := NewTransactionRecord(msg)
+	rec.log.Debug(record.String())
+}
 
+func (rec *Recorder) recordBlock(msg *wire.MsgBlock) {
+	record := NewBlockRecord(msg)
+	rec.log.Debug(record.String())
 }
 
 func (rec *Recorder) recordHeaders(msg *wire.MsgHeaders) {
 
 }
 
-func (rec *Recorder) recordBlock(msg *wire.MsgBlock) {
+func (rec *Recorder) recordGetAddr(msg *wire.MsgHeaders) {
+
+}
+
+func (rec *Recorder) recordMemPool(msg *wire.MsgMemPool) {
+
+}
+
+func (rec *Recorder) recordPing(msg *wire.MsgPing) {
+
+}
+
+func (rec *Recorder) recordPong(msg *wire.MsgPong) {
+
+}
+
+func (rec *Recorder) recordReject(msg *wire.MsgReject) {
+
+}
+
+func (rec *Recorder) recordFilterLoad(msg *wire.MsgFilterLoad) {
+
+}
+
+func (rec *Recorder) recordFilterAdd(msg *wire.MsgFilterAdd) {
+
+}
+
+func (rec *Recorder) recordFilterClear(msg *wire.MsgFilterClear) {
+
+}
+
+func (rec *Recorder) recordMerkleBlock(msg *wire.MsgMerkleBlock) {
+
+}
+
+func (rec *Recorder) recordAlert(msg *wire.MsgAlert) {
 
 }

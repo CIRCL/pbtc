@@ -3,7 +3,6 @@ package peer
 import (
 	"errors"
 	"net"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -390,12 +389,7 @@ func (p *Peer) processMessage(msg wire.Message) {
 
 	case *wire.MsgAddr:
 		for _, na := range m.AddrList {
-			as := net.JoinHostPort(na.IP.String(), strconv.Itoa(int(na.Port)))
-			addr, err := net.ResolveTCPAddr("tcp", as)
-			if err != nil {
-				continue
-			}
-
+			addr := util.ParseNetAddress(na)
 			p.repo.Discovered(addr)
 		}
 

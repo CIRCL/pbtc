@@ -4,7 +4,6 @@ import (
 	"encoding/gob"
 	"net"
 	"os"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -187,15 +186,8 @@ func (repo *Repository) bootstrap() {
 
 		// range over the ips and add them to the repository
 		for _, ip := range ips {
-			// try creating a TCP address from the given IP and default port
-			host := net.JoinHostPort(ip.String(), strconv.Itoa(18333))
-			addr, err := net.ResolveTCPAddr("tcp", host)
-			if err != nil {
-				failed++
-				continue
-			}
+			addr := &net.TCPAddr{IP: ip, Port: 18333}
 
-			// check if we already know this address, if so we skip
 			_, ok := repo.nodeIndex[addr.String()]
 			if ok {
 				known++

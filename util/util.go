@@ -2,6 +2,8 @@ package util
 
 import (
 	"net"
+
+	"github.com/btcsuite/btcd/wire"
 )
 
 // FindLocalIPs finds all IPs associated with local interfaces.
@@ -81,4 +83,14 @@ func MinUint32(x uint32, y uint32) uint32 {
 	}
 
 	return y
+}
+
+// ParseNetAddress can be used to turn a Bitcoin / btcd.wire NetAddress back
+// into a net package TCPAddr.
+func ParseNetAddress(na *wire.NetAddress) *net.TCPAddr {
+	ip := net.ParseIP(na.IP.String())
+	port := int(na.Port)
+	addr := &net.TCPAddr{IP: ip, Port: port}
+
+	return addr
 }
