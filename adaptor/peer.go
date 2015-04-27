@@ -9,7 +9,7 @@ type Peer interface {
 	Addr() *net.TCPAddr
 	Connect()
 	Start()
-	Stop()
 	Greet()
+	Stop()
 	Poll()
 }

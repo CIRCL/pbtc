@@ -259,8 +259,9 @@ PeerLoop:
 			}
 
 			mgr.log.Info("[MGR] %v: peer connected", p)
-			mgr.repo.Connected(p.Addr())
 			p.Start()
+			mgr.repo.Connected(p.Addr())
+			p.Greet()
 
 		case p := <-mgr.peerReady:
 			_, ok := mgr.peerIndex[p.String()]
@@ -271,7 +272,6 @@ PeerLoop:
 
 			mgr.log.Info("[MGR] %v: peer ready", p)
 			mgr.repo.Succeeded(p.Addr())
-			p.Greet()
 
 		// whenever there is an expired peer to be removed, process it
 		case p := <-mgr.peerStopped:
@@ -316,6 +316,7 @@ func (mgr *Manager) handleListener(listener *net.TCPListener) {
 		// if the connection is valid, the peer will notify the manager
 		p, err := peer.New(
 			peer.SetLogger(mgr.log),
+			peer.SetRepository(mgr.repo),
 			peer.SetManager(mgr),
 			peer.SetRecorder(mgr.rec),
 			peer.SetNetwork(mgr.network),
@@ -332,8 +333,8 @@ func (mgr *Manager) handleListener(listener *net.TCPListener) {
 		mgr.log.Info("[MGR] %v: incoming peer added", p)
 
 		mgr.peerIndex[p.String()] = p
+		p.Start()
 		mgr.repo.Attempted(p.Addr())
-		mgr.peerConnected <- p
 	}
 
 	mgr.log.Info("[MGR] %v: listener done", listener.Addr())
@@ -357,6 +358,7 @@ func (mgr *Manager) addPeer() {
 
 	p, err := peer.New(
 		peer.SetLogger(mgr.log),
+		peer.SetRepository(mgr.repo),
 		peer.SetManager(mgr),
 		peer.SetRecorder(mgr.rec),
 		peer.SetNetwork(mgr.network),
@@ -367,6 +369,10 @@ func (mgr *Manager) addPeer() {
 	if err != nil {
 		mgr.log.Error("[MGR] %v: could not create outgoing peer (%v)", addr,
 			err)
+		return
+	}
+
+	if atomic.LoadUint32(&mgr.done) == 1 {
 		return
 	}
 

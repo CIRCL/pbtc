@@ -31,9 +31,9 @@ func main() {
 	// logging
 	log, err := logger.New(
 		logger.EnableConsole(),
-		logger.SetConsoleLevel(logging.DEBUG),
+		logger.SetConsoleLevel(logging.INFO),
 		logger.EnableFile(),
-		logger.SetFileLevel(logging.INFO),
+		logger.SetFileLevel(logging.DEBUG),
 	)
 	if err != nil {
 		os.Exit(1)
@@ -52,7 +52,7 @@ func main() {
 	// recorder
 	rec, err := recorder.New(
 		recorder.SetLogger(log),
-		recorder.SetTypes(wire.CmdAddr, wire.CmdTx, wire.CmdBlock),
+		recorder.SetTypes(wire.CmdTx, wire.CmdVersion, wire.CmdInv),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize recorder (%v)", err)

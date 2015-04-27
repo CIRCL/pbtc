@@ -46,9 +46,10 @@ type Peer struct {
 	me      *wire.NetAddress
 	you     *wire.NetAddress
 
-	done uint32
-	sent uint32
-	rcvd uint32
+	started uint32
+	done    uint32
+	sent    uint32
+	rcvd    uint32
 }
 
 func New(options ...func(*Peer)) (*Peer, error) {
@@ -178,13 +179,21 @@ func (p *Peer) Connect() {
 }
 
 func (p *Peer) Start() {
-	if p.conn == nil {
+	if atomic.SwapUint32(&p.started, 1) == 1 {
 		return
 	}
 
 	p.wg.Add(2)
 	go p.goSend()
 	go p.goReceive()
+}
+
+func (p *Peer) Greet() {
+	if atomic.SwapUint32(&p.sent, 1) == 1 {
+		return
+	}
+
+	p.pushVersion()
 }
 
 func (p *Peer) Stop() {
@@ -195,12 +204,6 @@ func (p *Peer) Stop() {
 func (p *Peer) Poll() {
 	if atomic.LoadUint32(&p.done) != 1 && atomic.LoadUint32(&p.sent) == 1 {
 		p.pushGetAddr()
-	}
-}
-
-func (p *Peer) Greet() {
-	if atomic.LoadUint32(&p.done) != 1 && atomic.LoadUint32(&p.sent) == 1 {
-		p.pushAddr()
 	}
 }
 
@@ -299,7 +302,7 @@ SendLoop:
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				continue
 			}
-			if strings.Contains(err.Error(),
+			if err != nil && strings.Contains(err.Error(),
 				"use of closed network connection") {
 				break
 			}
@@ -345,7 +348,7 @@ ReceiveLoop:
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				continue
 			}
-			if strings.Contains(err.Error(),
+			if err != nil && strings.Contains(err.Error(),
 				"use of closed network connection") {
 				break
 			}

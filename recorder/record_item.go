@@ -27,7 +27,7 @@ func (ir *ItemRecord) String() string {
 	buf := new(bytes.Buffer)
 	buf.WriteString(strconv.FormatUint(uint64(ir.category), 10))
 	buf.WriteString(" ")
-	buf.WriteString(hex.Dump(ir.hash[:]))
+	buf.WriteString(hex.EncodeToString(ir.hash[:]))
 
 	return buf.String()
 }

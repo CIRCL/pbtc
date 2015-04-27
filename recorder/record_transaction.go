@@ -38,7 +38,7 @@ func NewTransactionRecord(msg *wire.MsgTx) *TransactionRecord {
 func (tr *TransactionRecord) String() string {
 	buf := new(bytes.Buffer)
 	buf.WriteString("tx ")
-	buf.WriteString(hex.Dump(tr.hash[:]))
+	buf.WriteString(hex.EncodeToString(tr.hash[:]))
 	buf.WriteString(" ")
 	buf.WriteString(strconv.Itoa(len(tr.in_list)))
 	buf.WriteString(" ")

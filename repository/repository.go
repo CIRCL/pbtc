@@ -148,7 +148,7 @@ func (repo *Repository) Succeeded(addr *net.TCPAddr) {
 
 func (repo *Repository) Retrieve() *net.TCPAddr {
 	for _, node := range repo.nodeIndex {
-		if node.numAttempts >= 5 {
+		if node.numAttempts >= 3 {
 			continue
 		}
 
