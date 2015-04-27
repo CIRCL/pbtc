@@ -44,7 +44,7 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 		filePath: "records/",
 		fileName: time.Now().String(),
 		fileSize: 1,
-		fileAge:  1 * time.Minute,
+		fileAge:  15 * time.Minute,
 	}
 
 	for _, option := range options {
@@ -154,8 +154,8 @@ WriteLoop:
 				break WriteLoop
 			}
 
-		/*case <-rec.fileTimer.C:
-		rec.rotateLogs()*/
+		case <-rec.fileTimer.C:
+			rec.rotateLogs()
 
 		case txt := <-rec.txtQ:
 			_, err := rec.txtFile.WriteString(txt + "\n")
@@ -164,7 +164,7 @@ WriteLoop:
 			}
 
 			stat, _ := rec.txtFile.Stat()
-			if stat.Size() >= rec.fileSize*1024 {
+			if stat.Size() >= rec.fileSize*1024*1024 {
 				rec.rotateLogs()
 			}
 
@@ -175,7 +175,7 @@ WriteLoop:
 			}
 
 			stat, _ := rec.binFile.Stat()
-			if stat.Size() >= rec.fileSize*1024 {
+			if stat.Size() >= rec.fileSize*1024*1024 {
 				rec.rotateLogs()
 			}
 		}
