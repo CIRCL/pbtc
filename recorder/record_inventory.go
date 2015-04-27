@@ -6,10 +6,10 @@ import (
 
 type InventoryRecord struct{}
 
-func NewInventoryRecord(inv *wire.InvVect) *InventoryRecord {
+func NewInventoryRecord(msg *wire.MsgInv) *InventoryRecord {
 	return &InventoryRecord{}
 }
 
-func (record *InventoryRecord) String() string {
+func (ir *InventoryRecord) String() string {
 	return ""
 }

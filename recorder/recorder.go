@@ -44,18 +44,14 @@ func (rec *Recorder) Message(msg wire.Message) {
 	}
 
 	switch m := msg.(type) {
+	case *wire.MsgVersion:
+		rec.recordVersion(m)
+
 	case *wire.MsgAddr:
 		rec.recordAddr(m)
 
 	case *wire.MsgTx:
 		rec.recordTx(m)
-
-	case *wire.MsgHeaders:
-		rec.recordHeaders(m)
-
-	case *wire.MsgBlock:
-		rec.recordBlock(m)
-
 	}
 }
 
@@ -65,22 +61,17 @@ func (rec *Recorder) recordVersion(msg *wire.MsgVersion) {
 }
 
 func (rec *Recorder) recordVerAck(msg *wire.MsgVerAck) {
-	// nothing
+
 }
 
 func (rec *Recorder) recordAddr(msg *wire.MsgAddr) {
-	for _, addr := range msg.AddrList {
-		record := NewAddressRecord(addr)
-		rec.log.Debug(record.String())
-	}
-
+	record := NewAddressRecord(msg)
+	rec.log.Debug(record.String())
 }
 
 func (rec *Recorder) recordInv(msg *wire.MsgInv) {
-	for _, inv := range msg.InvList {
-		record := NewInventoryRecord(inv)
-		rec.log.Debug(record.String())
-	}
+	record := NewInventoryRecord(msg)
+	rec.log.Debug(record.String())
 }
 
 func (rec *Recorder) recordGetData(msg *wire.MsgGetData) {
