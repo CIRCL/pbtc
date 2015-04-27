@@ -147,7 +147,35 @@ func (repo *Repository) Succeeded(addr *net.TCPAddr) {
 }
 
 func (repo *Repository) Retrieve() *net.TCPAddr {
+	for _, node := range repo.nodeIndex {
+		if node.numAttempts >= 5 {
+			continue
+		}
+
+		if node.lastAttempted.Add(time.Minute * 5).After(time.Now()) {
+			continue
+		}
+
+		if node.lastConnected.Before(node.lastSucceeded) {
+			continue
+		}
+
+		if node.lastSucceeded.Add(time.Minute * 15).After(time.Now()) {
+			continue
+		}
+
+		return node.addr
+	}
+
 	return nil
+}
+
+func (repo *Repository) Polling() bool {
+	if len(repo.nodeIndex) < 12768 {
+		return true
+	}
+
+	return false
 }
 
 func (repo *Repository) start() {

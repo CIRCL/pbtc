@@ -10,4 +10,5 @@ type Repository interface {
 	Connected(addr *net.TCPAddr)
 	Succeeded(addr *net.TCPAddr)
 	Retrieve() *net.TCPAddr
+	Polling() bool
 }

@@ -3,6 +3,7 @@ package peer
 import (
 	"errors"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -72,7 +73,6 @@ func New(options ...func(*Peer)) (*Peer, error) {
 	}
 
 	if p.conn == nil {
-		p.connect()
 		return p, nil
 	}
 
@@ -80,8 +80,6 @@ func New(options ...func(*Peer)) (*Peer, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	p.start()
 
 	return p, nil
 }
@@ -148,16 +146,11 @@ func (p *Peer) Addr() *net.TCPAddr {
 	return p.addr
 }
 
-func (p *Peer) Cleanup() {
-	p.shutdown()
-	p.wg.Wait()
-}
+func (p *Peer) Connect() {
+	if p.conn != nil || atomic.LoadUint32(&p.done) != 0 {
+		return
+	}
 
-func (p *Peer) Poll() {
-	p.pushGetAddr()
-}
-
-func (p *Peer) connect() {
 	// if we can't establish the connection, abort
 	connGen, err := net.DialTimeout("tcp", p.addr.String(), timeoutDial)
 	if err != nil {
@@ -181,7 +174,34 @@ func (p *Peer) connect() {
 		return
 	}
 
-	p.start()
+	p.mgr.Connected(p)
+}
+
+func (p *Peer) Start() {
+	if p.conn == nil {
+		return
+	}
+
+	p.wg.Add(2)
+	go p.goSend()
+	go p.goReceive()
+}
+
+func (p *Peer) Stop() {
+	p.shutdown()
+	p.wg.Wait()
+}
+
+func (p *Peer) Poll() {
+	if atomic.LoadUint32(&p.done) != 1 && atomic.LoadUint32(&p.sent) == 1 {
+		p.pushGetAddr()
+	}
+}
+
+func (p *Peer) Greet() {
+	if atomic.LoadUint32(&p.done) != 1 && atomic.LoadUint32(&p.sent) == 1 {
+		p.pushAddr()
+	}
 }
 
 func (p *Peer) parse() error {
@@ -212,12 +232,6 @@ func (p *Peer) parse() error {
 	return nil
 }
 
-func (p *Peer) start() {
-	p.wg.Add(2)
-	go p.goSend()
-	go p.goReceive()
-}
-
 func (p *Peer) shutdown() {
 	// if we already called shutdown, we don't need to do it twice
 	if atomic.SwapUint32(&p.done, 1) == 1 {
@@ -232,10 +246,12 @@ func (p *Peer) shutdown() {
 	// signal all handlers to stop
 	close(p.sigSend)
 	close(p.sigRecv)
+
+	p.mgr.Stopped(p)
 }
 
-// sendMessage will attempt to write a message on our connection. It will set the write
-// deadline in order to respect the timeout defined in our configuration. It will return
+// sendMessage will attempt to write a message on our connection. It will set th
+// deadline in order to respect the timeout defined in our configuration. It wil
 // the error if we didn't succeed.
 func (p *Peer) sendMessage(msg wire.Message) error {
 	p.conn.SetWriteDeadline(time.Now().Add(timeoutSend))
@@ -244,8 +260,8 @@ func (p *Peer) sendMessage(msg wire.Message) error {
 	return err
 }
 
-// recvMessage will attempt to read a message from our connection. It will set the read
-// deadline in order to respect the timeout defined in our configuration. It will return
+// recvMessage will attempt to read a message from our connection. It will set t
+// deadline in order to respect the timeout defined in our configuration. It wil
 /// the read message as well as the error.
 func (p *Peer) recvMessage() (wire.Message, error) {
 	p.conn.SetReadDeadline(time.Now().Add(timeoutRecv))
@@ -254,8 +270,8 @@ func (p *Peer) recvMessage() (wire.Message, error) {
 	return msg, err
 }
 
-// handleSend is the handler responsible for sending messages in the queue. It will
-// send messages from the queue and push ping messages if the connection is idling.
+// handleSend is the handler responsible for sending messages in the queue. It w
+// send messages from the queue and push ping messages if the connection is idli
 func (p *Peer) goSend() {
 	// let the waitgroup know when we are done
 	defer p.wg.Done()
@@ -263,12 +279,13 @@ func (p *Peer) goSend() {
 	// initialize the idle timer to see when we didn't send for a while
 	idleTimer := time.NewTimer(timeoutPing)
 
-	for atomic.LoadUint32(&p.done) == 0 {
+SendLoop:
+	for {
 		select {
 		// signal for shutdown, so break outer loop
 		case _, ok := <-p.sigSend:
 			if !ok {
-				break
+				break SendLoop
 			}
 
 		// we didnt's send a message in a long time, so send a ping
@@ -282,8 +299,14 @@ func (p *Peer) goSend() {
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				continue
 			}
+			if strings.Contains(err.Error(),
+				"use of closed network connection") {
+				break
+			}
 			if err != nil {
+				p.log.Error("[PEER] %v: could not send message (%v)", p, err)
 				p.shutdown()
+				continue
 			}
 
 			// we successfully sent a message, so reset the idle timer
@@ -292,8 +315,8 @@ func (p *Peer) goSend() {
 	}
 }
 
-// handleReceive is the handler responsible for receiving messages and pushing them onto
-// the reception queue. It does not do any processing so that we read all messages as quickly
+// handleReceive is the handler responsible for receiving messages and pushing
+// the reception queue. It does not do any processing so that we read all messag
 // as possible.
 func (p *Peer) goReceive() {
 	// let the waitgroup know when we are done
@@ -302,30 +325,37 @@ func (p *Peer) goReceive() {
 	// initialize the timer to see when we didn't receive in a long time
 	idleTimer := time.NewTimer(timeoutIdle)
 
-	for atomic.LoadUint32(&p.done) == 0 {
+ReceiveLoop:
+	for {
 		select {
 		// the p has shutdown so break outer loop
 		case _, ok := <-p.sigRecv:
 			if !ok {
-				break
+				break ReceiveLoop
 			}
 
 		// we didn't receive a message for too long, so time this p out and dump
 		case <-idleTimer.C:
 			p.shutdown()
 
-		// each iteration without other action, we try receiving a message for a while
+		// each iteration without other action, we try receiving a message for a
 		// if we time out, we try again, on error we quit
 		default:
 			msg, err := p.recvMessage()
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				continue
 			}
+			if strings.Contains(err.Error(),
+				"use of closed network connection") {
+				break
+			}
 			if err != nil {
+				p.log.Error("[PEER] %v: could not receive message (%v)", p, err)
 				p.shutdown()
+				continue
 			}
 
-			// we successfully received a message, so reset the idle timer and push it
+			// we successfully received a message, so reset the idle timer and
 			// onte the reception queue for further processing
 			idleTimer.Reset(timeoutIdle)
 			p.processMessage(msg)
@@ -335,13 +365,12 @@ func (p *Peer) goReceive() {
 
 // handleMessages is the handler to process messages from our reception queue.
 func (p *Peer) processMessage(msg wire.Message) {
-
 	p.rec.Message(msg)
 
 	if atomic.LoadUint32(&p.rcvd) == 0 {
 		_, ok := msg.(*wire.MsgVersion)
 		if !ok {
-			p.log.Warning("%v: out of order non-version message")
+			p.log.Warning("%v: out of order non-version message", p.String())
 			p.shutdown()
 			return
 		}
@@ -351,19 +380,19 @@ func (p *Peer) processMessage(msg wire.Message) {
 	switch m := msg.(type) {
 	case *wire.MsgVersion:
 		if m.Nonce == p.nonce {
-			p.log.Warning("%v: detected connection to self")
+			p.log.Warning("%v: detected connection to self", p.String())
 			p.shutdown()
 			return
 		}
 
 		if uint32(m.ProtocolVersion) < wire.MultipleAddressVersion {
-			p.log.Warning("%v: connected to obsolete peer")
+			p.log.Warning("%v: connected to obsolete peer", p.String())
 			p.shutdown()
 			return
 		}
 
 		if atomic.SwapUint32(&p.rcvd, 1) == 1 {
-			p.log.Warning("%v: out of order version message")
+			p.log.Warning("%v: out of order version message", p.String())
 			p.shutdown()
 			return
 		}
@@ -375,9 +404,11 @@ func (p *Peer) processMessage(msg wire.Message) {
 		}
 
 		p.pushVerAck()
-		p.pushAddr()
 
 	case *wire.MsgVerAck:
+		if atomic.LoadUint32(&p.sent) == 1 && atomic.LoadUint32(&p.rcvd) == 1 {
+			p.mgr.Ready(p)
+		}
 
 	case *wire.MsgPing:
 		p.pushPong(m.Nonce)
@@ -385,7 +416,6 @@ func (p *Peer) processMessage(msg wire.Message) {
 	case *wire.MsgPong:
 
 	case *wire.MsgGetAddr:
-		p.pushAddr()
 
 	case *wire.MsgAddr:
 		for _, na := range m.AddrList {
@@ -440,5 +470,8 @@ func (p *Peer) pushGetAddr() {
 }
 
 func (p *Peer) pushAddr() {
+	msg := wire.NewMsgAddr()
+	na, _ := wire.NewNetAddress(p.conn.LocalAddr(), wire.SFNodeNetwork)
+	msg.AddAddress(na)
 	p.sendQ <- wire.NewMsgAddr()
 }

@@ -7,6 +7,9 @@ import (
 type Peer interface {
 	String() string
 	Addr() *net.TCPAddr
-	Cleanup()
+	Connect()
+	Start()
+	Stop()
+	Greet()
 	Poll()
 }

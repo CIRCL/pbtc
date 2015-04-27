@@ -1,7 +1,7 @@
 package adaptor
 
 type Manager interface {
-	Started(p Peer)
+	Connected(p Peer)
 	Ready(p Peer)
 	Stopped(p Peer)
 }
