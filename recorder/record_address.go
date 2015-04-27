@@ -2,6 +2,7 @@ package recorder
 
 import (
 	"bytes"
+	"encoding/binary"
 	"net"
 	"strconv"
 
@@ -31,10 +32,24 @@ func (ar *AddressRecord) String() string {
 	buf := new(bytes.Buffer)
 	buf.WriteString("addr ")
 	buf.WriteString(strconv.FormatInt(int64(len(ar.addr_list)), 10))
+
 	for _, addr := range ar.addr_list {
 		buf.WriteString(" ")
 		buf.WriteString(addr.String())
 	}
 
 	return buf.String()
+}
+
+func (ar *AddressRecord) Bytes() []byte {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, wire.CmdAddr)
+	binary.Write(buf, binary.LittleEndian, len(ar.addr_list))
+
+	for _, addr := range ar.addr_list {
+		binary.Write(buf, binary.LittleEndian, addr.IP)
+		binary.Write(buf, binary.LittleEndian, addr.Port)
+	}
+
+	return buf.Bytes()
 }
