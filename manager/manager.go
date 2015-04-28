@@ -311,6 +311,7 @@ PeerLoop:
 				continue
 			}
 
+			mgr.log.Debug("[MGR] %v: connected")
 			p.Start()
 			mgr.repo.Connected(p.Addr())
 			p.Greet()
@@ -322,6 +323,7 @@ PeerLoop:
 				continue
 			}
 
+			mgr.log.Debug("[MGR] %v: ready")
 			mgr.repo.Succeeded(p.Addr())
 
 		// whenever there is an expired peer to be removed, process it
@@ -331,6 +333,7 @@ PeerLoop:
 				continue
 			}
 
+			mgr.log.Debug("[MGR] %v: done")
 			delete(mgr.peerIndex, p.String())
 		}
 	}
@@ -380,8 +383,7 @@ func (mgr *Manager) handleListener(listener *net.TCPListener) {
 			continue
 		}
 
-		mgr.log.Info("[MGR] %v: incoming peer added", p)
-
+		mgr.log.Debug("[MGR] %v: incoming peer added", p)
 		mgr.peerIndex[p.String()] = p
 		p.Start()
 		mgr.repo.Attempted(p.Addr())
@@ -426,8 +428,7 @@ func (mgr *Manager) addPeer() {
 		return
 	}
 
-	mgr.log.Info("[MGR] %v: outgoing peer added", p)
-
+	mgr.log.Debug("[MGR] %v: outgoing peer added", p)
 	mgr.peerIndex[p.String()] = p
 	p.Connect()
 	mgr.repo.Attempted(p.Addr())

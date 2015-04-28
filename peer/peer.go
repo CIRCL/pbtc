@@ -324,10 +324,12 @@ SendLoop:
 		case msg := <-p.sendQ:
 			err := p.sendMessage(msg)
 			if e, ok := err.(net.Error); ok && e.Timeout() {
+				p.shutdown()
 				continue
 			}
 			if err != nil && strings.Contains(err.Error(),
 				"use of closed network connection") {
+				p.shutdown()
 				break
 			}
 			if err != nil {
@@ -374,6 +376,7 @@ ReceiveLoop:
 			}
 			if err != nil && strings.Contains(err.Error(),
 				"use of closed network connection") {
+				p.shutdown()
 				break
 			}
 			if err != nil {
