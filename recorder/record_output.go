@@ -18,7 +18,7 @@ type OutputRecord struct {
 
 func NewOutputRecord(txout *wire.TxOut) *OutputRecord {
 	_, addrs, _, err := txscript.ExtractPkScriptAddrs(txout.PkScript,
-		&chaincfg.TestNet3Params)
+		&chaincfg.MainNetParams)
 	if err != nil {
 		return &OutputRecord{value: 0}
 	}

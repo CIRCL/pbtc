@@ -26,7 +26,9 @@ type Repository struct {
 
 	log adaptor.Logger
 
-	done uint32
+	done           uint32
+	restoreEnabled bool
+	defaultPort    int
 }
 
 // New creates a new repository initialized with default values. A variable list
@@ -38,16 +40,20 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 		backupSig:       make(chan struct{}, 1),
 		backupTicker:    time.NewTicker(90 * time.Second),
 		bootstrapTicker: time.NewTicker(30 * time.Minute),
+		defaultPort:     18333,
 
-		seeds:      []string{"testnet-seed.bitcoin.petertodd.org"},
-		backupPath: "nodes.dat",
+		seeds:          []string{"testnet-seed.bitcoin.petertodd.org"},
+		backupPath:     "nodes.dat",
+		restoreEnabled: true,
 	}
 
 	for _, option := range options {
 		option(repo)
 	}
 
-	//repo.restore()
+	if repo.restoreEnabled {
+		repo.restore()
+	}
 
 	if len(repo.nodeIndex) == 0 {
 		repo.bootstrap()
@@ -77,6 +83,18 @@ func SetSeeds(seeds ...string) func(*Repository) {
 func SetBackupPath(path string) func(*Repository) {
 	return func(repo *Repository) {
 		repo.backupPath = path
+	}
+}
+
+func SetDefaultPort(port int) func(*Repository) {
+	return func(repo *Repository) {
+		repo.defaultPort = port
+	}
+}
+
+func DisableRestore() func(*Repository) {
+	return func(repo *Repository) {
+		repo.restoreEnabled = false
 	}
 }
 
@@ -206,7 +224,7 @@ func (repo *Repository) bootstrap() {
 
 		// range over the ips and add them to the repository
 		for _, ip := range ips {
-			addr := &net.TCPAddr{IP: ip, Port: 18333}
+			addr := &net.TCPAddr{IP: ip, Port: repo.defaultPort}
 
 			_, ok := repo.nodeIndex[addr.String()]
 			if ok {

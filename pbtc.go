@@ -42,7 +42,9 @@ func main() {
 	// repository
 	repo, err := repository.New(
 		repository.SetLogger(log),
-		repository.SetSeeds("testnet-seed.bitcoin.schildbach.de"),
+		repository.SetSeeds("seed.bitcoin.sipa.be"),
+		repository.DisableRestore(),
+		repository.SetDefaultPort(8333),
 	)
 	if err != nil {
 		log.Critical("Unable to create repository (%v)", err)
@@ -67,7 +69,7 @@ func main() {
 		manager.SetLogger(log),
 		manager.SetRepository(repo),
 		manager.SetRecorder(rec),
-		manager.SetNetwork(wire.TestNet3),
+		manager.SetNetwork(wire.MainNet),
 		manager.SetVersion(wire.RejectVersion),
 	)
 	if err != nil {

@@ -53,7 +53,8 @@ type Manager struct {
 	version uint32
 	nonce   uint64
 
-	done uint32
+	done        uint32
+	defaultPort int
 }
 
 // NewManager returns a new manager with all necessary variables initialized.
@@ -71,14 +72,23 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		listenIndex:   make(map[string]*net.TCPListener),
 		invIndex:      make(map[wire.ShaHash]struct{}),
 
-		network: wire.TestNet3,
-		version: wire.RejectVersion,
+		network:     wire.TestNet3,
+		version:     wire.RejectVersion,
+		defaultPort: 18333,
 	}
 
 	mgr.nonce, _ = wire.RandomUint64()
 
 	for _, option := range options {
 		option(mgr)
+	}
+
+	switch mgr.network {
+	case wire.TestNet3:
+		mgr.defaultPort = 18333
+
+	case wire.MainNet:
+		mgr.defaultPort = 8333
 	}
 
 	mgr.startup()
@@ -192,7 +202,7 @@ func (mgr *Manager) createListeners() {
 
 	for _, ip := range ips {
 		// if we can't convert into a TCP address, skip
-		addr := &net.TCPAddr{IP: ip, Port: 18333}
+		addr := &net.TCPAddr{IP: ip, Port: mgr.defaultPort}
 
 		// if we are already listening on this address, skip
 		_, ok := mgr.listenIndex[addr.String()]
