@@ -22,8 +22,13 @@ type AddressRecord struct {
 func NewAddressRecord(msg *wire.MsgAddr, ra *net.TCPAddr,
 	la *net.TCPAddr) *AddressRecord {
 	addr_list := make([]*net.TCPAddr, len(msg.AddrList))
-	for i, addr := range msg.AddrList {
-		addr_list[i] = util.ParseNetAddress(addr)
+	for i, na := range msg.AddrList {
+		addr, err := util.ParseNetAddress(na)
+		if err != nil {
+			addr = &net.TCPAddr{IP: net.IPv4zero, Port: 0}
+		}
+
+		addr_list[i] = addr
 	}
 
 	ar := &AddressRecord{

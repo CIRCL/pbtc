@@ -29,6 +29,17 @@ type VersionRecord struct {
 
 func NewVersionRecord(msg *wire.MsgVersion, ra *net.TCPAddr,
 	la *net.TCPAddr) *VersionRecord {
+
+	remote, err := util.ParseNetAddress(&msg.AddrYou)
+	if err != nil {
+		remote = &net.TCPAddr{IP: net.IPv4zero, Port: 0}
+	}
+
+	local, err := util.ParseNetAddress(&msg.AddrMe)
+	if err != nil {
+		local = &net.TCPAddr{IP: net.IPv4zero, Port: 0}
+	}
+
 	vr := &VersionRecord{
 		stamp:    time.Now(),
 		ra:       ra,
@@ -36,8 +47,8 @@ func NewVersionRecord(msg *wire.MsgVersion, ra *net.TCPAddr,
 		version:  msg.ProtocolVersion,
 		services: uint64(msg.Services),
 		rstamp:   msg.Timestamp,
-		remote:   util.ParseNetAddress(&msg.AddrYou),
-		local:    util.ParseNetAddress(&msg.AddrMe),
+		remote:   remote,
+		local:    local,
 		nonce:    msg.Nonce,
 		agent:    msg.UserAgent,
 		block:    msg.LastBlock,

@@ -170,14 +170,6 @@ func (repo *Repository) Retrieve() *net.TCPAddr {
 	return nil
 }
 
-func (repo *Repository) Polling() bool {
-	if len(repo.nodeIndex) < 256000 {
-		return true
-	}
-
-	return false
-}
-
 func (repo *Repository) start() {
 	repo.wg.Add(1)
 	go repo.goBackups()

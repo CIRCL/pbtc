@@ -432,7 +432,11 @@ func (p *Peer) processMessage(msg wire.Message) {
 
 	case *wire.MsgAddr:
 		for _, na := range m.AddrList {
-			addr := util.ParseNetAddress(na)
+			addr, err := util.ParseNetAddress(na)
+			if err != nil {
+				continue
+			}
+
 			p.repo.Discovered(addr)
 		}
 

@@ -40,7 +40,6 @@ type Manager struct {
 	peerReady     chan adaptor.Peer
 	peerStopped   chan adaptor.Peer
 	connTicker    *time.Ticker
-	pollTicker    *time.Ticker
 	infoTicker    *time.Ticker
 	peerIndex     map[string]adaptor.Peer
 	listenIndex   map[string]*net.TCPListener
@@ -66,7 +65,6 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		peerReady:     make(chan adaptor.Peer, 1),
 		peerStopped:   make(chan adaptor.Peer, 1),
 		connTicker:    time.NewTicker(time.Second / 20),
-		pollTicker:    time.NewTicker(time.Second * 15),
 		infoTicker:    time.NewTicker(time.Second * 5),
 		peerIndex:     make(map[string]adaptor.Peer),
 		listenIndex:   make(map[string]*net.TCPListener),
@@ -226,13 +224,6 @@ ConnLoop:
 		case <-mgr.connTicker.C:
 			mgr.addPeer()
 
-		case <-mgr.pollTicker.C:
-			if mgr.repo.Polling() {
-				for _, peer := range mgr.peerIndex {
-					peer.Poll()
-				}
-			}
-
 		case <-mgr.infoTicker.C:
 			mgr.log.Info("[MGR] %v total peers managed", len(mgr.peerIndex))
 		}
@@ -266,8 +257,8 @@ PeerLoop:
 			}
 
 			mgr.log.Debug("[MGR] %v: connected")
-			p.Start()
 			mgr.repo.Connected(p.Addr())
+			p.Start()
 			p.Greet()
 
 		case p := <-mgr.peerReady:
@@ -279,6 +270,7 @@ PeerLoop:
 
 			mgr.log.Debug("[MGR] %v: ready")
 			mgr.repo.Succeeded(p.Addr())
+			p.Poll()
 
 		// whenever there is an expired peer to be removed, process it
 		case p := <-mgr.peerStopped:
