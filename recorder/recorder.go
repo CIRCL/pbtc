@@ -32,7 +32,8 @@ type Recorder struct {
 	txtFile *os.File
 	binFile *os.File
 
-	done uint32
+	done         uint32
+	resetLogging bool
 }
 
 func New(options ...func(*Recorder)) (*Recorder, error) {
@@ -48,10 +49,19 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 		fileName: time.Now().String(),
 		fileSize: 1 * 1024 * 1024,
 		fileAge:  1 * time.Minute,
+
+		resetLogging: false,
 	}
 
 	for _, option := range options {
 		option(rec)
+	}
+
+	if rec.resetLogging {
+		err := os.RemoveAll(rec.filePath)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	_, err := os.Stat(rec.filePath)
@@ -62,12 +72,12 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 		}
 	}
 
-	txtFile, err := os.Create(rec.filePath + rec.fileName + ".txt")
+	txtFile, err := os.Create(rec.filePath + time.Now().String() + ".txt")
 	if err != nil {
 		return nil, err
 	}
 
-	binFile, err := os.Create(rec.filePath + rec.fileName + ".bin")
+	binFile, err := os.Create(rec.filePath + time.Now().String() + ".bin")
 	if err != nil {
 		txtFile.Close()
 		return nil, err
@@ -112,6 +122,12 @@ func SetFileSize(size int64) func(*Recorder) {
 func SetFileAge(age time.Duration) func(*Recorder) {
 	return func(rec *Recorder) {
 		rec.fileAge = age
+	}
+}
+
+func EnableReset() func(*Recorder) {
+	return func(rec *Recorder) {
+		rec.resetLogging = true
 	}
 }
 
