@@ -1,7 +1,13 @@
 package adaptor
 
+import (
+	"github.com/btcsuite/btcd/wire"
+)
+
 type Manager interface {
-	Connected(p Peer)
-	Ready(p Peer)
-	Stopped(p Peer)
+	Connected(Peer)
+	Ready(Peer)
+	Stopped(Peer)
+	Knows(wire.ShaHash) bool
+	Mark(wire.ShaHash)
 }

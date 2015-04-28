@@ -36,8 +36,9 @@ func NewOutputRecord(txout *wire.TxOut) *OutputRecord {
 
 func (or *OutputRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString(strconv.FormatInt(or.value, 10))
 	buf.WriteString(or.address.EncodeAddress())
+	buf.WriteString(" ")
+	buf.WriteString(strconv.FormatInt(or.value, 10))
 
 	return buf.String()
 }

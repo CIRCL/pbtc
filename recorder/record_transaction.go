@@ -57,16 +57,15 @@ func (tr *TransactionRecord) String() string {
 	buf.WriteString(strconv.Itoa(len(tr.in_list)))
 	buf.WriteString(" ")
 	buf.WriteString(strconv.Itoa(len(tr.out_list)))
-	buf.WriteString("\n")
 
 	for _, input := range tr.in_list {
-		buf.WriteString(input.String())
 		buf.WriteString("\n")
+		buf.WriteString(input.String())
 	}
 
 	for _, output := range tr.out_list {
-		buf.WriteString(output.String())
 		buf.WriteString("\n")
+		buf.WriteString(output.String())
 	}
 
 	return buf.String()

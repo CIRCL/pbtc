@@ -43,6 +43,7 @@ type Manager struct {
 	infoTicker    *time.Ticker
 	peerIndex     map[string]adaptor.Peer
 	listenIndex   map[string]*net.TCPListener
+	invIndex      map[wire.ShaHash]struct{}
 
 	log  adaptor.Logger
 	repo adaptor.Repository
@@ -68,6 +69,7 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		infoTicker:    time.NewTicker(time.Second * 5),
 		peerIndex:     make(map[string]adaptor.Peer),
 		listenIndex:   make(map[string]*net.TCPListener),
+		invIndex:      make(map[wire.ShaHash]struct{}),
 
 		network: wire.TestNet3,
 		version: wire.RejectVersion,
@@ -129,6 +131,15 @@ func (mgr *Manager) Ready(p adaptor.Peer) {
 
 func (mgr *Manager) Stopped(p adaptor.Peer) {
 	mgr.peerStopped <- p
+}
+
+func (mgr *Manager) Knows(hash wire.ShaHash) bool {
+	_, ok := mgr.invIndex[hash]
+	return ok
+}
+
+func (mgr *Manager) Mark(hash wire.ShaHash) {
+	mgr.invIndex[hash] = struct{}{}
 }
 
 // Start starts the manager, with run-time options passed in as parameters.

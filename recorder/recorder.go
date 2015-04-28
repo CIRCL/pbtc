@@ -19,6 +19,7 @@ type Recorder struct {
 	sigWriter chan struct{}
 	txtQ      chan string
 	binQ      chan []byte
+	txIndex   map[wire.ShaHash]struct{}
 
 	log adaptor.Logger
 
@@ -41,6 +42,7 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 		sigWriter: make(chan struct{}, 1),
 		txtQ:      make(chan string, 1),
 		binQ:      make(chan []byte, 1),
+		txIndex:   make(map[wire.ShaHash]struct{}),
 
 		filePath: "records/",
 		fileName: time.Now().String(),
@@ -132,6 +134,12 @@ func (rec *Recorder) Message(msg wire.Message, la *net.TCPAddr,
 		record = NewInventoryRecord(m, la, ra)
 
 	case *wire.MsgTx:
+		_, ok := rec.txIndex[m.TxSha()]
+		if ok {
+			return
+		}
+
+		rec.txIndex[m.TxSha()] = struct{}{}
 		record = NewTransactionRecord(m, la, ra)
 	}
 

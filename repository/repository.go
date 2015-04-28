@@ -47,7 +47,7 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 		option(repo)
 	}
 
-	repo.restore()
+	//repo.restore()
 
 	if len(repo.nodeIndex) == 0 {
 		repo.bootstrap()

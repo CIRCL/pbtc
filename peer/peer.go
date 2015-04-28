@@ -376,9 +376,11 @@ ReceiveLoop:
 
 // handleMessages is the handler to process messages from our reception queue.
 func (p *Peer) processMessage(msg wire.Message) {
-	la, _ := p.conn.LocalAddr().(*net.TCPAddr)
-	ra, _ := p.conn.RemoteAddr().(*net.TCPAddr)
-	p.rec.Message(msg, la, ra)
+	ra, ok1 := p.conn.RemoteAddr().(*net.TCPAddr)
+	la, ok2 := p.conn.LocalAddr().(*net.TCPAddr)
+	if ok1 && ok2 {
+		p.rec.Message(msg, ra, la)
+	}
 
 	if atomic.LoadUint32(&p.rcvd) == 0 {
 		_, ok := msg.(*wire.MsgVersion)
@@ -441,6 +443,7 @@ func (p *Peer) processMessage(msg wire.Message) {
 		}
 
 	case *wire.MsgInv:
+		p.pushGetData(m)
 
 	case *wire.MsgGetHeaders:
 
@@ -453,6 +456,7 @@ func (p *Peer) processMessage(msg wire.Message) {
 	case *wire.MsgGetData:
 
 	case *wire.MsgTx:
+		p.mgr.Mark(m.TxSha())
 
 	case *wire.MsgAlert:
 
@@ -488,7 +492,29 @@ func (p *Peer) pushGetAddr() {
 
 func (p *Peer) pushAddr() {
 	msg := wire.NewMsgAddr()
-	na, _ := wire.NewNetAddress(p.conn.LocalAddr(), wire.SFNodeNetwork)
+	na, err := wire.NewNetAddress(p.conn.LocalAddr(), wire.SFNodeNetwork)
+	if err != nil {
+		return
+	}
+
 	msg.AddAddress(na)
-	p.sendQ <- wire.NewMsgAddr()
+	p.sendQ <- msg
+}
+
+func (p *Peer) pushGetData(m *wire.MsgInv) {
+	msg := wire.NewMsgGetData()
+
+	for _, inv := range m.InvList {
+		if inv.Type == 2 {
+			continue
+		}
+
+		if p.mgr.Knows(inv.Hash) {
+			continue
+		}
+
+		msg.AddInvVect(inv)
+	}
+
+	p.sendQ <- msg
 }
