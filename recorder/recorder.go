@@ -1,6 +1,7 @@
 package recorder
 
 import (
+	"net"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -49,6 +50,14 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 
 	for _, option := range options {
 		option(rec)
+	}
+
+	_, err := os.Stat(rec.filePath)
+	if err != nil {
+		err := os.MkdirAll(rec.filePath, 0777)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	txtFile, err := os.Create(rec.filePath + rec.fileName + ".txt")
@@ -103,24 +112,30 @@ func SetFileAge(age time.Duration) func(*Recorder) {
 	}
 }
 
-func (rec *Recorder) Message(msg wire.Message) {
+func (rec *Recorder) Message(msg wire.Message, la *net.TCPAddr,
+	ra *net.TCPAddr) {
 	if !rec.cmdConfig[msg.Command()] {
 		return
 	}
 
+	var record Record
+
 	switch m := msg.(type) {
 	case *wire.MsgVersion:
-		rec.recordVersion(m)
+		record = NewVersionRecord(m, la, ra)
 
 	case *wire.MsgAddr:
-		rec.recordAddr(m)
+		record = NewAddressRecord(m, la, ra)
 
 	case *wire.MsgInv:
-		rec.recordInv(m)
+		record = NewInventoryRecord(m, la, ra)
 
 	case *wire.MsgTx:
-		rec.recordTx(m)
+		record = NewTransactionRecord(m, la, ra)
 	}
+
+	rec.txtQ <- record.String()
+	rec.binQ <- record.Bytes()
 }
 
 func (rec *Recorder) Cleanup() {
@@ -203,96 +218,4 @@ func (rec *Recorder) rotateLogs() {
 	rec.binFile = binFile
 
 	rec.fileTimer.Reset(rec.fileAge)
-}
-
-func (rec *Recorder) recordVersion(msg *wire.MsgVersion) {
-	record := NewVersionRecord(msg)
-	rec.txtQ <- record.String()
-	rec.binQ <- record.Bytes()
-}
-
-func (rec *Recorder) recordVerAck(msg *wire.MsgVerAck) {
-
-}
-
-func (rec *Recorder) recordAddr(msg *wire.MsgAddr) {
-	record := NewAddressRecord(msg)
-	rec.txtQ <- record.String()
-	rec.binQ <- record.Bytes()
-}
-
-func (rec *Recorder) recordInv(msg *wire.MsgInv) {
-	record := NewInventoryRecord(msg)
-	rec.txtQ <- record.String()
-	rec.binQ <- record.Bytes()
-}
-
-func (rec *Recorder) recordGetData(msg *wire.MsgGetData) {
-
-}
-
-func (rec *Recorder) recordNotFound(msg *wire.MsgNotFound) {
-
-}
-
-func (rec *Recorder) recordGetBlocks(msg *wire.MsgGetBlocks) {
-
-}
-
-func (rec *Recorder) recordGetHeaders(msg *wire.MsgGetHeaders) {
-
-}
-
-func (rec *Recorder) recordTx(msg *wire.MsgTx) {
-	record := NewTransactionRecord(msg)
-	rec.txtQ <- record.String()
-	rec.binQ <- record.Bytes()
-}
-
-func (rec *Recorder) recordBlock(msg *wire.MsgBlock) {
-
-}
-
-func (rec *Recorder) recordHeaders(msg *wire.MsgHeaders) {
-
-}
-
-func (rec *Recorder) recordGetAddr(msg *wire.MsgHeaders) {
-
-}
-
-func (rec *Recorder) recordMemPool(msg *wire.MsgMemPool) {
-
-}
-
-func (rec *Recorder) recordPing(msg *wire.MsgPing) {
-
-}
-
-func (rec *Recorder) recordPong(msg *wire.MsgPong) {
-
-}
-
-func (rec *Recorder) recordReject(msg *wire.MsgReject) {
-
-}
-
-func (rec *Recorder) recordFilterLoad(msg *wire.MsgFilterLoad) {
-
-}
-
-func (rec *Recorder) recordFilterAdd(msg *wire.MsgFilterAdd) {
-
-}
-
-func (rec *Recorder) recordFilterClear(msg *wire.MsgFilterClear) {
-
-}
-
-func (rec *Recorder) recordMerkleBlock(msg *wire.MsgMerkleBlock) {
-
-}
-
-func (rec *Recorder) recordAlert(msg *wire.MsgAlert) {
-
 }

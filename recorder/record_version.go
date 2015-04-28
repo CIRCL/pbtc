@@ -13,6 +13,8 @@ import (
 )
 
 type VersionRecord struct {
+	ra       *net.TCPAddr
+	la       *net.TCPAddr
 	stamp    time.Time
 	version  int32
 	services uint64
@@ -25,9 +27,12 @@ type VersionRecord struct {
 	relay    bool
 }
 
-func NewVersionRecord(msg *wire.MsgVersion) *VersionRecord {
+func NewVersionRecord(msg *wire.MsgVersion, ra *net.TCPAddr,
+	la *net.TCPAddr) *VersionRecord {
 	vr := &VersionRecord{
 		stamp:    time.Now(),
+		ra:       ra,
+		la:       la,
 		version:  msg.ProtocolVersion,
 		services: uint64(msg.Services),
 		rstamp:   msg.Timestamp,
@@ -44,9 +49,12 @@ func NewVersionRecord(msg *wire.MsgVersion) *VersionRecord {
 
 func (vr *VersionRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString("ver ")
 	buf.WriteString(vr.stamp.String())
 	buf.WriteString(" ")
+	buf.WriteString(vr.ra.String())
+	buf.WriteString(" ")
+	buf.WriteString(vr.la.String())
+	buf.WriteString(" ver ")
 	buf.WriteString(strconv.FormatInt(int64(vr.version), 10))
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatUint(uint64(vr.services), 10))
@@ -70,15 +78,19 @@ func (vr *VersionRecord) String() string {
 
 func (vr *VersionRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, vr.stamp.Unix())
+	binary.Write(buf, binary.LittleEndian, vr.la.IP)
+	binary.Write(buf, binary.LittleEndian, vr.la.Port)
+	binary.Write(buf, binary.LittleEndian, vr.ra.IP)
+	binary.Write(buf, binary.LittleEndian, vr.ra.Port)
 	binary.Write(buf, binary.LittleEndian, wire.CmdVersion)
-	binary.Write(buf, binary.LittleEndian, vr.stamp)
 	binary.Write(buf, binary.LittleEndian, vr.version)
 	binary.Write(buf, binary.LittleEndian, vr.services)
-	binary.Write(buf, binary.LittleEndian, vr.rstamp)
-	binary.Write(buf, binary.LittleEndian, vr.remote.IP.To16())
-	binary.Write(buf, binary.LittleEndian, int16(vr.remote.Port))
-	binary.Write(buf, binary.LittleEndian, vr.local.IP.To16())
-	binary.Write(buf, binary.LittleEndian, int16(vr.local.Port))
+	binary.Write(buf, binary.LittleEndian, vr.rstamp.Unix())
+	binary.Write(buf, binary.LittleEndian, vr.remote.IP)
+	binary.Write(buf, binary.LittleEndian, vr.remote.Port)
+	binary.Write(buf, binary.LittleEndian, vr.local.IP)
+	binary.Write(buf, binary.LittleEndian, vr.local.Port)
 	binary.Write(buf, binary.LittleEndian, vr.nonce)
 	binary.Write(buf, binary.LittleEndian, vr.agent)
 	binary.Write(buf, binary.LittleEndian, vr.block)

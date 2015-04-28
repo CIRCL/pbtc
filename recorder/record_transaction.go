@@ -4,18 +4,24 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"net"
 	"strconv"
+	"time"
 
 	"github.com/btcsuite/btcd/wire"
 )
 
 type TransactionRecord struct {
+	stamp    time.Time
+	ra       *net.TCPAddr
+	la       *net.TCPAddr
 	hash     [32]byte
 	in_list  []*InputRecord
 	out_list []*OutputRecord
 }
 
-func NewTransactionRecord(msg *wire.MsgTx) *TransactionRecord {
+func NewTransactionRecord(msg *wire.MsgTx, ra *net.TCPAddr,
+	la *net.TCPAddr) *TransactionRecord {
 	in_list := make([]*InputRecord, len(msg.TxIn))
 	for i, txin := range msg.TxIn {
 		in_list[i] = NewInputRecord(txin)
@@ -27,6 +33,9 @@ func NewTransactionRecord(msg *wire.MsgTx) *TransactionRecord {
 	}
 
 	tr := &TransactionRecord{
+		stamp:    time.Now(),
+		ra:       ra,
+		la:       la,
 		hash:     [32]byte(msg.TxSha()),
 		in_list:  in_list,
 		out_list: out_list,
@@ -37,7 +46,12 @@ func NewTransactionRecord(msg *wire.MsgTx) *TransactionRecord {
 
 func (tr *TransactionRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString("tx ")
+	buf.WriteString(tr.stamp.String())
+	buf.WriteString(" ")
+	buf.WriteString(tr.ra.String())
+	buf.WriteString(" ")
+	buf.WriteString(tr.la.String())
+	buf.WriteString(" tx ")
 	buf.WriteString(hex.EncodeToString(tr.hash[:]))
 	buf.WriteString(" ")
 	buf.WriteString(strconv.Itoa(len(tr.in_list)))
@@ -60,6 +74,11 @@ func (tr *TransactionRecord) String() string {
 
 func (tr *TransactionRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, tr.stamp.Unix())
+	binary.Write(buf, binary.LittleEndian, tr.ra.IP)
+	binary.Write(buf, binary.LittleEndian, tr.ra.Port)
+	binary.Write(buf, binary.LittleEndian, tr.la.IP)
+	binary.Write(buf, binary.LittleEndian, tr.la.Port)
 	binary.Write(buf, binary.LittleEndian, wire.CmdTx)
 	binary.Write(buf, binary.LittleEndian, tr.hash)
 	binary.Write(buf, binary.LittleEndian, len(tr.in_list))

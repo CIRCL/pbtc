@@ -22,8 +22,8 @@ const (
 	timeoutRecv  = 1 * time.Second
 	timeoutPing  = 1 * time.Minute
 	timeoutIdle  = 3 * time.Minute
-	agentName    = "satoshi"
-	agentVersion = "0.7.3"
+	agentName    = "Satoshi"
+	agentVersion = "0.9.3"
 )
 
 type Peer struct {
@@ -368,7 +368,9 @@ ReceiveLoop:
 
 // handleMessages is the handler to process messages from our reception queue.
 func (p *Peer) processMessage(msg wire.Message) {
-	p.rec.Message(msg)
+	la, _ := p.conn.LocalAddr().(*net.TCPAddr)
+	ra, _ := p.conn.RemoteAddr().(*net.TCPAddr)
+	p.rec.Message(msg, la, ra)
 
 	if atomic.LoadUint32(&p.rcvd) == 0 {
 		_, ok := msg.(*wire.MsgVersion)
