@@ -311,10 +311,10 @@ SendLoop:
 			if err != nil && strings.Contains(err.Error(),
 				"use of closed network connection") {
 				p.shutdown()
-				break
+				continue
 			}
 			if err != nil {
-				p.log.Error("[PEER] %v: could not send message (%v)", p, err)
+				p.log.Warning("[PEER] %v: could not send message (%v)", p, err)
 				p.shutdown()
 				continue
 			}
@@ -358,10 +358,10 @@ ReceiveLoop:
 			if err != nil && strings.Contains(err.Error(),
 				"use of closed network connection") {
 				p.shutdown()
-				break
+				continue
 			}
 			if err != nil {
-				p.log.Error("[PEER] %v: could not receive message (%v)", p, err)
+				p.log.Warning("[PEER] %v: could not receive message (%v)", p, err)
 				p.shutdown()
 				continue
 			}

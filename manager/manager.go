@@ -323,7 +323,8 @@ func (mgr *Manager) handleListener(listener *net.TCPListener) {
 		// returning an io.EOF error, but rather an unexported one
 		// we need to treat it separately to keep the logs clean, as this
 		// is how we do a clean and voluntary shutdown of these handlers
-		if strings.Contains(err.Error(), "use of closed network connection") {
+		if err != nil &&
+			strings.Contains(err.Error(), "use of closed network connection") {
 			break
 		}
 		if err != nil {

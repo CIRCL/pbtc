@@ -57,12 +57,6 @@ func FindLocalIPs() ([]net.IP, error) {
 				continue
 			}
 
-			// if the IP is not a valid IPv4 address, skip
-			ipv4 := ip.To4()
-			if ipv4 == nil {
-				continue
-			}
-
 			// append the IP to the slice of valid IPs
 			ips = append(ips, ip)
 		}
