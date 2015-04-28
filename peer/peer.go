@@ -214,30 +214,6 @@ func (p *Peer) Poll() {
 	}
 }
 
-func (p *Peer) Pending() bool {
-	if p.conn == nil {
-		return true
-	}
-
-	return false
-}
-
-func (p *Peer) Connected() bool {
-	if p.conn != nil && !p.Ready() {
-		return true
-	}
-
-	return false
-}
-
-func (p *Peer) Ready() bool {
-	if atomic.LoadUint32(&p.sent) == 1 && atomic.LoadUint32(&p.rcvd) == 1 {
-		return true
-	}
-
-	return false
-}
-
 func (p *Peer) parse() error {
 	if p.addr == nil {
 		return errors.New("Can't parse nil address")

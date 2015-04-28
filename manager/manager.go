@@ -172,46 +172,6 @@ func (mgr *Manager) shutdown() {
 	close(mgr.sigPeer)
 }
 
-func (mgr *Manager) numTotal() int {
-	return len(mgr.peerIndex)
-}
-
-func (mgr *Manager) numPending() int {
-	pending := 0
-
-	for _, peer := range mgr.peerIndex {
-		if peer.Pending() {
-			pending++
-		}
-	}
-
-	return pending
-}
-
-func (mgr *Manager) numConnected() int {
-	connected := 0
-
-	for _, peer := range mgr.peerIndex {
-		if peer.Connected() {
-			connected++
-		}
-	}
-
-	return connected
-}
-
-func (mgr *Manager) numReady() int {
-	ready := 0
-
-	for _, peer := range mgr.peerIndex {
-		if peer.Ready() {
-			ready++
-		}
-	}
-
-	return ready
-}
-
 // createListeners tries to start a listener on every local IP to accept
 // connections. It should be called as a go routine.
 func (mgr *Manager) createListeners() {
@@ -264,10 +224,6 @@ ConnLoop:
 		// the ticker will signal each time we can attempt a new connection
 		// if we don't have too many peers yet, try to create a new one
 		case <-mgr.connTicker.C:
-			if mgr.numConnected() >= maxPeers {
-				continue
-			}
-
 			mgr.addPeer()
 
 		case <-mgr.pollTicker.C:
@@ -278,9 +234,7 @@ ConnLoop:
 			}
 
 		case <-mgr.infoTicker.C:
-			mgr.log.Info("[MGR] Total: %v Pending: %v Connected: %v Ready: %v",
-				mgr.numTotal(), mgr.numPending(), mgr.numConnected(),
-				mgr.numReady())
+			mgr.log.Info("[MGR] %v total peers managed", len(mgr.peerIndex))
 		}
 	}
 
