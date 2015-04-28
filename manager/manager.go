@@ -278,7 +278,7 @@ ConnLoop:
 			}
 
 		case <-mgr.infoTicker.C:
-			mgr.log.Info("Total: %v Pending: %v Connected: %v Ready: %v",
+			mgr.log.Info("[MGR] Total: %v Pending: %v Connected: %v Ready: %v",
 				mgr.numTotal(), mgr.numPending(), mgr.numConnected(),
 				mgr.numReady())
 		}

@@ -148,7 +148,7 @@ func (p *Peer) Addr() *net.TCPAddr {
 }
 
 func (p *Peer) Connect() {
-	if p.conn != nil || atomic.LoadUint32(&p.done) != 0 {
+	if atomic.LoadUint32(&p.done) != 0 {
 		return
 	}
 
