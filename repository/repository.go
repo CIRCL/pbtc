@@ -171,7 +171,7 @@ func (repo *Repository) Retrieve() *net.TCPAddr {
 }
 
 func (repo *Repository) Polling() bool {
-	if len(repo.nodeIndex) < 12768 {
+	if len(repo.nodeIndex) < 256000 {
 		return true
 	}
 
