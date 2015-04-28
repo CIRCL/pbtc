@@ -14,21 +14,25 @@ import (
 type OutputRecord struct {
 	value   int64
 	address btcutil.Address
+	code    uint32
 }
 
 func NewOutputRecord(txout *wire.TxOut) *OutputRecord {
+	or := &OutputRecord{
+		value: txout.Value,
+	}
+
 	_, addrs, _, err := txscript.ExtractPkScriptAddrs(txout.PkScript,
 		&chaincfg.MainNetParams)
 	if err != nil {
-		return &OutputRecord{value: 0}
+		or.code = 1
 	}
 	if len(addrs) != 1 {
-		return &OutputRecord{value: -1}
+		or.code = 2
 	}
 
-	or := &OutputRecord{
-		value:   txout.Value,
-		address: addrs[0],
+	if or.code == 0 {
+		or.address = addrs[0]
 	}
 
 	return or
@@ -36,7 +40,21 @@ func NewOutputRecord(txout *wire.TxOut) *OutputRecord {
 
 func (or *OutputRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString(or.address.EncodeAddress())
+
+	switch or.code {
+	case 0:
+		buf.WriteString(or.address.EncodeAddress())
+
+	case 1:
+		buf.WriteString("complexescript....................")
+
+	case 2:
+		buf.WriteString("multisig..........................")
+
+	default:
+		buf.WriteString("extractfailure....................")
+	}
+
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(or.value, 10))
 
@@ -45,9 +63,14 @@ func (or *OutputRecord) String() string {
 
 func (or *OutputRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
+
+	binary.Write(buf, binary.LittleEndian, or.code)
+
+	if or.code == 0 {
+		binary.Write(buf, binary.LittleEndian, or.address.ScriptAddress())
+	}
+
 	binary.Write(buf, binary.LittleEndian, or.value)
-	binary.Write(buf, binary.LittleEndian,
-		[]byte(or.address.EncodeAddress()))
 
 	return buf.Bytes()
 }
