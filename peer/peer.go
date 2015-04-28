@@ -156,12 +156,14 @@ func (p *Peer) Addr() *net.TCPAddr {
 
 func (p *Peer) Connect() {
 	if atomic.LoadUint32(&p.done) != 0 {
+		p.log.Warning("[PEER] %v can't connect when done")
 		return
 	}
 
 	// if we can't establish the connection, abort
 	connGen, err := net.DialTimeout("tcp", p.addr.String(), timeoutDial)
 	if err != nil {
+		p.log.Debug("[PEER] %v connection failed (%v)", p, err)
 		p.shutdown()
 		return
 	}
@@ -169,6 +171,7 @@ func (p *Peer) Connect() {
 	// this should always work
 	conn, ok := connGen.(*net.TCPConn)
 	if !ok {
+		p.log.Warning("[PEER] %v connection type assert failed", p)
 		p.shutdown()
 		return
 	}
@@ -178,10 +181,12 @@ func (p *Peer) Connect() {
 	// this should also always work...
 	err = p.parse()
 	if err != nil {
+		p.log.Warning("[PEER] %v connection parsing failed", p)
 		p.shutdown()
 		return
 	}
 
+	p.log.Debug("[PEER] %v connection established", p)
 	p.mgr.Connected(p)
 }
 
@@ -200,7 +205,7 @@ func (p *Peer) Greet() {
 		return
 	}
 
-	p.pushVersion()
+	go p.pushVersion()
 }
 
 func (p *Peer) Stop() {
@@ -216,7 +221,7 @@ func (p *Peer) Poll() {
 
 func (p *Peer) parse() error {
 	if p.addr == nil {
-		return errors.New("Can't parse nil address")
+		return errors.New("can't parse nil address")
 	}
 
 	you, err := wire.NewNetAddress(p.addr, wire.SFNodeNetwork)
@@ -226,7 +231,7 @@ func (p *Peer) parse() error {
 
 	local, ok := p.conn.LocalAddr().(*net.TCPAddr)
 	if !ok {
-		return errors.New("Could not parse local address from connection")
+		return errors.New("could not parse local address from connection")
 	}
 
 	me, err := wire.NewNetAddress(local, wire.SFNodeNetwork)
@@ -284,6 +289,8 @@ func (p *Peer) goSend() {
 	// let the waitgroup know when we are done
 	defer p.wg.Done()
 
+	p.log.Debug("[PEER] %v send routine started", p)
+
 	// initialize the idle timer to see when we didn't send for a while
 	idleTimer := time.NewTimer(timeoutPing)
 
@@ -314,7 +321,7 @@ SendLoop:
 				continue
 			}
 			if err != nil {
-				p.log.Warning("[PEER] %v: could not send message (%v)", p, err)
+				p.log.Warning("[PEER] %v: send failed (%v)", p, err)
 				p.shutdown()
 				continue
 			}
@@ -323,6 +330,8 @@ SendLoop:
 			idleTimer.Reset(timeoutPing)
 		}
 	}
+
+	p.log.Debug("[PEER] %v send routine stopped", p)
 }
 
 // handleReceive is the handler responsible for receiving messages and pushing
@@ -331,6 +340,8 @@ SendLoop:
 func (p *Peer) goReceive() {
 	// let the waitgroup know when we are done
 	defer p.wg.Done()
+
+	p.log.Debug("[PEER] %v receive routine started", p)
 
 	// initialize the timer to see when we didn't receive in a long time
 	idleTimer := time.NewTimer(timeoutIdle)
@@ -361,7 +372,7 @@ ReceiveLoop:
 				continue
 			}
 			if err != nil {
-				p.log.Warning("[PEER] %v: could not receive message (%v)", p, err)
+				p.log.Warning("[PEER] %v: receive failed (%v)", p, err)
 				p.shutdown()
 				continue
 			}
@@ -372,6 +383,8 @@ ReceiveLoop:
 			p.processMessage(msg)
 		}
 	}
+
+	p.log.Debug("[PEER] %v receive routine stopped")
 }
 
 // handleMessages is the handler to process messages from our reception queue.

@@ -15,32 +15,47 @@ import (
 // Manager module. It creates a simply in-repoory mapping for known nodes and
 // regularly save them on the disk.
 type Repository struct {
-	wg              *sync.WaitGroup
-	backupSig       chan struct{}
-	backupTicker    *time.Ticker
-	bootstrapTicker *time.Ticker
-	nodeIndex       map[string]*node
+	wg             *sync.WaitGroup
+	addrDiscovered chan *net.TCPAddr
+	addrAttempted  chan *net.TCPAddr
+	addrConnected  chan *net.TCPAddr
+	addrSucceeded  chan *net.TCPAddr
+	addrRetrieve   chan chan<- *net.TCPAddr
+	sigTicker      chan struct{}
+	sigAddr        chan struct{}
+	sigRetrieval   chan struct{}
+	tickerBackup   *time.Ticker
+	tickerPoll     *time.Ticker
+	nodeIndex      map[string]*node
 
 	seeds      []string
 	backupPath string
 
 	log adaptor.Logger
 
-	done           uint32
-	restoreEnabled bool
-	defaultPort    int
+	done             uint32
+	restoreEnabled   bool
+	defaultPort      int
+	bootstrapEnabled bool
 }
 
 // New creates a new repository initialized with default values. A variable list
 // of options can be provided to override default behaviour.
 func New(options ...func(repo *Repository)) (*Repository, error) {
 	repo := &Repository{
-		wg:              &sync.WaitGroup{},
-		nodeIndex:       make(map[string]*node),
-		backupSig:       make(chan struct{}, 1),
-		backupTicker:    time.NewTicker(90 * time.Second),
-		bootstrapTicker: time.NewTicker(30 * time.Minute),
-		defaultPort:     18333,
+		wg:             &sync.WaitGroup{},
+		nodeIndex:      make(map[string]*node),
+		addrDiscovered: make(chan *net.TCPAddr, 1),
+		addrAttempted:  make(chan *net.TCPAddr, 1),
+		addrConnected:  make(chan *net.TCPAddr, 1),
+		addrSucceeded:  make(chan *net.TCPAddr, 1),
+		addrRetrieve:   make(chan chan<- *net.TCPAddr, 1),
+		sigAddr:        make(chan struct{}, 1),
+		sigTicker:      make(chan struct{}, 1),
+		sigRetrieval:   make(chan struct{}, 1),
+		tickerBackup:   time.NewTicker(90 * time.Second),
+		tickerPoll:     time.NewTicker(30 * time.Minute),
+		defaultPort:    18333,
 
 		seeds:          []string{"testnet-seed.bitcoin.petertodd.org"},
 		backupPath:     "nodes.dat",
@@ -56,10 +71,14 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 	}
 
 	if len(repo.nodeIndex) == 0 {
-		repo.bootstrap()
+		repo.bootstrapEnabled = true
 	}
 
 	repo.start()
+
+	if repo.bootstrapEnabled {
+		repo.bootstrap()
+	}
 
 	return repo, nil
 }
@@ -98,99 +117,40 @@ func DisableRestore() func(*Repository) {
 	}
 }
 
-// Cleanup is used to clean up all resources associated with a repository
-// instance. It will return once all go routines have ended and all resources
-// are ready to be collected by the GC.
-func (repo *Repository) Cleanup() {
+func (repo *Repository) Stop() {
 	repo.shutdown()
+	repo.wg.Wait()
+
+	repo.log.Info("[REPO] Shutdown complete")
 }
 
-// Update will update the information of a given address in our repository.
-// At this point, this is only the address that has last seen the node.
-// If the node doesn't exist yet, we create one.
 func (repo *Repository) Discovered(addr *net.TCPAddr) {
-	// check if a node with the given address already exists
-	// if so, simply update the source address
-	n, ok := repo.nodeIndex[addr.String()]
-	if ok {
-		return
-	}
-
-	// if we don't know this address yet, create node and add to repo
-	n = newNode(addr)
-	repo.nodeIndex[addr.String()] = n
+	repo.addrDiscovered <- addr
 }
 
-// Attempt will update the last connection attempt on the given address
-// and increase the attempt counter accordingly.
 func (repo *Repository) Attempted(addr *net.TCPAddr) {
-	// if we don't know this address, ignore
-	n, ok := repo.nodeIndex[addr.String()]
-	if !ok {
-		return
-	}
-
-	// increase number of attempts and timestamp last attempt
-	n.numAttempts++
-	n.lastAttempted = time.Now()
+	repo.addrAttempted <- addr
 }
 
-// Connected will tag the connection as currently connected. This is used
-// in the reference client to send timestamps with the addresses, but only
-// maximum once every 20 minutes. We will not give out any such information,
-// but it can still be useful to determine which addresses to try to connect to
-// next.
 func (repo *Repository) Connected(addr *net.TCPAddr) {
-	n, ok := repo.nodeIndex[addr.String()]
-	if !ok {
-		return
-	}
-
-	n.lastConnected = time.Now()
+	repo.addrConnected <- addr
 }
 
-// Good will tag the connection to a given address as working correctly.
-// It is called after a successful handshake and will reset the attempt
-// counter and timestamp last success. The reference client timestamps
-// the other fields as well, but all we do with that is lose some extra
-// information that we could use to choose our addresses.
 func (repo *Repository) Succeeded(addr *net.TCPAddr) {
-	n, ok := repo.nodeIndex[addr.String()]
-	if !ok {
-		return
-	}
-
-	n.numAttempts = 0
-	n.lastSucceeded = time.Now()
+	repo.addrConnected <- addr
 }
 
-func (repo *Repository) Retrieve() *net.TCPAddr {
-	for _, node := range repo.nodeIndex {
-		if node.numAttempts >= 3 {
-			continue
-		}
-
-		if node.lastAttempted.Add(time.Minute * 5).After(time.Now()) {
-			continue
-		}
-
-		if node.lastConnected.Before(node.lastSucceeded) {
-			continue
-		}
-
-		if node.lastSucceeded.Add(time.Minute * 15).After(time.Now()) {
-			continue
-		}
-
-		return node.addr
-	}
-
-	return nil
+func (repo *Repository) Retrieve(c chan<- *net.TCPAddr) {
+	repo.addrRetrieve <- c
 }
 
 func (repo *Repository) start() {
-	repo.wg.Add(1)
-	go repo.goBackups()
+	repo.wg.Add(3)
+	go repo.goRetrieval()
+	go repo.goTickers()
+	go repo.goAddresses()
+
+	repo.log.Info("[REPO] Initialization complete")
 }
 
 func (repo *Repository) shutdown() {
@@ -198,48 +158,29 @@ func (repo *Repository) shutdown() {
 		return
 	}
 
-	repo.bootstrapTicker.Stop()
-	repo.backupTicker.Stop()
-	close(repo.backupSig)
+	close(repo.sigAddr)
+	close(repo.sigTicker)
+	close(repo.sigRetrieval)
+
 	repo.save()
-	repo.wg.Wait()
 }
 
 // bootstrap will use a number of dns seeds to discover nodes.
 func (repo *Repository) bootstrap() {
-	count, failed, known := 0, 0, 0
-
-	repo.log.Info("bootstrapping from %v dns seeds", len(repo.seeds))
-
 	// iterate over the seeds and try to get the ips
 	for _, seed := range repo.seeds {
 		// check if we can look up the ip addresses
 		ips, err := net.LookupIP(seed)
 		if err != nil {
-			repo.log.Notice("could not lookup %v (%v)", seed, err)
 			continue
 		}
-
-		repo.log.Info("%v: found %v ips", seed, len(ips))
 
 		// range over the ips and add them to the repository
 		for _, ip := range ips {
 			addr := &net.TCPAddr{IP: ip, Port: repo.defaultPort}
-
-			_, ok := repo.nodeIndex[addr.String()]
-			if ok {
-				known++
-				continue
-			}
-
-			// now we can use update to add the address to our repository
-			count++
 			repo.Discovered(addr)
 		}
 	}
-
-	repo.log.Info("added %v nodes from bootstrap (%v failed, %v known)",
-		count, failed, known)
 }
 
 // save will try to save all current nodes to a file on disk.
@@ -247,7 +188,6 @@ func (repo *Repository) save() {
 	// create the file, truncating if it already exists
 	file, err := os.Create(repo.backupPath)
 	if err != nil {
-		repo.log.Warning("could not save backup (%v)", err)
 		return
 	}
 	defer file.Close()
@@ -256,11 +196,8 @@ func (repo *Repository) save() {
 	enc := gob.NewEncoder(file)
 	err = enc.Encode(repo.nodeIndex)
 	if err != nil {
-		repo.log.Warning("could not encode backup (%v)", err)
 		return
 	}
-
-	repo.log.Info("saved %v nodes to backup", len(repo.nodeIndex))
 }
 
 // restore will try to load the previously saved node file.
@@ -268,7 +205,6 @@ func (repo *Repository) restore() {
 	// open the nodes file in read-only mode
 	file, err := os.Open(repo.backupPath)
 	if err != nil {
-		repo.log.Warning("could not restore backup (%v)", err)
 		return
 	}
 	defer file.Close()
@@ -277,28 +213,133 @@ func (repo *Repository) restore() {
 	dec := gob.NewDecoder(file)
 	err = dec.Decode(&repo.nodeIndex)
 	if err != nil {
-		repo.log.Warning("could not decode backup (%v)", err)
 		return
 	}
-
-	repo.log.Info("restored %v nodes from backup", len(repo.nodeIndex))
 }
 
-func (repo *Repository) goBackups() {
+func (repo *Repository) goTickers() {
 	defer repo.wg.Done()
 
-	for atomic.LoadUint32(&repo.done) != 1 {
+	repo.log.Info("[REPO] Ticker routine started")
+
+tickerLoop:
+	for {
 		select {
-		case _, ok := <-repo.backupSig:
+		case _, ok := <-repo.sigTicker:
 			if !ok {
-				repo.shutdown()
+				break tickerLoop
 			}
 
-		case <-repo.backupTicker.C:
+		case <-repo.tickerBackup.C:
+			repo.log.Info("[REPO] Saving node index")
 			repo.save()
 
-		case <-repo.bootstrapTicker.C:
+		case <-repo.tickerPoll.C:
+			repo.log.Info("[REPO] Polling DNS seeds")
 			repo.bootstrap()
 		}
 	}
+
+	repo.log.Info("[REPO] Ticker routine stopped")
+}
+
+func (repo *Repository) goRetrieval() {
+	defer repo.wg.Done()
+
+	repo.log.Info("[REPO] Retrieval routine started")
+
+retrievalLoop:
+	for {
+		select {
+		case _, ok := <-repo.sigRetrieval:
+			if !ok {
+				break retrievalLoop
+			}
+
+		case c := <-repo.addrRetrieve:
+			for _, node := range repo.nodeIndex {
+				if node.numAttempts >= 3 {
+					continue
+				}
+
+				if node.lastAttempted.Add(time.Minute * 5).After(time.Now()) {
+					continue
+				}
+
+				if node.lastConnected.Before(node.lastSucceeded) {
+					continue
+				}
+
+				if node.lastSucceeded.Add(time.Minute * 15).After(time.Now()) {
+					continue
+				}
+
+				repo.log.Debug("[REPO] %v retrieved", node)
+				c <- node.addr
+			}
+
+			repo.log.Debug("[REPO] retrieve failed")
+		}
+	}
+}
+
+func (repo *Repository) goAddresses() {
+	defer repo.wg.Done()
+
+	repo.log.Info("[REPO] Address routine started")
+
+addrLoop:
+	for {
+		select {
+		case _, ok := <-repo.sigAddr:
+			if !ok {
+				break addrLoop
+			}
+
+		case addr := <-repo.addrDiscovered:
+			n, ok := repo.nodeIndex[addr.String()]
+			if ok {
+				repo.log.Debug("[REPO] %v already discovered", addr)
+				return
+			}
+
+			repo.log.Debug("[REPO] %v discovered", addr)
+			n = newNode(addr)
+			repo.nodeIndex[addr.String()] = n
+
+		case addr := <-repo.addrAttempted:
+			n, ok := repo.nodeIndex[addr.String()]
+			if !ok {
+				repo.log.Warning("[REPO] %v attempted unknown", addr)
+				return
+			}
+
+			repo.log.Debug("[REPO] %v attempted", addr)
+			n.numAttempts++
+			n.lastAttempted = time.Now()
+
+		case addr := <-repo.addrConnected:
+			n, ok := repo.nodeIndex[addr.String()]
+			if !ok {
+				repo.log.Warning("[REPO] %v connected unknown", addr)
+				return
+			}
+
+			repo.log.Debug("[REPO] %v connected", addr)
+			n.lastConnected = time.Now()
+
+		case addr := <-repo.addrSucceeded:
+			n, ok := repo.nodeIndex[addr.String()]
+			if !ok {
+				repo.log.Warning("[REPO] %v succeded unknown", addr)
+				return
+			}
+
+			repo.log.Debug("[REPO] %v succeeded", addr)
+			n.numAttempts = 0
+			n.lastSucceeded = time.Now()
+		}
+	}
+
+	repo.log.Info("[REPO] Address routine stopped")
 }

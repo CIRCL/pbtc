@@ -81,17 +81,19 @@ func main() {
 	// wait for signals in blocking loop
 SigLoop:
 	for sig := range sigc {
+		log.Notice("Signal caught (%v)", sig.String())
+
 		switch sig {
 		case syscall.SIGINT:
+			panic("AHAHAHAHAAHHAHAH")
 			break SigLoop
 
 		default:
-			log.Notice("Signal caught (%v)", sig.String())
 		}
 	}
 
-	mgr.Cleanup()
-	repo.Cleanup()
+	mgr.Stop()
+	repo.Stop()
 
 	os.Exit(0)
 }

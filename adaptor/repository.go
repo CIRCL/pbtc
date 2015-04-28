@@ -9,5 +9,5 @@ type Repository interface {
 	Attempted(addr *net.TCPAddr)
 	Connected(addr *net.TCPAddr)
 	Succeeded(addr *net.TCPAddr)
-	Retrieve() *net.TCPAddr
+	Retrieve(chan<- *net.TCPAddr)
 }
