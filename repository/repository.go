@@ -40,7 +40,7 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 		bootstrapTicker: time.NewTicker(30 * time.Minute),
 
 		seeds:      []string{"testnet-seed.bitcoin.petertodd.org"},
-		backupPath: "pbtc.dat",
+		backupPath: "nodes.dat",
 	}
 
 	for _, option := range options {

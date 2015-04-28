@@ -52,7 +52,8 @@ func main() {
 	// recorder
 	rec, err := recorder.New(
 		recorder.SetLogger(log),
-		recorder.SetTypes(wire.CmdTx, wire.CmdVersion, wire.CmdInv),
+		recorder.SetTypes(wire.CmdTx, wire.CmdVersion, wire.CmdInv,
+			wire.CmdAddr),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize recorder (%v)", err)

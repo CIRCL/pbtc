@@ -22,6 +22,10 @@ const (
 	stateShutdown         // irreversible shutdown of module
 )
 
+const (
+	maxPeers = 100
+)
+
 // Manager is the module responsible for managing the connections to peers and
 // keep them in line with application level state and requirements. It accepts
 // inbound connections, establishes the desired number of outgoing connections
@@ -37,6 +41,7 @@ type Manager struct {
 	peerStopped   chan adaptor.Peer
 	connTicker    *time.Ticker
 	pollTicker    *time.Ticker
+	infoTicker    *time.Ticker
 	peerIndex     map[string]adaptor.Peer
 	listenIndex   map[string]*net.TCPListener
 
@@ -48,7 +53,9 @@ type Manager struct {
 	version uint32
 	nonce   uint64
 
-	done uint32
+	done         uint32
+	numConnected uint32
+	numReady     uint32
 }
 
 // NewManager returns a new manager with all necessary variables initialized.
@@ -60,8 +67,9 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		peerConnected: make(chan adaptor.Peer, 1),
 		peerReady:     make(chan adaptor.Peer, 1),
 		peerStopped:   make(chan adaptor.Peer, 1),
-		connTicker:    time.NewTicker(time.Second / 4),
+		connTicker:    time.NewTicker(time.Second / 20),
 		pollTicker:    time.NewTicker(time.Second * 15),
+		infoTicker:    time.NewTicker(time.Second * 5),
 		peerIndex:     make(map[string]adaptor.Peer),
 		listenIndex:   make(map[string]*net.TCPListener),
 
@@ -218,9 +226,11 @@ ConnLoop:
 		// the ticker will signal each time we can attempt a new connection
 		// if we don't have too many peers yet, try to create a new one
 		case <-mgr.connTicker.C:
-			if len(mgr.peerIndex) < 128 {
-				mgr.addPeer()
+			if mgr.numConnected >= maxPeers {
+				continue
 			}
+
+			mgr.addPeer()
 
 		case <-mgr.pollTicker.C:
 			if mgr.repo.Polling() {
@@ -228,6 +238,15 @@ ConnLoop:
 					peer.Poll()
 				}
 			}
+
+		case <-mgr.infoTicker.C:
+			total := uint32(len(mgr.peerIndex))
+			pending := total - mgr.numConnected
+			connected := mgr.numConnected - mgr.numReady
+			ready := mgr.numReady
+
+			mgr.log.Info("Total: %v Pending: %v Connected: %v Ready: %v",
+				total, pending, connected, ready)
 		}
 	}
 
@@ -259,6 +278,7 @@ PeerLoop:
 			}
 
 			mgr.log.Info("[MGR] %v: peer connected", p)
+			mgr.numConnected++
 			p.Start()
 			mgr.repo.Connected(p.Addr())
 			p.Greet()
@@ -271,6 +291,7 @@ PeerLoop:
 			}
 
 			mgr.log.Info("[MGR] %v: peer ready", p)
+			mgr.numReady++
 			mgr.repo.Succeeded(p.Addr())
 
 		// whenever there is an expired peer to be removed, process it
@@ -280,6 +301,8 @@ PeerLoop:
 				continue
 			}
 
+			mgr.numConnected--
+			mgr.numReady--
 			mgr.log.Info("[MGR] %v: peer stopped", p)
 			delete(mgr.peerIndex, p.String())
 		}
