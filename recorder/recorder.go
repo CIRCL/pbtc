@@ -44,8 +44,8 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 
 		filePath: "records/",
 		fileName: time.Now().String(),
-		fileSize: 1,
-		fileAge:  15 * time.Minute,
+		fileSize: 1 * 1024 * 1024,
+		fileAge:  1 * time.Minute,
 	}
 
 	for _, option := range options {
@@ -73,6 +73,7 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 
 	rec.txtFile = txtFile
 	rec.binFile = binFile
+
 	rec.fileTimer = time.NewTimer(rec.fileAge)
 
 	rec.startup()
@@ -170,7 +171,7 @@ WriteLoop:
 			}
 
 		case <-rec.fileTimer.C:
-			rec.rotateLogs()
+			rec.checkTime()
 
 		case txt := <-rec.txtQ:
 			_, err := rec.txtFile.WriteString(txt + "\n")
@@ -178,10 +179,7 @@ WriteLoop:
 				rec.log.Error("[REC] Could not write txt file (%v)", err)
 			}
 
-			stat, _ := rec.txtFile.Stat()
-			if stat.Size() >= rec.fileSize*1024*1024 {
-				rec.rotateLogs()
-			}
+			rec.checkTxtSize()
 
 		case bin := <-rec.binQ:
 			_, err := rec.binFile.Write(bin)
@@ -189,33 +187,62 @@ WriteLoop:
 				rec.log.Error("[REC] Could not write bin file (%v)", err)
 			}
 
-			stat, _ := rec.binFile.Stat()
-			if stat.Size() >= rec.fileSize*1024*1024 {
-				rec.rotateLogs()
-			}
+			rec.checkBinSize()
 		}
 	}
 }
 
-func (rec *Recorder) rotateLogs() {
-	_ = rec.binFile.Close()
-	_ = rec.txtFile.Close()
-
-	rec.fileName = time.Now().String()
-
-	txtFile, err := os.Create(rec.filePath + rec.fileName + ".txt")
-	if err != nil {
-		panic(err)
+func (rec *Recorder) checkTime() {
+	if rec.fileAge == 0 {
+		return
 	}
 
-	binFile, err := os.Create(rec.filePath + rec.fileName + ".bin")
+	rec.rotateTxtLog()
+	rec.rotateBinLog()
+
+	rec.fileTimer.Reset(rec.fileAge)
+}
+
+func (rec *Recorder) checkTxtSize() {
+	if rec.fileSize == 0 {
+		return
+	}
+
+	statTxt, _ := rec.txtFile.Stat()
+	if statTxt.Size() >= rec.fileSize {
+		rec.rotateTxtLog()
+	}
+}
+
+func (rec *Recorder) checkBinSize() {
+	if rec.fileSize == 0 {
+		return
+	}
+
+	statBin, _ := rec.binFile.Stat()
+	if statBin.Size() >= rec.fileSize {
+		rec.rotateBinLog()
+	}
+}
+
+func (rec *Recorder) rotateTxtLog() {
+	_ = rec.txtFile.Close()
+
+	txtFile, err := os.Create(rec.filePath + time.Now().String() + ".txt")
 	if err != nil {
-		txtFile.Close()
 		panic(err)
 	}
 
 	rec.txtFile = txtFile
-	rec.binFile = binFile
+}
 
-	rec.fileTimer.Reset(rec.fileAge)
+func (rec *Recorder) rotateBinLog() {
+	_ = rec.binFile.Close()
+
+	binFile, err := os.Create(rec.filePath + time.Now().String() + ".bin")
+	if err != nil {
+		panic(err)
+	}
+
+	rec.binFile = binFile
 }

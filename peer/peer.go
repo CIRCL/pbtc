@@ -77,6 +77,13 @@ func New(options ...func(*Peer)) (*Peer, error) {
 		return p, nil
 	}
 
+	addr, ok := p.conn.RemoteAddr().(*net.TCPAddr)
+	if !ok {
+		return nil, errors.New("Could not parse remote address from connection")
+	}
+
+	p.addr = addr
+
 	err := p.parse()
 	if err != nil {
 		return nil, err
@@ -232,12 +239,11 @@ func (p *Peer) Ready() bool {
 }
 
 func (p *Peer) parse() error {
-	addr, ok := p.conn.RemoteAddr().(*net.TCPAddr)
-	if !ok {
-		return errors.New("Could not parse remote address from connection")
+	if p.addr == nil {
+		return errors.New("Can't parse nil address")
 	}
 
-	you, err := wire.NewNetAddress(addr, wire.SFNodeNetwork)
+	you, err := wire.NewNetAddress(p.addr, wire.SFNodeNetwork)
 	if err != nil {
 		return err
 	}
@@ -252,7 +258,6 @@ func (p *Peer) parse() error {
 		return err
 	}
 
-	p.addr = addr
 	p.you = you
 	p.me = me
 

@@ -54,6 +54,8 @@ func main() {
 		recorder.SetLogger(log),
 		recorder.SetTypes(wire.CmdTx, wire.CmdVersion, wire.CmdInv,
 			wire.CmdAddr),
+		recorder.SetFileSize(0),
+		recorder.SetFileAge(time.Minute*5),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize recorder (%v)", err)
