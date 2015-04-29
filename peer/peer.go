@@ -155,8 +155,37 @@ func (p *Peer) Addr() *net.TCPAddr {
 }
 
 func (p *Peer) Connect() {
+	go p.connect()
+}
+
+func (p *Peer) Start() {
+	go p.start()
+}
+
+func (p *Peer) Stop() {
+	go p.shutdown()
+}
+
+func (p *Peer) Greet() {
+	go p.pushVersion()
+}
+
+func (p *Peer) Poll() {
+	go p.pushGetAddr()
+}
+
+func (p *Peer) Wait() {
+	p.wg.Wait()
+}
+
+func (p *Peer) connect() {
 	if atomic.LoadUint32(&p.done) != 0 {
-		p.log.Warning("[PEER] %v can't connect when done")
+		p.log.Warning("[PEER] %v can't connect when done", p)
+		return
+	}
+
+	if p.conn != nil {
+		p.log.Warning("[PEER] %v already connected", p)
 		return
 	}
 
@@ -190,7 +219,7 @@ func (p *Peer) Connect() {
 	p.mgr.Connected(p)
 }
 
-func (p *Peer) Start() {
+func (p *Peer) start() {
 	if atomic.SwapUint32(&p.started, 1) == 1 {
 		return
 	}
@@ -200,23 +229,20 @@ func (p *Peer) Start() {
 	go p.goReceive()
 }
 
-func (p *Peer) Greet() {
-	if atomic.SwapUint32(&p.sent, 1) == 1 {
+func (p *Peer) shutdown() {
+	if atomic.SwapUint32(&p.done, 1) == 1 {
 		return
 	}
 
-	go p.pushVersion()
-}
-
-func (p *Peer) Stop() {
-	p.shutdown()
-	p.wg.Wait()
-}
-
-func (p *Peer) Poll() {
-	if atomic.LoadUint32(&p.done) != 1 && atomic.LoadUint32(&p.sent) == 1 {
-		p.pushGetAddr()
+	if p.conn != nil {
+		p.conn.Close()
 	}
+
+	close(p.sigSend)
+	close(p.sigRecv)
+
+	p.wg.Wait()
+	p.mgr.Stopped(p)
 }
 
 func (p *Peer) parse() error {
@@ -243,24 +269,6 @@ func (p *Peer) parse() error {
 	p.me = me
 
 	return nil
-}
-
-func (p *Peer) shutdown() {
-	// if we already called shutdown, we don't need to do it twice
-	if atomic.SwapUint32(&p.done, 1) == 1 {
-		return
-	}
-
-	// if we have a connection established, close it
-	if p.conn != nil {
-		p.conn.Close()
-	}
-
-	// signal all handlers to stop
-	close(p.sigSend)
-	close(p.sigRecv)
-
-	p.mgr.Stopped(p)
 }
 
 // sendMessage will attempt to write a message on our connection. It will set th
@@ -384,7 +392,7 @@ ReceiveLoop:
 		}
 	}
 
-	p.log.Debug("[PEER] %v receive routine stopped")
+	p.log.Debug("[PEER] %v receive routine stopped", p)
 }
 
 // handleMessages is the handler to process messages from our reception queue.
@@ -408,19 +416,19 @@ func (p *Peer) processMessage(msg wire.Message) {
 	switch m := msg.(type) {
 	case *wire.MsgVersion:
 		if m.Nonce == p.nonce {
-			p.log.Warning("%v: detected connection to self", p.String())
+			p.log.Warning("%v: detected connection to self", p)
 			p.shutdown()
 			return
 		}
 
 		if uint32(m.ProtocolVersion) < wire.MultipleAddressVersion {
-			p.log.Warning("%v: connected to obsolete peer", p.String())
+			p.log.Warning("%v: connected to obsolete peer", p)
 			p.shutdown()
 			return
 		}
 
 		if atomic.SwapUint32(&p.rcvd, 1) == 1 {
-			p.log.Warning("%v: out of order version message", p.String())
+			p.log.Warning("%v: out of order version message", p)
 			p.shutdown()
 			return
 		}

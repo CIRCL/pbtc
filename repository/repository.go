@@ -276,6 +276,7 @@ retrievalLoop:
 
 				repo.log.Debug("[REPO] %v retrieved", node)
 				c <- node.addr
+				continue retrievalLoop
 			}
 
 			repo.log.Debug("[REPO] retrieve failed")
@@ -300,7 +301,7 @@ addrLoop:
 			n, ok := repo.nodeIndex[addr.String()]
 			if ok {
 				repo.log.Debug("[REPO] %v already discovered", addr)
-				return
+				continue
 			}
 
 			repo.log.Debug("[REPO] %v discovered", addr)
@@ -311,7 +312,7 @@ addrLoop:
 			n, ok := repo.nodeIndex[addr.String()]
 			if !ok {
 				repo.log.Warning("[REPO] %v attempted unknown", addr)
-				return
+				continue
 			}
 
 			repo.log.Debug("[REPO] %v attempted", addr)
@@ -322,7 +323,7 @@ addrLoop:
 			n, ok := repo.nodeIndex[addr.String()]
 			if !ok {
 				repo.log.Warning("[REPO] %v connected unknown", addr)
-				return
+				continue
 			}
 
 			repo.log.Debug("[REPO] %v connected", addr)
@@ -332,7 +333,7 @@ addrLoop:
 			n, ok := repo.nodeIndex[addr.String()]
 			if !ok {
 				repo.log.Warning("[REPO] %v succeded unknown", addr)
-				return
+				continue
 			}
 
 			repo.log.Debug("[REPO] %v succeeded", addr)

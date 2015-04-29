@@ -43,7 +43,6 @@ func main() {
 	repo, err := repository.New(
 		repository.SetLogger(log),
 		repository.SetSeeds("seed.bitcoin.sipa.be"),
-		repository.DisableRestore(),
 		repository.SetDefaultPort(8333),
 	)
 	if err != nil {
@@ -72,6 +71,8 @@ func main() {
 		manager.SetRecorder(rec),
 		manager.SetNetwork(wire.MainNet),
 		manager.SetVersion(wire.RejectVersion),
+		manager.SetConnectionRate(time.Second/25),
+		manager.SetInformationRate(time.Second*2),
 	)
 	if err != nil {
 		log.Critical("Unable to create manager (%v)", err)
@@ -85,10 +86,7 @@ SigLoop:
 
 		switch sig {
 		case syscall.SIGINT:
-			panic("AHAHAHAHAAHHAHAH")
 			break SigLoop
-
-		default:
 		}
 	}
 

@@ -44,7 +44,9 @@ type Manager struct {
 	peerReady     chan adaptor.Peer
 	peerStopped   chan adaptor.Peer
 	connTicker    *time.Ticker
+	connRate      time.Duration
 	infoTicker    *time.Ticker
+	infoRate      time.Duration
 	peerIndex     map[string]adaptor.Peer
 	listenIndex   map[string]*net.TCPListener
 	invIndex      map[wire.ShaHash]struct{}
@@ -74,8 +76,6 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		peerConnected: make(chan adaptor.Peer, 1),
 		peerReady:     make(chan adaptor.Peer, 1),
 		peerStopped:   make(chan adaptor.Peer, 1),
-		connTicker:    time.NewTicker(time.Second),
-		infoTicker:    time.NewTicker(time.Second * 5),
 		peerIndex:     make(map[string]adaptor.Peer),
 		listenIndex:   make(map[string]*net.TCPListener),
 		invIndex:      make(map[wire.ShaHash]struct{}),
@@ -83,6 +83,8 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		network:     wire.TestNet3,
 		version:     wire.RejectVersion,
 		defaultPort: 18333,
+		infoRate:    time.Second * 1,
+		connRate:    time.Second / 10,
 	}
 
 	mgr.nonce, _ = wire.RandomUint64()
@@ -90,6 +92,9 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 	for _, option := range options {
 		option(mgr)
 	}
+
+	mgr.connTicker = time.NewTicker(mgr.connRate)
+	mgr.infoTicker = time.NewTicker(mgr.infoRate)
 
 	switch mgr.network {
 	case wire.TestNet3:
@@ -131,6 +136,18 @@ func SetNetwork(network wire.BitcoinNet) func(*Manager) {
 func SetVersion(version uint32) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.version = version
+	}
+}
+
+func SetConnectionRate(connRate time.Duration) func(*Manager) {
+	return func(mgr *Manager) {
+		mgr.connRate = connRate
+	}
+}
+
+func SetInformationRate(infoRate time.Duration) func(*Manager) {
+	return func(mgr *Manager) {
+		mgr.infoRate = infoRate
 	}
 }
 
@@ -192,16 +209,16 @@ func (mgr *Manager) shutdown() {
 	}
 
 	close(mgr.sigAddress)
-	// here, we close the channel to signal the connection handler to stop
 	close(mgr.sigConn)
 
-	// the listener handler already quits after launching all listeners
-	// we thus only need to close all listeners and wait for their routines to
 	for _, listener := range mgr.listenIndex {
 		listener.Close()
 	}
 
-	// finally, we signal the incoming peer handler to stop processing as well
+	for _, p := range mgr.peerIndex {
+		p.Wait()
+	}
+
 	close(mgr.sigPeer)
 }
 
@@ -338,7 +355,7 @@ PeerLoop:
 			mgr.log.Debug("[MGR] %v created", p)
 			mgr.peerIndex[p.String()] = p
 			mgr.repo.Attempted(p.Addr())
-			go p.Connect()
+			p.Connect()
 
 		case p := <-mgr.peerConnected:
 			_, ok := mgr.peerIndex[p.String()]
