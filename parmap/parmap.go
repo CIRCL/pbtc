@@ -1,4 +1,4 @@
-package util
+package parmap
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ type Shard struct {
 	mutex *sync.RWMutex
 }
 
-func NewParMap(options ...func(*ParMap)) *ParMap {
+func New(options ...func(*ParMap)) *ParMap {
 	pm := &ParMap{
 		count: 32,
 	}

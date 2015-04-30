@@ -10,6 +10,7 @@ import (
 	"github.com/btcsuite/btcd/wire"
 
 	"github.com/CIRCL/pbtc/adaptor"
+	"github.com/CIRCL/pbtc/parmap"
 	"github.com/CIRCL/pbtc/peer"
 	"github.com/CIRCL/pbtc/util"
 )
@@ -43,9 +44,9 @@ type Manager struct {
 	connRate      time.Duration
 	infoTicker    *time.Ticker
 	infoRate      time.Duration
-	peerIndex     *util.ParMap
+	peerIndex     *parmap.ParMap
 	listenIndex   map[string]*net.TCPListener
-	invIndex      *util.ParMap
+	invIndex      *parmap.ParMap
 
 	log  adaptor.Logger
 	repo adaptor.Repository
@@ -73,9 +74,9 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		peerConnected: make(chan adaptor.Peer, 1),
 		peerReady:     make(chan adaptor.Peer, 1),
 		peerStopped:   make(chan adaptor.Peer, 1),
-		peerIndex:     util.NewParMap(),
+		peerIndex:     parmap.New(),
+		invIndex:      parmap.New(),
 		listenIndex:   make(map[string]*net.TCPListener),
-		invIndex:      util.NewParMap(),
 
 		network:     wire.TestNet3,
 		version:     wire.RejectVersion,
@@ -280,7 +281,6 @@ ConnLoop:
 		// if we don't have too many peers yet, try to create a new one
 		case <-mgr.connTicker.C:
 			if mgr.peerIndex.Count() >= mgr.peerLimit {
-				mgr.log.Debug("[MGR] not retrieving, limit reached")
 				continue
 			}
 

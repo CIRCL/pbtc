@@ -10,7 +10,7 @@ import (
 	"github.com/btcsuite/btcd/wire"
 
 	"github.com/CIRCL/pbtc/adaptor"
-	"github.com/CIRCL/pbtc/util"
+	"github.com/CIRCL/pbtc/parmap"
 )
 
 type Recorder struct {
@@ -20,7 +20,7 @@ type Recorder struct {
 	sigWriter chan struct{}
 	txtQ      chan string
 	binQ      chan []byte
-	txIndex   *util.ParMap
+	txIndex   *parmap.ParMap
 
 	log adaptor.Logger
 
@@ -44,7 +44,7 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 		sigWriter: make(chan struct{}),
 		txtQ:      make(chan string, 1),
 		binQ:      make(chan []byte, 1),
-		txIndex:   util.NewParMap(),
+		txIndex:   parmap.New(),
 
 		filePath: "records/",
 		fileName: time.Now().String(),
