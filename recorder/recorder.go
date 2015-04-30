@@ -10,6 +10,7 @@ import (
 	"github.com/btcsuite/btcd/wire"
 
 	"github.com/CIRCL/pbtc/adaptor"
+	"github.com/CIRCL/pbtc/util"
 )
 
 type Recorder struct {
@@ -19,7 +20,7 @@ type Recorder struct {
 	sigWriter chan struct{}
 	txtQ      chan string
 	binQ      chan []byte
-	txIndex   map[wire.ShaHash]struct{}
+	txIndex   *util.ParMap
 
 	log adaptor.Logger
 
@@ -43,7 +44,7 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 		sigWriter: make(chan struct{}),
 		txtQ:      make(chan string, 1),
 		binQ:      make(chan []byte, 1),
-		txIndex:   make(map[wire.ShaHash]struct{}),
+		txIndex:   util.NewParMap(),
 
 		filePath: "records/",
 		fileName: time.Now().String(),
@@ -150,14 +151,11 @@ func (rec *Recorder) Message(msg wire.Message, la *net.TCPAddr,
 		record = NewInventoryRecord(m, la, ra)
 
 	case *wire.MsgTx:
-		// RACE CONDITION
-		_, ok := rec.txIndex[m.TxSha()]
-		if ok {
+		if rec.txIndex.Has(m.TxSha()) {
 			return
 		}
 
-		// RACE CONDITION
-		rec.txIndex[m.TxSha()] = struct{}{}
+		rec.txIndex.Insert(m.TxSha())
 		record = NewTransactionRecord(m, la, ra)
 	}
 

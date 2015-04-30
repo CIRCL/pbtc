@@ -1,6 +1,6 @@
-- concurrent race-safe map key lookup
 - check shutdown & clean-up procedure
-- add records for all message types
+- clean-up structure & go-routine separation
+- add records for all message types (recorder)
 - full comments in all files (meta)
 - full logging in all files (logger)
 - port range configuration option (manager)
@@ -16,3 +16,4 @@
 - structure & dependency injection (docu)
 - add node failure score (repo)
 - add fakes, dummies & tests (testing)
+- remove logging overhead (logger)

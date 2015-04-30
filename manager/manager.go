@@ -43,9 +43,9 @@ type Manager struct {
 	connRate      time.Duration
 	infoTicker    *time.Ticker
 	infoRate      time.Duration
-	peerIndex     map[string]adaptor.Peer
+	peerIndex     *util.ParMap
 	listenIndex   map[string]*net.TCPListener
-	invIndex      map[wire.ShaHash]struct{}
+	invIndex      *util.ParMap
 
 	log  adaptor.Logger
 	repo adaptor.Repository
@@ -54,7 +54,6 @@ type Manager struct {
 	network wire.BitcoinNet
 	version uint32
 	nonce   uint64
-	freeze  uint32
 
 	done        uint32
 	peerLimit   int
@@ -74,9 +73,9 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		peerConnected: make(chan adaptor.Peer, 1),
 		peerReady:     make(chan adaptor.Peer, 1),
 		peerStopped:   make(chan adaptor.Peer, 1),
-		peerIndex:     make(map[string]adaptor.Peer),
+		peerIndex:     util.NewParMap(),
 		listenIndex:   make(map[string]*net.TCPListener),
-		invIndex:      make(map[wire.ShaHash]struct{}),
+		invIndex:      util.NewParMap(),
 
 		network:     wire.TestNet3,
 		version:     wire.RejectVersion,
@@ -176,14 +175,11 @@ func (mgr *Manager) Stopped(p adaptor.Peer) {
 }
 
 func (mgr *Manager) Knows(hash wire.ShaHash) bool {
-	// RACE CONDITION
-	_, ok := mgr.invIndex[hash]
-	return ok
+	return mgr.invIndex.Has(hash)
 }
 
 func (mgr *Manager) Mark(hash wire.ShaHash) {
-	// RACE CONDITION
-	mgr.invIndex[hash] = struct{}{}
+	mgr.invIndex.Insert(hash)
 }
 
 // Start starts the manager, with run-time options passed in as parameters.
@@ -211,7 +207,8 @@ func (mgr *Manager) shutdown() {
 	}
 
 	// first we will stop every peer - this is a blocking operation
-	for _, p := range mgr.peerIndex {
+	for s := range mgr.peerIndex.Iter() {
+		p := s.(adaptor.Peer)
 		p.Stop()
 	}
 
@@ -222,7 +219,8 @@ func (mgr *Manager) shutdown() {
 		listener.Close()
 	}
 
-	for _, p := range mgr.peerIndex {
+	for s := range mgr.peerIndex.Iter() {
+		p := s.(adaptor.Peer)
 		p.Wait()
 	}
 
@@ -281,7 +279,7 @@ ConnLoop:
 		// the ticker will signal each time we can attempt a new connection
 		// if we don't have too many peers yet, try to create a new one
 		case <-mgr.connTicker.C:
-			if atomic.LoadUint32(&mgr.freeze) == 1 {
+			if mgr.peerIndex.Count() >= mgr.peerLimit {
 				mgr.log.Debug("[MGR] not retrieving, limit reached")
 				continue
 			}
@@ -289,7 +287,7 @@ ConnLoop:
 			mgr.repo.Retrieve(mgr.peerAddress)
 
 		case <-mgr.infoTicker.C:
-			mgr.log.Info("[MGR] %v total peers managed", len(mgr.peerIndex))
+			mgr.log.Info("[MGR] %v total peers managed", mgr.peerIndex.Count())
 		}
 	}
 
@@ -310,14 +308,12 @@ AddressLoop:
 			}
 
 		case addr := <-mgr.peerAddress:
-			// RACE CONDITION
-			_, ok := mgr.peerIndex[addr.String()]
-			if ok {
+			if mgr.peerIndex.HasKey(addr.String()) {
 				mgr.log.Debug("[MGR] %v already created", addr)
 				continue
 			}
 
-			if atomic.LoadUint32(&mgr.freeze) == 1 {
+			if mgr.peerIndex.Count() >= mgr.peerLimit {
 				mgr.log.Debug("[MGR] %v discarded, limit reached")
 				continue
 			}
@@ -363,28 +359,25 @@ PeerLoop:
 			}
 
 		case p := <-mgr.peerCreated:
-			_, ok := mgr.peerIndex[p.String()]
-			if ok {
+			if mgr.peerIndex.Has(p) {
 				mgr.log.Warning("[MGR] %v already created", p)
 				p.Stop()
 				continue
 			}
 
-			if len(mgr.peerIndex) >= mgr.peerLimit {
+			if mgr.peerIndex.Count() >= mgr.peerLimit {
 				mgr.log.Notice("[MGR] limit reached, %v stopped", p)
 				p.Stop()
-				atomic.StoreUint32(&mgr.freeze, 1)
 				continue
 			}
 
 			mgr.log.Debug("[MGR] %v created", p)
-			mgr.peerIndex[p.String()] = p
+			mgr.peerIndex.Insert(p)
 			mgr.repo.Attempted(p.Addr())
 			p.Connect()
 
 		case p := <-mgr.peerConnected:
-			_, ok := mgr.peerIndex[p.String()]
-			if !ok {
+			if !mgr.peerIndex.Has(p) {
 				mgr.log.Warning("[MGR] %v connected unknown", p)
 				p.Stop()
 				continue
@@ -396,29 +389,26 @@ PeerLoop:
 			p.Greet()
 
 		case p := <-mgr.peerAccepted:
-			_, ok := mgr.peerIndex[p.String()]
-			if ok {
+			if !mgr.peerIndex.Has(p) {
 				mgr.log.Warning("[MGR] %v already accepted", p)
 				p.Stop()
 				continue
 			}
 
-			if len(mgr.peerIndex) >= mgr.peerLimit {
+			if mgr.peerIndex.Count() >= mgr.peerLimit {
 				mgr.log.Notice("[MGR] limit reached, %v disconnected", p)
 				p.Stop()
-				atomic.StoreUint32(&mgr.freeze, 1)
 				continue
 			}
 
 			mgr.log.Debug("[MGR] %v accepted", p)
-			mgr.peerIndex[p.String()] = p
+			mgr.peerIndex.Insert(p)
 			mgr.repo.Attempted(p.Addr())
 			mgr.repo.Connected(p.Addr())
 			p.Start()
 
 		case p := <-mgr.peerReady:
-			_, ok := mgr.peerIndex[p.String()]
-			if !ok {
+			if !mgr.peerIndex.Has(p) {
 				mgr.log.Warning("[MGR] %v already ready", p)
 				p.Stop()
 				continue
@@ -430,18 +420,13 @@ PeerLoop:
 
 		// whenever there is an expired peer to be removed, process it
 		case p := <-mgr.peerStopped:
-			_, ok := mgr.peerIndex[p.String()]
-			if !ok {
+			if !mgr.peerIndex.Has(p) {
 				mgr.log.Warning("[MGR] %v done unknown", p)
 				continue
 			}
 
 			mgr.log.Debug("[MGR] %v: done", p)
-			delete(mgr.peerIndex, p.String())
-
-			if mgr.peerLimit-len(mgr.peerIndex) == 1 {
-				atomic.StoreUint32(&mgr.freeze, 0)
-			}
+			mgr.peerIndex.Remove(p)
 		}
 	}
 
@@ -473,7 +458,7 @@ func (mgr *Manager) handleListener(listener *net.TCPListener) {
 			break
 		}
 
-		if atomic.LoadUint32(&mgr.freeze) == 1 {
+		if mgr.peerIndex.HasKey(conn.RemoteAddr().String()) {
 			mgr.log.Notice("[MGR] limit reached, %v not accepted",
 				conn.RemoteAddr())
 			conn.Close()
