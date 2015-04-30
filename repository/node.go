@@ -9,6 +9,7 @@ import (
 
 type node struct {
 	addr          *net.TCPAddr
+	numSeen       uint32
 	numAttempts   uint32
 	lastAttempted time.Time
 	lastConnected time.Time
@@ -18,7 +19,8 @@ type node struct {
 // newNode creates a new node for the given address and source.
 func newNode(addr *net.TCPAddr) *node {
 	n := &node{
-		addr: addr,
+		addr:    addr,
+		numSeen: 1,
 	}
 
 	return n

@@ -258,7 +258,7 @@ retrievalLoop:
 
 		case c := <-repo.addrRetrieve:
 			for _, node := range repo.nodeIndex {
-				if node.numAttempts >= 3 {
+				if node.numAttempts >= 1 {
 					continue
 				}
 
@@ -301,6 +301,7 @@ addrLoop:
 			n, ok := repo.nodeIndex[addr.String()]
 			if ok {
 				repo.log.Debug("[REPO] %v already discovered", addr)
+				n.numSeen++
 				continue
 			}
 

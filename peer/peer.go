@@ -193,7 +193,7 @@ func (p *Peer) connect() {
 	connGen, err := net.DialTimeout("tcp", p.addr.String(), timeoutDial)
 	if err != nil {
 		p.log.Debug("[PEER] %v connection failed (%v)", p, err)
-		p.shutdown()
+		p.Stop()
 		return
 	}
 
@@ -201,7 +201,7 @@ func (p *Peer) connect() {
 	conn, ok := connGen.(*net.TCPConn)
 	if !ok {
 		p.log.Warning("[PEER] %v connection type assert failed", p)
-		p.shutdown()
+		p.Stop()
 		return
 	}
 
@@ -211,7 +211,7 @@ func (p *Peer) connect() {
 	err = p.parse()
 	if err != nil {
 		p.log.Warning("[PEER] %v connection parsing failed", p)
-		p.shutdown()
+		p.Stop()
 		return
 	}
 
@@ -234,14 +234,15 @@ func (p *Peer) shutdown() {
 		return
 	}
 
-	if p.conn != nil {
-		p.conn.Close()
-	}
-
 	close(p.sigSend)
 	close(p.sigRecv)
 
 	p.wg.Wait()
+
+	if p.conn != nil {
+		p.conn.Close()
+	}
+
 	p.mgr.Stopped(p)
 }
 
@@ -320,18 +321,18 @@ SendLoop:
 		case msg := <-p.sendQ:
 			err := p.sendMessage(msg)
 			if e, ok := err.(net.Error); ok && e.Timeout() {
-				p.shutdown()
-				continue
+				p.Stop()
+				break SendLoop
 			}
 			if err != nil && strings.Contains(err.Error(),
 				"use of closed network connection") {
-				p.shutdown()
-				continue
+				p.Stop()
+				break SendLoop
 			}
 			if err != nil {
 				p.log.Warning("[PEER] %v: send failed (%v)", p, err)
-				p.shutdown()
-				continue
+				p.Stop()
+				break SendLoop
 			}
 
 			// we successfully sent a message, so reset the idle timer
@@ -365,7 +366,7 @@ ReceiveLoop:
 
 		// we didn't receive a message for too long, so time this p out and dump
 		case <-idleTimer.C:
-			p.shutdown()
+			p.Stop()
 
 		// each iteration without other action, we try receiving a message for a
 		// if we time out, we try again, on error we quit
@@ -376,13 +377,13 @@ ReceiveLoop:
 			}
 			if err != nil && strings.Contains(err.Error(),
 				"use of closed network connection") {
-				p.shutdown()
-				continue
+				p.Stop()
+				break ReceiveLoop
 			}
 			if err != nil {
 				p.log.Warning("[PEER] %v: receive failed (%v)", p, err)
-				p.shutdown()
-				continue
+				p.Stop()
+				break ReceiveLoop
 			}
 
 			// we successfully received a message, so reset the idle timer and
@@ -407,7 +408,7 @@ func (p *Peer) processMessage(msg wire.Message) {
 		_, ok := msg.(*wire.MsgVersion)
 		if !ok {
 			p.log.Warning("%v: out of order non-version message", p.String())
-			p.shutdown()
+			p.Stop()
 			return
 		}
 	}
@@ -417,19 +418,19 @@ func (p *Peer) processMessage(msg wire.Message) {
 	case *wire.MsgVersion:
 		if m.Nonce == p.nonce {
 			p.log.Warning("%v: detected connection to self", p)
-			p.shutdown()
+			p.Stop()
 			return
 		}
 
 		if uint32(m.ProtocolVersion) < wire.MultipleAddressVersion {
 			p.log.Warning("%v: connected to obsolete peer", p)
-			p.shutdown()
+			p.Stop()
 			return
 		}
 
 		if atomic.SwapUint32(&p.rcvd, 1) == 1 {
 			p.log.Warning("%v: out of order version message", p)
-			p.shutdown()
+			p.Stop()
 			return
 		}
 

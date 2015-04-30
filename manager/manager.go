@@ -60,6 +60,7 @@ type Manager struct {
 	nonce   uint64
 
 	done        uint32
+	peerLimit   int
 	defaultPort int
 }
 
@@ -85,6 +86,7 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		defaultPort: 18333,
 		infoRate:    time.Second * 1,
 		connRate:    time.Second / 10,
+		peerLimit:   100,
 	}
 
 	mgr.nonce, _ = wire.RandomUint64()
@@ -148,6 +150,12 @@ func SetConnectionRate(connRate time.Duration) func(*Manager) {
 func SetInformationRate(infoRate time.Duration) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.infoRate = infoRate
+	}
+}
+
+func SetPeerLimit(peerLimit int) func(*Manager) {
+	return func(mgr *Manager) {
+		mgr.peerLimit = peerLimit
 	}
 }
 
@@ -274,6 +282,11 @@ ConnLoop:
 		// the ticker will signal each time we can attempt a new connection
 		// if we don't have too many peers yet, try to create a new one
 		case <-mgr.connTicker.C:
+			if len(mgr.peerIndex) >= mgr.peerLimit {
+				mgr.log.Debug("[MGR] not retrieving, limit reached")
+				continue
+			}
+
 			mgr.repo.Retrieve(mgr.peerAddress)
 
 		case <-mgr.infoTicker.C:
@@ -301,6 +314,11 @@ AddressLoop:
 			_, ok := mgr.peerIndex[addr.String()]
 			if ok {
 				mgr.log.Debug("[MGR] %v already created", addr)
+				continue
+			}
+
+			if len(mgr.peerIndex) >= mgr.peerLimit {
+				mgr.log.Debug("[MGR] limit reached, %v discarded", addr)
 				continue
 			}
 
@@ -332,6 +350,7 @@ AddressLoop:
 func (mgr *Manager) goPeers() {
 	// let the waitgroup know when we are done
 	defer mgr.wg.Done()
+
 	mgr.log.Info("[MGR] Peer routine started")
 
 PeerLoop:
@@ -340,7 +359,6 @@ PeerLoop:
 		// this is the signal to quit, so break the outer loop
 		case _, ok := <-mgr.sigPeer:
 			if !ok {
-				mgr.log.Debug("[MGR] peer routine stop signal received")
 				break PeerLoop
 			}
 
@@ -348,6 +366,12 @@ PeerLoop:
 			_, ok := mgr.peerIndex[p.String()]
 			if ok {
 				mgr.log.Warning("[MGR] %v created unknown", p)
+				p.Stop()
+				continue
+			}
+
+			if len(mgr.peerIndex) >= mgr.peerLimit {
+				mgr.log.Notice("[MGR] limit reached, %v stopped", p)
 				p.Stop()
 				continue
 			}
@@ -374,6 +398,12 @@ PeerLoop:
 			_, ok := mgr.peerIndex[p.String()]
 			if ok {
 				mgr.log.Warning("[MGR] %v already accepted", p)
+				p.Stop()
+				continue
+			}
+
+			if len(mgr.peerIndex) >= mgr.peerLimit {
+				mgr.log.Notice("[MGR] limit reached, %v disconnected", p)
 				p.Stop()
 				continue
 			}
@@ -434,6 +464,13 @@ func (mgr *Manager) handleListener(listener *net.TCPListener) {
 		if err != nil {
 			mgr.log.Warning("[MGR] %v: could not accept connection (%v)",
 				listener.Addr(), err)
+			break
+		}
+
+		if len(mgr.peerIndex) >= mgr.peerLimit {
+			mgr.log.Notice("[MGR] limit reached, %v not accetped",
+				conn.RemoteAddr())
+			conn.Close()
 			break
 		}
 

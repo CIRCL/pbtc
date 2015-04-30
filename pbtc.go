@@ -44,6 +44,7 @@ func main() {
 		repository.SetLogger(log),
 		repository.SetSeeds("seed.bitcoin.sipa.be"),
 		repository.SetDefaultPort(8333),
+		repository.DisableRestore(),
 	)
 	if err != nil {
 		log.Critical("Unable to create repository (%v)", err)
@@ -73,6 +74,7 @@ func main() {
 		manager.SetVersion(wire.RejectVersion),
 		manager.SetConnectionRate(time.Second/25),
 		manager.SetInformationRate(time.Second*2),
+		manager.SetPeerLimit(1000),
 	)
 	if err != nil {
 		log.Critical("Unable to create manager (%v)", err)
