@@ -40,7 +40,7 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 	rec := &Recorder{
 		wg:        &sync.WaitGroup{},
 		cmdConfig: make(map[string]bool),
-		sigWriter: make(chan struct{}, 1),
+		sigWriter: make(chan struct{}),
 		txtQ:      make(chan string, 1),
 		binQ:      make(chan []byte, 1),
 		txIndex:   make(map[wire.ShaHash]struct{}),
@@ -150,11 +150,13 @@ func (rec *Recorder) Message(msg wire.Message, la *net.TCPAddr,
 		record = NewInventoryRecord(m, la, ra)
 
 	case *wire.MsgTx:
+		// RACE CONDITION
 		_, ok := rec.txIndex[m.TxSha()]
 		if ok {
 			return
 		}
 
+		// RACE CONDITION
 		rec.txIndex[m.TxSha()] = struct{}{}
 		record = NewTransactionRecord(m, la, ra)
 	}

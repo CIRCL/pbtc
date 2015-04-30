@@ -23,7 +23,6 @@ type Repository struct {
 	addrRetrieve   chan chan<- *net.TCPAddr
 	sigTicker      chan struct{}
 	sigAddr        chan struct{}
-	sigRetrieval   chan struct{}
 	tickerBackup   *time.Ticker
 	tickerPoll     *time.Ticker
 	nodeIndex      map[string]*node
@@ -50,9 +49,8 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 		addrConnected:  make(chan *net.TCPAddr, 1),
 		addrSucceeded:  make(chan *net.TCPAddr, 1),
 		addrRetrieve:   make(chan chan<- *net.TCPAddr, 1),
-		sigAddr:        make(chan struct{}, 1),
-		sigTicker:      make(chan struct{}, 1),
-		sigRetrieval:   make(chan struct{}, 1),
+		sigAddr:        make(chan struct{}),
+		sigTicker:      make(chan struct{}),
 		tickerBackup:   time.NewTicker(90 * time.Second),
 		tickerPoll:     time.NewTicker(30 * time.Minute),
 		defaultPort:    18333,
@@ -118,10 +116,16 @@ func DisableRestore() func(*Repository) {
 }
 
 func (repo *Repository) Stop() {
-	repo.shutdown()
+	if atomic.SwapUint32(&repo.done, 1) == 1 {
+		return
+	}
+
+	close(repo.sigAddr)
+	close(repo.sigTicker)
+
 	repo.wg.Wait()
 
-	repo.log.Info("[REPO] Shutdown complete")
+	repo.save()
 }
 
 func (repo *Repository) Discovered(addr *net.TCPAddr) {
@@ -145,24 +149,11 @@ func (repo *Repository) Retrieve(c chan<- *net.TCPAddr) {
 }
 
 func (repo *Repository) start() {
-	repo.wg.Add(3)
-	go repo.goRetrieval()
+	repo.wg.Add(2)
 	go repo.goTickers()
 	go repo.goAddresses()
 
 	repo.log.Info("[REPO] Initialization complete")
-}
-
-func (repo *Repository) shutdown() {
-	if atomic.SwapUint32(&repo.done, 1) == 1 {
-		return
-	}
-
-	close(repo.sigAddr)
-	close(repo.sigTicker)
-	close(repo.sigRetrieval)
-
-	repo.save()
 }
 
 // bootstrap will use a number of dns seeds to discover nodes.
@@ -243,17 +234,17 @@ tickerLoop:
 	repo.log.Info("[REPO] Ticker routine stopped")
 }
 
-func (repo *Repository) goRetrieval() {
+func (repo *Repository) goAddresses() {
 	defer repo.wg.Done()
 
-	repo.log.Info("[REPO] Retrieval routine started")
+	repo.log.Info("[REPO] Address routine started")
 
-retrievalLoop:
+addrLoop:
 	for {
 		select {
-		case _, ok := <-repo.sigRetrieval:
+		case _, ok := <-repo.sigAddr:
 			if !ok {
-				break retrievalLoop
+				break addrLoop
 			}
 
 		case c := <-repo.addrRetrieve:
@@ -276,25 +267,7 @@ retrievalLoop:
 
 				repo.log.Debug("[REPO] %v retrieved", node)
 				c <- node.addr
-				continue retrievalLoop
-			}
-
-			repo.log.Debug("[REPO] retrieve failed")
-		}
-	}
-}
-
-func (repo *Repository) goAddresses() {
-	defer repo.wg.Done()
-
-	repo.log.Info("[REPO] Address routine started")
-
-addrLoop:
-	for {
-		select {
-		case _, ok := <-repo.sigAddr:
-			if !ok {
-				break addrLoop
+				continue addrLoop
 			}
 
 		case addr := <-repo.addrDiscovered:

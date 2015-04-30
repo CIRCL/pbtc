@@ -1,11 +1,18 @@
+- concurrent race-safe map key lookup
+- check shutdown & clean-up procedure
+- add records for all message types
+- full comments in all files (meta)
+- full logging in all files (logger)
 - port range configuration option (manager)
 - invalid/unreachable IP filter (repo)
+- record format definition (docu)
 - sorted node data structure (repo)
 - black/white lists (repo)
-- record format definition (docu)
 - api & configuration options (docu)
+- write decent inventory tracking (inv)
 - ip range clustering nodes (repo)
 - geolocation node information (repo)
 - node reputation system (repo)
 - structure & dependency injection (docu)
 - add node failure score (repo)
+- add fakes, dummies & tests (testing)

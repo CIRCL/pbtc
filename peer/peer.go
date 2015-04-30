@@ -55,8 +55,8 @@ type Peer struct {
 func New(options ...func(*Peer)) (*Peer, error) {
 	p := &Peer{
 		wg:      &sync.WaitGroup{},
-		sigSend: make(chan struct{}, 1),
-		sigRecv: make(chan struct{}, 1),
+		sigSend: make(chan struct{}),
+		sigRecv: make(chan struct{}),
 		sendQ:   make(chan wire.Message, bufferSend),
 		recvQ:   make(chan wire.Message, bufferRecv),
 
@@ -155,6 +155,7 @@ func (p *Peer) Addr() *net.TCPAddr {
 }
 
 func (p *Peer) Connect() {
+	p.wg.Add(1)
 	go p.connect()
 }
 
@@ -179,6 +180,8 @@ func (p *Peer) Wait() {
 }
 
 func (p *Peer) connect() {
+	defer p.wg.Done()
+
 	if atomic.LoadUint32(&p.done) != 0 {
 		p.log.Warning("[PEER] %v can't connect when done", p)
 		return

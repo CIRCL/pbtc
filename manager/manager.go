@@ -22,10 +22,6 @@ const (
 	stateShutdown         // irreversible shutdown of module
 )
 
-const (
-	maxPeers = 100
-)
-
 // Manager is the module responsible for managing the connections to peers and
 // keep them in line with application level state and requirements. It accepts
 // inbound connections, establishes the desired number of outgoing connections
@@ -58,6 +54,7 @@ type Manager struct {
 	network wire.BitcoinNet
 	version uint32
 	nonce   uint64
+	freeze  uint32
 
 	done        uint32
 	peerLimit   int
@@ -68,9 +65,9 @@ type Manager struct {
 func New(options ...func(mgr *Manager)) (*Manager, error) {
 	mgr := &Manager{
 		wg:            &sync.WaitGroup{},
-		sigPeer:       make(chan struct{}, 1),
-		sigConn:       make(chan struct{}, 1),
-		sigAddress:    make(chan struct{}, 1),
+		sigPeer:       make(chan struct{}),
+		sigConn:       make(chan struct{}),
+		sigAddress:    make(chan struct{}),
 		peerAddress:   make(chan *net.TCPAddr, 1),
 		peerCreated:   make(chan adaptor.Peer, 1),
 		peerAccepted:  make(chan adaptor.Peer, 1),
@@ -84,7 +81,7 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		network:     wire.TestNet3,
 		version:     wire.RejectVersion,
 		defaultPort: 18333,
-		infoRate:    time.Second * 1,
+		infoRate:    time.Second * 5,
 		connRate:    time.Second / 10,
 		peerLimit:   100,
 	}
@@ -179,11 +176,13 @@ func (mgr *Manager) Stopped(p adaptor.Peer) {
 }
 
 func (mgr *Manager) Knows(hash wire.ShaHash) bool {
+	// RACE CONDITION
 	_, ok := mgr.invIndex[hash]
 	return ok
 }
 
 func (mgr *Manager) Mark(hash wire.ShaHash) {
+	// RACE CONDITION
 	mgr.invIndex[hash] = struct{}{}
 }
 
@@ -282,7 +281,7 @@ ConnLoop:
 		// the ticker will signal each time we can attempt a new connection
 		// if we don't have too many peers yet, try to create a new one
 		case <-mgr.connTicker.C:
-			if len(mgr.peerIndex) >= mgr.peerLimit {
+			if atomic.LoadUint32(&mgr.freeze) == 1 {
 				mgr.log.Debug("[MGR] not retrieving, limit reached")
 				continue
 			}
@@ -311,14 +310,15 @@ AddressLoop:
 			}
 
 		case addr := <-mgr.peerAddress:
+			// RACE CONDITION
 			_, ok := mgr.peerIndex[addr.String()]
 			if ok {
 				mgr.log.Debug("[MGR] %v already created", addr)
 				continue
 			}
 
-			if len(mgr.peerIndex) >= mgr.peerLimit {
-				mgr.log.Debug("[MGR] limit reached, %v discarded", addr)
+			if atomic.LoadUint32(&mgr.freeze) == 1 {
+				mgr.log.Debug("[MGR] %v discarded, limit reached")
 				continue
 			}
 
@@ -365,7 +365,7 @@ PeerLoop:
 		case p := <-mgr.peerCreated:
 			_, ok := mgr.peerIndex[p.String()]
 			if ok {
-				mgr.log.Warning("[MGR] %v created unknown", p)
+				mgr.log.Warning("[MGR] %v already created", p)
 				p.Stop()
 				continue
 			}
@@ -373,6 +373,7 @@ PeerLoop:
 			if len(mgr.peerIndex) >= mgr.peerLimit {
 				mgr.log.Notice("[MGR] limit reached, %v stopped", p)
 				p.Stop()
+				atomic.StoreUint32(&mgr.freeze, 1)
 				continue
 			}
 
@@ -405,6 +406,7 @@ PeerLoop:
 			if len(mgr.peerIndex) >= mgr.peerLimit {
 				mgr.log.Notice("[MGR] limit reached, %v disconnected", p)
 				p.Stop()
+				atomic.StoreUint32(&mgr.freeze, 1)
 				continue
 			}
 
@@ -436,6 +438,10 @@ PeerLoop:
 
 			mgr.log.Debug("[MGR] %v: done", p)
 			delete(mgr.peerIndex, p.String())
+
+			if mgr.peerLimit-len(mgr.peerIndex) == 1 {
+				atomic.StoreUint32(&mgr.freeze, 0)
+			}
 		}
 	}
 
@@ -467,8 +473,8 @@ func (mgr *Manager) handleListener(listener *net.TCPListener) {
 			break
 		}
 
-		if len(mgr.peerIndex) >= mgr.peerLimit {
-			mgr.log.Notice("[MGR] limit reached, %v not accetped",
+		if atomic.LoadUint32(&mgr.freeze) == 1 {
+			mgr.log.Notice("[MGR] limit reached, %v not accepted",
 				conn.RemoteAddr())
 			conn.Close()
 			break
