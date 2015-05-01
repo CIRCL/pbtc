@@ -21,7 +21,6 @@ type Repository struct {
 	addrConnected  chan *net.TCPAddr
 	addrSucceeded  chan *net.TCPAddr
 	addrRetrieve   chan chan<- *net.TCPAddr
-	sigTicker      chan struct{}
 	sigAddr        chan struct{}
 	tickerBackup   *time.Ticker
 	tickerPoll     *time.Ticker
@@ -50,7 +49,6 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 		addrSucceeded:  make(chan *net.TCPAddr, 1),
 		addrRetrieve:   make(chan chan<- *net.TCPAddr, 1),
 		sigAddr:        make(chan struct{}),
-		sigTicker:      make(chan struct{}),
 		tickerBackup:   time.NewTicker(90 * time.Second),
 		tickerPoll:     time.NewTicker(30 * time.Minute),
 		defaultPort:    18333,
@@ -121,7 +119,6 @@ func (repo *Repository) Stop() {
 	}
 
 	close(repo.sigAddr)
-	close(repo.sigTicker)
 
 	repo.wg.Wait()
 
@@ -149,8 +146,7 @@ func (repo *Repository) Retrieve(c chan<- *net.TCPAddr) {
 }
 
 func (repo *Repository) start() {
-	repo.wg.Add(2)
-	go repo.goTickers()
+	repo.wg.Add(1)
 	go repo.goAddresses()
 
 	repo.log.Info("[REPO] Initialization complete")
@@ -208,32 +204,6 @@ func (repo *Repository) restore() {
 	}
 }
 
-func (repo *Repository) goTickers() {
-	defer repo.wg.Done()
-
-	repo.log.Info("[REPO] Ticker routine started")
-
-tickerLoop:
-	for {
-		select {
-		case _, ok := <-repo.sigTicker:
-			if !ok {
-				break tickerLoop
-			}
-
-		case <-repo.tickerBackup.C:
-			repo.log.Info("[REPO] Saving node index")
-			repo.save()
-
-		case <-repo.tickerPoll.C:
-			repo.log.Info("[REPO] Polling DNS seeds")
-			repo.bootstrap()
-		}
-	}
-
-	repo.log.Info("[REPO] Ticker routine stopped")
-}
-
 func (repo *Repository) goAddresses() {
 	defer repo.wg.Done()
 
@@ -246,6 +216,14 @@ addrLoop:
 			if !ok {
 				break addrLoop
 			}
+
+		case <-repo.tickerBackup.C:
+			repo.log.Info("[REPO] Saving node index")
+			repo.save()
+
+		case <-repo.tickerPoll.C:
+			repo.log.Info("[REPO] Polling DNS seeds")
+			repo.bootstrap()
 
 		case c := <-repo.addrRetrieve:
 			for _, node := range repo.nodeIndex {
@@ -273,7 +251,6 @@ addrLoop:
 		case addr := <-repo.addrDiscovered:
 			n, ok := repo.nodeIndex[addr.String()]
 			if ok {
-				repo.log.Debug("[REPO] %v already discovered", addr)
 				n.numSeen++
 				continue
 			}

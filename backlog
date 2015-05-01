@@ -1,5 +1,4 @@
-- check shutdown & clean-up procedure
-- clean-up structure & go-routine separation
+- fix peer shutdown hangup (state system?)
 - add records for all message types (recorder)
 - full comments in all files (meta)
 - full logging in all files (logger)

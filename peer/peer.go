@@ -31,7 +31,6 @@ type Peer struct {
 	sigSend chan struct{}
 	sigRecv chan struct{}
 	sendQ   chan wire.Message
-	recvQ   chan wire.Message
 
 	log  adaptor.Logger
 	mgr  adaptor.Manager
@@ -58,7 +57,6 @@ func New(options ...func(*Peer)) (*Peer, error) {
 		sigSend: make(chan struct{}),
 		sigRecv: make(chan struct{}),
 		sendQ:   make(chan wire.Message, bufferSend),
-		recvQ:   make(chan wire.Message, bufferRecv),
 
 		network: wire.TestNet3,
 		version: wire.RejectVersion,
@@ -155,7 +153,6 @@ func (p *Peer) Addr() *net.TCPAddr {
 }
 
 func (p *Peer) Connect() {
-	p.wg.Add(1)
 	go p.connect()
 }
 
@@ -175,13 +172,7 @@ func (p *Peer) Poll() {
 	go p.pushGetAddr()
 }
 
-func (p *Peer) Wait() {
-	p.wg.Wait()
-}
-
 func (p *Peer) connect() {
-	defer p.wg.Done()
-
 	if atomic.LoadUint32(&p.done) != 0 {
 		p.log.Warning("[PEER] %v can't connect when done", p)
 		return
@@ -196,7 +187,7 @@ func (p *Peer) connect() {
 	connGen, err := net.DialTimeout("tcp", p.addr.String(), timeoutDial)
 	if err != nil {
 		p.log.Debug("[PEER] %v connection failed (%v)", p, err)
-		p.Stop()
+		p.shutdown()
 		return
 	}
 
@@ -204,7 +195,14 @@ func (p *Peer) connect() {
 	conn, ok := connGen.(*net.TCPConn)
 	if !ok {
 		p.log.Warning("[PEER] %v connection type assert failed", p)
-		p.Stop()
+		p.shutdown()
+		return
+	}
+
+	if atomic.LoadUint32(&p.done) == 1 {
+		p.log.Warning("[PEER] %v connection late", p)
+		conn.Close()
+		p.shutdown()
 		return
 	}
 
@@ -214,7 +212,7 @@ func (p *Peer) connect() {
 	err = p.parse()
 	if err != nil {
 		p.log.Warning("[PEER] %v connection parsing failed", p)
-		p.Stop()
+		p.shutdown()
 		return
 	}
 
@@ -324,17 +322,17 @@ SendLoop:
 		case msg := <-p.sendQ:
 			err := p.sendMessage(msg)
 			if e, ok := err.(net.Error); ok && e.Timeout() {
-				p.Stop()
+				p.shutdown()
 				break SendLoop
 			}
 			if err != nil && strings.Contains(err.Error(),
 				"use of closed network connection") {
-				p.Stop()
+				p.shutdown()
 				break SendLoop
 			}
 			if err != nil {
 				p.log.Warning("[PEER] %v: send failed (%v)", p, err)
-				p.Stop()
+				p.shutdown()
 				break SendLoop
 			}
 
@@ -369,7 +367,8 @@ ReceiveLoop:
 
 		// we didn't receive a message for too long, so time this p out and dump
 		case <-idleTimer.C:
-			p.Stop()
+			p.shutdown()
+			break ReceiveLoop
 
 		// each iteration without other action, we try receiving a message for a
 		// if we time out, we try again, on error we quit
@@ -380,12 +379,12 @@ ReceiveLoop:
 			}
 			if err != nil && strings.Contains(err.Error(),
 				"use of closed network connection") {
-				p.Stop()
+				p.shutdown()
 				break ReceiveLoop
 			}
 			if err != nil {
 				p.log.Warning("[PEER] %v: receive failed (%v)", p, err)
-				p.Stop()
+				p.shutdown()
 				break ReceiveLoop
 			}
 
@@ -411,7 +410,7 @@ func (p *Peer) processMessage(msg wire.Message) {
 		_, ok := msg.(*wire.MsgVersion)
 		if !ok {
 			p.log.Warning("%v: out of order non-version message", p.String())
-			p.Stop()
+			p.shutdown()
 			return
 		}
 	}
@@ -421,19 +420,19 @@ func (p *Peer) processMessage(msg wire.Message) {
 	case *wire.MsgVersion:
 		if m.Nonce == p.nonce {
 			p.log.Warning("%v: detected connection to self", p)
-			p.Stop()
+			p.shutdown()
 			return
 		}
 
 		if uint32(m.ProtocolVersion) < wire.MultipleAddressVersion {
 			p.log.Warning("%v: connected to obsolete peer", p)
-			p.Stop()
+			p.shutdown()
 			return
 		}
 
 		if atomic.SwapUint32(&p.rcvd, 1) == 1 {
 			p.log.Warning("%v: out of order version message", p)
-			p.Stop()
+			p.shutdown()
 			return
 		}
 

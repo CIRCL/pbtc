@@ -12,5 +12,4 @@ type Peer interface {
 	Stop()
 	Greet()
 	Poll()
-	Wait()
 }

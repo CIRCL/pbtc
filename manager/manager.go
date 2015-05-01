@@ -30,53 +30,54 @@ const (
 // repository to get addresses to connect to and notifies it about changes
 // relevant to address selection.
 type Manager struct {
-	wg            *sync.WaitGroup
-	sigPeer       chan struct{}
-	sigConn       chan struct{}
-	sigAddress    chan struct{}
-	peerAddress   chan *net.TCPAddr
-	peerCreated   chan adaptor.Peer
-	peerAccepted  chan adaptor.Peer
+	wg *sync.WaitGroup
+
+	peerSig       chan struct{}
+	addrSig       chan struct{}
+	addrQ         chan *net.TCPAddr
+	connQ         chan *net.TCPConn
 	peerConnected chan adaptor.Peer
 	peerReady     chan adaptor.Peer
 	peerStopped   chan adaptor.Peer
-	connTicker    *time.Ticker
-	connRate      time.Duration
-	infoTicker    *time.Ticker
-	infoRate      time.Duration
-	peerIndex     *parmap.ParMap
-	listenIndex   map[string]*net.TCPListener
-	invIndex      *parmap.ParMap
+
+	peerIndex   *parmap.ParMap
+	invIndex    *parmap.ParMap
+	listenIndex map[string]*net.TCPListener
+
+	addrTicker *time.Ticker
+	infoTicker *time.Ticker
 
 	log  adaptor.Logger
 	repo adaptor.Repository
 	rec  adaptor.Recorder
 
-	network wire.BitcoinNet
-	version uint32
-	nonce   uint64
-
-	done        uint32
+	network     wire.BitcoinNet
+	version     uint32
+	nonce       uint64
+	connRate    time.Duration
+	infoRate    time.Duration
 	peerLimit   int
 	defaultPort int
+
+	done uint32
 }
 
 // NewManager returns a new manager with all necessary variables initialized.
 func New(options ...func(mgr *Manager)) (*Manager, error) {
 	mgr := &Manager{
-		wg:            &sync.WaitGroup{},
-		sigPeer:       make(chan struct{}),
-		sigConn:       make(chan struct{}),
-		sigAddress:    make(chan struct{}),
-		peerAddress:   make(chan *net.TCPAddr, 1),
-		peerCreated:   make(chan adaptor.Peer, 1),
-		peerAccepted:  make(chan adaptor.Peer, 1),
+		wg: &sync.WaitGroup{},
+
+		peerSig:       make(chan struct{}),
+		addrSig:       make(chan struct{}),
+		addrQ:         make(chan *net.TCPAddr, 1),
+		connQ:         make(chan *net.TCPConn, 1),
 		peerConnected: make(chan adaptor.Peer, 1),
 		peerReady:     make(chan adaptor.Peer, 1),
 		peerStopped:   make(chan adaptor.Peer, 1),
-		peerIndex:     parmap.New(),
-		invIndex:      parmap.New(),
-		listenIndex:   make(map[string]*net.TCPListener),
+
+		peerIndex:   parmap.New(),
+		invIndex:    parmap.New(),
+		listenIndex: make(map[string]*net.TCPListener),
 
 		network:     wire.TestNet3,
 		version:     wire.RejectVersion,
@@ -92,7 +93,7 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		option(mgr)
 	}
 
-	mgr.connTicker = time.NewTicker(mgr.connRate)
+	mgr.addrTicker = time.NewTicker(mgr.connRate)
 	mgr.infoTicker = time.NewTicker(mgr.infoRate)
 
 	switch mgr.network {
@@ -192,10 +193,9 @@ func (mgr *Manager) start() {
 
 	// here, we start all handlers that execute concurrently
 	// we add them to the waitgrop so that we can cleanly shutdown later
-	mgr.wg.Add(3)
-	go mgr.goTickers()
-	go mgr.goAddresses()
+	mgr.wg.Add(2)
 	go mgr.goPeers()
+	go mgr.goAddresses()
 
 	mgr.log.Info("[MGR] Initialization complete")
 }
@@ -207,14 +207,7 @@ func (mgr *Manager) shutdown() {
 		return
 	}
 
-	// first we will stop every peer - this is a blocking operation
-	for s := range mgr.peerIndex.Iter() {
-		p := s.(adaptor.Peer)
-		p.Stop()
-	}
-
-	close(mgr.sigAddress)
-	close(mgr.sigConn)
+	close(mgr.addrSig)
 
 	for _, listener := range mgr.listenIndex {
 		listener.Close()
@@ -222,10 +215,16 @@ func (mgr *Manager) shutdown() {
 
 	for s := range mgr.peerIndex.Iter() {
 		p := s.(adaptor.Peer)
-		p.Wait()
+		p.Stop()
 	}
 
-	close(mgr.sigPeer)
+	for mgr.peerIndex.Count() > 0 {
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	close(mgr.peerSig)
+
+	mgr.wg.Wait()
 }
 
 // createListeners tries to start a listener on every local IP to accept
@@ -257,57 +256,86 @@ func (mgr *Manager) createListeners() {
 		// we again need to add it to the waitgroup if we want to exit cleanly
 		mgr.listenIndex[addr.String()] = listener
 		mgr.wg.Add(1)
-		go mgr.handleListener(listener)
+		go mgr.goConnections(listener)
 	}
 }
 
 // handleConnections attempts to establish new connections at the configured
 // rate as long as we are not at the maximum number of connections.
-func (mgr *Manager) goTickers() {
+func (mgr *Manager) goAddresses() {
 	// let the waitgroup know when we are done
 	defer mgr.wg.Done()
-	mgr.log.Info("[MGR] Ticker routine started")
-
-ConnLoop:
-	for {
-		select {
-		// this is the signal to quit, so break the outer loop
-		case _, ok := <-mgr.sigConn:
-			if !ok {
-				break ConnLoop
-			}
-
-		// the ticker will signal each time we can attempt a new connection
-		// if we don't have too many peers yet, try to create a new one
-		case <-mgr.connTicker.C:
-			if mgr.peerIndex.Count() >= mgr.peerLimit {
-				continue
-			}
-
-			mgr.repo.Retrieve(mgr.peerAddress)
-
-		case <-mgr.infoTicker.C:
-			mgr.log.Info("[MGR] %v total peers managed", mgr.peerIndex.Count())
-		}
-	}
-
-	mgr.log.Info("[MGR] Ticker routine stopped")
-}
-
-func (mgr *Manager) goAddresses() {
-	defer mgr.wg.Done()
-
 	mgr.log.Info("[MGR] Address routine started")
 
 AddressLoop:
 	for {
 		select {
-		case _, ok := <-mgr.sigAddress:
+		// this is the signal to quit, so break the outer loop
+		case _, ok := <-mgr.addrSig:
 			if !ok {
 				break AddressLoop
 			}
 
-		case addr := <-mgr.peerAddress:
+		// the ticker will signal each time we can attempt a new connection
+		// if we don't have too many peers yet, try to create a new one
+		case <-mgr.addrTicker.C:
+			if mgr.peerIndex.Count() >= mgr.peerLimit {
+				continue
+			}
+
+			mgr.repo.Retrieve(mgr.addrQ)
+		}
+	}
+
+	mgr.log.Info("[MGR] Address routine stopped")
+}
+
+// processListener is a dedicated loop to be run for every local IP that we
+// want to listen on. It should be run as a go routine and will try accepting
+// new connections.
+func (mgr *Manager) goConnections(listener *net.TCPListener) {
+	// let the waitgroup know when we are done
+	defer mgr.wg.Done()
+	mgr.log.Info("[MGR] Connection routine started (%v)", listener.Addr())
+
+	for {
+		// try accepting a new connection
+		conn, err := listener.AcceptTCP()
+		// this is ugly, but the listener does not follow the convention of
+		// returning an io.EOF error, but rather an unexported one
+		// we need to treat it separately to keep the logs clean, as this
+		// is how we do a clean and voluntary shutdown of these handlers
+		if err != nil &&
+			strings.Contains(err.Error(), "use of closed network connection") {
+			break
+		}
+		if err != nil {
+			mgr.log.Warning("[MGR] %v: could not accept connection (%v)",
+				listener.Addr(), err)
+			break
+		}
+
+		mgr.connQ <- conn
+	}
+
+	mgr.log.Info("[MGR] Connection routine stopped (%v)", listener.Addr())
+}
+
+// handlePeers will execute householding operations on new peers and peers
+// that have expired. It should be used to keep track of peers and to convey
+// application state to the peers.
+func (mgr *Manager) goPeers() {
+	// let the waitgroup know when we are done
+	defer mgr.wg.Done()
+	mgr.log.Info("[MGR] Peer routine started")
+
+PeerLoop:
+	for {
+		select {
+		case <-mgr.infoTicker.C:
+			mgr.log.Info("[MGR] %v total peers managed", mgr.peerIndex.Count())
+
+		case addr := <-mgr.addrQ:
 			if mgr.peerIndex.HasKey(addr.String()) {
 				mgr.log.Debug("[MGR] %v already created", addr)
 				continue
@@ -329,45 +357,7 @@ AddressLoop:
 				peer.SetAddress(addr),
 			)
 			if err != nil {
-				mgr.log.Error("[MGR] %v failed creation (%v)", addr, err)
-				continue
-			}
-
-			mgr.peerCreated <- p
-		}
-	}
-
-	mgr.log.Info("[MGR] Address routine stopped")
-}
-
-// handlePeers will execute householding operations on new peers and peers
-// that have expired. It should be used to keep track of peers and to convey
-// application state to the peers.
-func (mgr *Manager) goPeers() {
-	// let the waitgroup know when we are done
-	defer mgr.wg.Done()
-
-	mgr.log.Info("[MGR] Peer routine started")
-
-PeerLoop:
-	for {
-		select {
-		// this is the signal to quit, so break the outer loop
-		case _, ok := <-mgr.sigPeer:
-			if !ok {
-				break PeerLoop
-			}
-
-		case p := <-mgr.peerCreated:
-			if mgr.peerIndex.Has(p) {
-				mgr.log.Warning("[MGR] %v already created", p)
-				p.Stop()
-				continue
-			}
-
-			if mgr.peerIndex.Count() >= mgr.peerLimit {
-				mgr.log.Notice("[MGR] limit reached, %v stopped", p)
-				p.Stop()
+				mgr.log.Error("[MGR] %v failed outbound (%v)", addr, err)
 				continue
 			}
 
@@ -375,6 +365,41 @@ PeerLoop:
 			mgr.peerIndex.Insert(p)
 			mgr.repo.Attempted(p.Addr())
 			p.Connect()
+
+		case conn := <-mgr.connQ:
+			addr := conn.RemoteAddr()
+			if mgr.peerIndex.HasKey(addr.String()) {
+				mgr.log.Notice("[MGR] limit reached, %v not accepted", addr)
+				conn.Close()
+				continue
+			}
+
+			if mgr.peerIndex.Count() >= mgr.peerLimit {
+				mgr.log.Debug("[MGR] %v disconnected, limit reached")
+				conn.Close()
+				continue
+			}
+
+			p, err := peer.New(
+				peer.SetLogger(mgr.log),
+				peer.SetRepository(mgr.repo),
+				peer.SetManager(mgr),
+				peer.SetRecorder(mgr.rec),
+				peer.SetNetwork(mgr.network),
+				peer.SetVersion(mgr.version),
+				peer.SetNonce(mgr.nonce),
+				peer.SetConnection(conn),
+			)
+			if err != nil {
+				mgr.log.Error("[MGR] %v failed inbound (%v)", addr, err)
+				continue
+			}
+
+			mgr.log.Debug("[MGR] %v accepted", p)
+			mgr.peerIndex.Insert(p)
+			mgr.repo.Attempted(p.Addr())
+			mgr.repo.Connected(p.Addr())
+			p.Start()
 
 		case p := <-mgr.peerConnected:
 			if !mgr.peerIndex.Has(p) {
@@ -387,25 +412,6 @@ PeerLoop:
 			mgr.repo.Connected(p.Addr())
 			p.Start()
 			p.Greet()
-
-		case p := <-mgr.peerAccepted:
-			if !mgr.peerIndex.Has(p) {
-				mgr.log.Warning("[MGR] %v already accepted", p)
-				p.Stop()
-				continue
-			}
-
-			if mgr.peerIndex.Count() >= mgr.peerLimit {
-				mgr.log.Notice("[MGR] limit reached, %v disconnected", p)
-				p.Stop()
-				continue
-			}
-
-			mgr.log.Debug("[MGR] %v accepted", p)
-			mgr.peerIndex.Insert(p)
-			mgr.repo.Attempted(p.Addr())
-			mgr.repo.Connected(p.Addr())
-			p.Start()
 
 		case p := <-mgr.peerReady:
 			if !mgr.peerIndex.Has(p) {
@@ -427,64 +433,13 @@ PeerLoop:
 
 			mgr.log.Debug("[MGR] %v: done", p)
 			mgr.peerIndex.Remove(p)
+
+		case _, ok := <-mgr.peerSig:
+			if !ok {
+				break PeerLoop
+			}
 		}
 	}
 
 	mgr.log.Info("[MGR] Peer routine stopped")
-}
-
-// processListener is a dedicated loop to be run for every local IP that we
-// want to listen on. It should be run as a go routine and will try accepting
-// new connections.
-func (mgr *Manager) handleListener(listener *net.TCPListener) {
-	// let the waitgroup know when we are done
-	defer mgr.wg.Done()
-	mgr.log.Info("[MGR] %v: listener running", listener.Addr())
-
-	for {
-		// try accepting a new connection
-		conn, err := listener.AcceptTCP()
-		// this is ugly, but the listener does not follow the convention of
-		// returning an io.EOF error, but rather an unexported one
-		// we need to treat it separately to keep the logs clean, as this
-		// is how we do a clean and voluntary shutdown of these handlers
-		if err != nil &&
-			strings.Contains(err.Error(), "use of closed network connection") {
-			break
-		}
-		if err != nil {
-			mgr.log.Warning("[MGR] %v: could not accept connection (%v)",
-				listener.Addr(), err)
-			break
-		}
-
-		if mgr.peerIndex.HasKey(conn.RemoteAddr().String()) {
-			mgr.log.Notice("[MGR] limit reached, %v not accepted",
-				conn.RemoteAddr())
-			conn.Close()
-			break
-		}
-
-		// create a new incoming peer for the given connection
-		// if the connection is valid, the peer will notify the manager
-		p, err := peer.New(
-			peer.SetLogger(mgr.log),
-			peer.SetRepository(mgr.repo),
-			peer.SetManager(mgr),
-			peer.SetRecorder(mgr.rec),
-			peer.SetNetwork(mgr.network),
-			peer.SetVersion(mgr.version),
-			peer.SetNonce(mgr.nonce),
-			peer.SetConnection(conn),
-		)
-		if err != nil {
-			mgr.log.Error("[MGR] %v: could not create incoming peer (%v)",
-				conn.RemoteAddr(), err)
-			continue
-		}
-
-		mgr.peerAccepted <- p
-	}
-
-	mgr.log.Info("[MGR] %v: listener done", listener.Addr())
 }

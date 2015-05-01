@@ -73,7 +73,7 @@ func main() {
 		manager.SetNetwork(wire.MainNet),
 		manager.SetVersion(wire.RejectVersion),
 		manager.SetConnectionRate(time.Second/25),
-		manager.SetInformationRate(time.Second*5),
+		manager.SetInformationRate(time.Second),
 		manager.SetPeerLimit(100),
 	)
 	if err != nil {
