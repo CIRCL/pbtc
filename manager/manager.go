@@ -334,9 +334,6 @@ PeerLoop:
 		select {
 		case <-mgr.infoTicker.C:
 			mgr.log.Info("[MGR] %v total peers managed", mgr.peerIndex.Count())
-			for s := range mgr.peerIndex.Iter() {
-				mgr.log.Info("%v", s)
-			}
 
 		case addr := <-mgr.addrQ:
 			if mgr.peerIndex.HasKey(addr.String()) {

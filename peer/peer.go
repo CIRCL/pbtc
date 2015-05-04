@@ -22,6 +22,7 @@ const (
 	timeoutRecv  = 1 * time.Second
 	timeoutPing  = 1 * time.Minute
 	timeoutIdle  = 3 * time.Minute
+	timeoutDrain = 2 * time.Second
 	agentName    = "Satoshi"
 	agentVersion = "0.9.3"
 )
@@ -322,22 +323,34 @@ SendLoop:
 		case msg := <-p.sendQ:
 			err := p.sendMessage(msg)
 			if e, ok := err.(net.Error); ok && e.Timeout() {
-				p.shutdown()
 				break SendLoop
 			}
 			if err != nil && strings.Contains(err.Error(),
 				"use of closed network connection") {
-				p.shutdown()
 				break SendLoop
 			}
 			if err != nil {
 				p.log.Warning("[PEER] %v: send failed (%v)", p, err)
-				p.shutdown()
 				break SendLoop
 			}
 
 			// we successfully sent a message, so reset the idle timer
 			idleTimer.Reset(timeoutPing)
+		}
+	}
+
+	p.Stop()
+
+	idleTimer.Reset(timeoutDrain)
+
+DrainLoop:
+	for {
+		select {
+		case <-idleTimer.C:
+			break DrainLoop
+
+		case <-p.sendQ:
+			p.log.Debug("[PEER] %v drained message")
 		}
 	}
 
@@ -367,7 +380,6 @@ ReceiveLoop:
 
 		// we didn't receive a message for too long, so time this p out and dump
 		case <-idleTimer.C:
-			p.shutdown()
 			break ReceiveLoop
 
 		// each iteration without other action, we try receiving a message for a
@@ -379,12 +391,10 @@ ReceiveLoop:
 			}
 			if err != nil && strings.Contains(err.Error(),
 				"use of closed network connection") {
-				p.shutdown()
 				break ReceiveLoop
 			}
 			if err != nil {
 				p.log.Warning("[PEER] %v: receive failed (%v)", p, err)
-				p.shutdown()
 				break ReceiveLoop
 			}
 
@@ -394,6 +404,8 @@ ReceiveLoop:
 			p.processMessage(msg)
 		}
 	}
+
+	p.Stop()
 
 	p.log.Debug("[PEER] %v receive routine stopped", p)
 }
@@ -410,7 +422,7 @@ func (p *Peer) processMessage(msg wire.Message) {
 		_, ok := msg.(*wire.MsgVersion)
 		if !ok {
 			p.log.Warning("%v: out of order non-version message", p.String())
-			p.shutdown()
+			p.Stop()
 			return
 		}
 	}
@@ -420,19 +432,19 @@ func (p *Peer) processMessage(msg wire.Message) {
 	case *wire.MsgVersion:
 		if m.Nonce == p.nonce {
 			p.log.Warning("%v: detected connection to self", p)
-			p.shutdown()
+			p.Stop()
 			return
 		}
 
 		if uint32(m.ProtocolVersion) < wire.MultipleAddressVersion {
 			p.log.Warning("%v: connected to obsolete peer", p)
-			p.shutdown()
+			p.Stop()
 			return
 		}
 
 		if atomic.SwapUint32(&p.rcvd, 1) == 1 {
 			p.log.Warning("%v: out of order version message", p)
-			p.shutdown()
+			p.Stop()
 			return
 		}
 

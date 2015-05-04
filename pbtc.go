@@ -73,7 +73,7 @@ func main() {
 		manager.SetNetwork(wire.MainNet),
 		manager.SetVersion(wire.RejectVersion),
 		manager.SetConnectionRate(time.Second/25),
-		manager.SetInformationRate(time.Second*5),
+		manager.SetInformationRate(time.Second*2),
 		manager.SetPeerLimit(1000),
 	)
 	if err != nil {
@@ -92,17 +92,8 @@ SigLoop:
 		}
 	}
 
-	go func() {
-		mgr.Stop()
-		repo.Stop()
-	}()
-
-	for sig := range sigc {
-		switch sig {
-		case syscall.SIGINT:
-			panic("panic")
-		}
-	}
+	mgr.Stop()
+	repo.Stop()
 
 	os.Exit(0)
 }
