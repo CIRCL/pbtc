@@ -123,6 +123,8 @@ func (repo *Repository) Stop() {
 	repo.wg.Wait()
 
 	repo.save()
+
+	repo.log.Info("[REPO] Shutdown complete")
 }
 
 func (repo *Repository) Discovered(addr *net.TCPAddr) {

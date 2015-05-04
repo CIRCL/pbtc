@@ -39,6 +39,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	log.Inf("[PBTC] Starting modules")
+
 	// repository
 	repo, err := repository.New(
 		repository.SetLogger(log),
@@ -81,6 +83,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	log.Info("[PBTC] All modules initialization complete")
+
 	// wait for signals in blocking loop
 SigLoop:
 	for sig := range sigc {
@@ -92,8 +96,12 @@ SigLoop:
 		}
 	}
 
+	log.Info("[PBTC] Stopping modules")
+
 	mgr.Stop()
 	repo.Stop()
+
+	log.Info("[PBTC] All modules shutdown complete")
 
 	os.Exit(0)
 }
