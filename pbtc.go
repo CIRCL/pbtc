@@ -39,7 +39,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Inf("[PBTC] Starting modules")
+	log.Info("[PBTC] Starting modules")
 
 	// repository
 	repo, err := repository.New(
