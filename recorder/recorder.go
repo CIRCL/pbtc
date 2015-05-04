@@ -151,6 +151,7 @@ func (rec *Recorder) Message(msg wire.Message, ra *net.TCPAddr,
 
 	case *wire.MsgBlock:
 		if rec.blockIndex.Has(m.BlockSha()) {
+			record = NewHeaderRecord(m, ra, la)
 			return
 		}
 
@@ -177,6 +178,8 @@ func (rec *Recorder) Message(msg wire.Message, ra *net.TCPAddr,
 
 	case *wire.MsgTx:
 		if rec.txIndex.Has(m.TxSha()) {
+			record = NewInventoryRecord(wire.NewInvVect(wire.InvTypeTx,
+				m.TxSha()), ra, la)
 			return
 		}
 

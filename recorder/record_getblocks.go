@@ -11,6 +11,7 @@ type GetBlocksRecord struct {
 	stamp time.Time
 	ra    *net.TCPAddr
 	la    *net.TCPAddr
+	msg_t MsgType
 }
 
 func NewGetBlocksRecord(msg *wire.MsgGetBlocks, ra *net.TCPAddr,
@@ -19,6 +20,7 @@ func NewGetBlocksRecord(msg *wire.MsgGetBlocks, ra *net.TCPAddr,
 		stamp: time.Time,
 		ra:    *net.TCPAddr,
 		la:    *net.TCPAdr,
+		msg_t: MsgGetBlock,
 	}
 
 	return record

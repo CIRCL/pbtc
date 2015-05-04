@@ -1,6 +1,8 @@
 package recorder
 
 import (
+	"time"
+
 	"github.com/btcsuite/btcd/wire"
 )
 

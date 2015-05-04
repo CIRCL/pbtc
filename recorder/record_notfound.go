@@ -11,6 +11,7 @@ type NotFoundRecord struct {
 	stamp time.Time
 	ra    *net.TCPAddr
 	la    *net.TCPAddr
+	msg_t MsgType
 	inv   []*InventoryRecord
 }
 
@@ -20,6 +21,7 @@ func NewNotFoundRecord(msg *wire.MsgNotFound, ra *net.TCPAddr,
 		stamp: time.Now(),
 		ra:    ra,
 		la:    la,
+		msg_t: MsgNotFound,
 		inv:   make([]*InventoryRecord, len(msg.InvList)),
 	}
 

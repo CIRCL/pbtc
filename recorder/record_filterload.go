@@ -7,20 +7,20 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
-type VerAckRecord struct {
+type FilterLoadRecord struct {
 	stamp time.Time
 	ra    *net.TCPAddr
 	la    *net.TCPAddr
-	msg_t MsgVerAck
+	msg_t MsgType
 }
 
-func NewVerAckRecord(msg *wire.MsgVerAck, ra *net.TCPAddr,
-	la *net.TCPAddr) *VerAckRecord {
-	record := &VerAckRecord{
+func NewFilterLoadRecord(msg *wire.MsgFilterLoad, ra *net.TCPAddr,
+	la *net.TCPAddr) *FilterLoadRecord {
+	record := &FilterLoadRecord{
 		stamp: time.Now(),
 		ra:    ra,
 		la:    la,
-		msg_t: MsgVerAck,
+		msg_t: MsgFilterLoad,
 	}
 
 	return record

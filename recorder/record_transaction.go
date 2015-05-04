@@ -12,33 +12,32 @@ import (
 )
 
 type TransactionRecord struct {
-	stamp    time.Time
-	ra       *net.TCPAddr
-	la       *net.TCPAddr
-	hash     [32]byte
-	in_list  []*InputRecord
-	out_list []*OutputRecord
+	stamp time.Time
+	ra    *net.TCPAddr
+	la    *net.TCPAddr
+	msg_t MsgType
+	hash  [32]byte
+	ins   []*InputRecord
+	outs  []*OutputRecord
 }
 
 func NewTransactionRecord(msg *wire.MsgTx, ra *net.TCPAddr,
 	la *net.TCPAddr) *TransactionRecord {
-	in_list := make([]*InputRecord, len(msg.TxIn))
-	for i, txin := range msg.TxIn {
-		in_list[i] = NewInputRecord(txin)
-	}
-
-	out_list := make([]*OutputRecord, len(msg.TxOut))
-	for i, txout := range msg.TxOut {
-		out_list[i] = NewOutputRecord(txout)
-	}
-
 	tr := &TransactionRecord{
-		stamp:    time.Now(),
-		ra:       ra,
-		la:       la,
-		hash:     [32]byte(msg.TxSha()),
-		in_list:  in_list,
-		out_list: out_list,
+		stamp: time.Now(),
+		ra:    ra,
+		la:    la,
+		hash:  [32]byte(msg.TxSha()),
+		ins:   make([]*InputRecord, len(msg.TxIn)),
+		outs:  make([]*OutputRecord, len(msg.TxOut)),
+	}
+
+	for i, txin := range msg.TxIn {
+		tr.ins[i] = NewInputRecord(txin)
+	}
+
+	for i, txout := range msg.TxOut {
+		tr.outs[i] = NewOutputRecord(txout)
 	}
 
 	return tr
@@ -54,16 +53,16 @@ func (tr *TransactionRecord) String() string {
 	buf.WriteString(" tx ")
 	buf.WriteString(hex.EncodeToString(tr.hash[:]))
 	buf.WriteString(" ")
-	buf.WriteString(strconv.Itoa(len(tr.in_list)))
+	buf.WriteString(strconv.Itoa(len(tr.ins)))
 	buf.WriteString(" ")
-	buf.WriteString(strconv.Itoa(len(tr.out_list)))
+	buf.WriteString(strconv.Itoa(len(tr.outs)))
 
-	for _, input := range tr.in_list {
+	for _, input := range tr.ins {
 		buf.WriteString("\n")
 		buf.WriteString(input.String())
 	}
 
-	for _, output := range tr.out_list {
+	for _, output := range tr.outs {
 		buf.WriteString("\n")
 		buf.WriteString(output.String())
 	}
@@ -80,14 +79,14 @@ func (tr *TransactionRecord) Bytes() []byte {
 	binary.Write(buf, binary.LittleEndian, tr.la.Port)
 	binary.Write(buf, binary.LittleEndian, wire.CmdTx)
 	binary.Write(buf, binary.LittleEndian, tr.hash)
-	binary.Write(buf, binary.LittleEndian, len(tr.in_list))
-	binary.Write(buf, binary.LittleEndian, len(tr.out_list))
+	binary.Write(buf, binary.LittleEndian, len(tr.ins))
+	binary.Write(buf, binary.LittleEndian, len(tr.outs))
 
-	for _, input := range tr.in_list {
+	for _, input := range tr.ins {
 		binary.Write(buf, binary.LittleEndian, input.Bytes())
 	}
 
-	for _, output := range tr.out_list {
+	for _, output := range tr.outs {
 		binary.Write(buf, binary.LittleEndian, output.Bytes())
 	}
 

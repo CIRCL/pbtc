@@ -11,6 +11,7 @@ type GetDataRecord struct {
 	stamp time.Time
 	ra    *net.TCPAddr
 	la    *net.TCPAddr
+	msg_t MsgType
 	items []*ItemRecord
 }
 
@@ -20,6 +21,7 @@ func NewGetDataRecord(msg *wire.MsgGetData, ra *net.TCPAddr,
 		stamp: time.Now(),
 		ra:    ra,
 		la:    la,
+		msg_t: MsgGetData,
 		items: make([]*ItemRecord, len(msg.InvList)),
 	}
 

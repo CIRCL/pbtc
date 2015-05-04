@@ -11,6 +11,7 @@ type PingRecord struct {
 	stamp time.Time
 	ra    *net.TCPAddr
 	la    *net.TCPAddr
+	msg_t MsgType
 	nonce uint64
 }
 
@@ -20,6 +21,7 @@ func NewPingRecord(msg *wire.MsgPing, ra *net.TCPAddr,
 		stamp: time.Now(),
 		ra:    ra,
 		la:    la,
+		msg_t: MsgPing,
 		nonce: msg.Nonce,
 	}
 

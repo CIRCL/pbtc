@@ -13,29 +13,31 @@ import (
 )
 
 type AddressRecord struct {
-	stamp     time.Time
-	la        *net.TCPAddr
-	ra        *net.TCPAddr
-	addr_list []*net.TCPAddr
+	stamp time.Time
+	la    *net.TCPAddr
+	ra    *net.TCPAddr
+	msg_t MsgType
+	addrs []*net.TCPAddr
 }
 
 func NewAddressRecord(msg *wire.MsgAddr, ra *net.TCPAddr,
 	la *net.TCPAddr) *AddressRecord {
-	addr_list := make([]*net.TCPAddr, len(msg.AddrList))
+	addrs := make([]*net.TCPAddr, len(msg.AddrList))
 	for i, na := range msg.AddrList {
 		addr, err := util.ParseNetAddress(na)
 		if err != nil {
 			addr = &net.TCPAddr{IP: net.IPv4zero, Port: 0}
 		}
 
-		addr_list[i] = addr
+		addrs[i] = addr
 	}
 
 	ar := &AddressRecord{
-		stamp:     time.Now(),
-		ra:        ra,
-		la:        la,
-		addr_list: addr_list,
+		stamp: time.Now(),
+		ra:    ra,
+		la:    la,
+		msg_t: MsgAddr,
+		addrs: addrs,
 	}
 
 	return ar
@@ -49,9 +51,9 @@ func (ar *AddressRecord) String() string {
 	buf.WriteString(" ")
 	buf.WriteString(ar.la.String())
 	buf.WriteString(" addr ")
-	buf.WriteString(strconv.FormatInt(int64(len(ar.addr_list)), 10))
+	buf.WriteString(strconv.FormatInt(int64(len(ar.addrs)), 10))
 
-	for _, addr := range ar.addr_list {
+	for _, addr := range ar.addrs {
 		buf.WriteString(" ")
 		buf.WriteString(addr.String())
 	}
@@ -67,9 +69,9 @@ func (ar *AddressRecord) Bytes() []byte {
 	binary.Write(buf, binary.LittleEndian, ar.la.IP)
 	binary.Write(buf, binary.LittleEndian, ar.la.Port)
 	binary.Write(buf, binary.LittleEndian, wire.CmdAddr)
-	binary.Write(buf, binary.LittleEndian, len(ar.addr_list))
+	binary.Write(buf, binary.LittleEndian, len(ar.addrs))
 
-	for _, addr := range ar.addr_list {
+	for _, addr := range ar.addrs {
 		binary.Write(buf, binary.LittleEndian, addr.IP)
 		binary.Write(buf, binary.LittleEndian, addr.Port)
 	}

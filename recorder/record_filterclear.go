@@ -7,20 +7,20 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
-type GetAddrRecord struct {
+type FilterClearRecord struct {
 	stamp time.Time
 	ra    *net.TCPAddr
 	la    *net.TCPAddr
 	msg_t MsgType
 }
 
-func NewGetAddrRecord(msg *wire.MsgGetAddr, ra *net.TCPAddr,
-	la *net.TCPAddr) *GetAddrRecord {
-	record := &GetAddrRecord{
+func NewFilterClearRecord(msg *wire.MsgFilterClear, ra *net.TCPAddr,
+	la *net.TCPAddr) *FilterClearRecord {
+	record := &FilterClearRecord{
 		stamp: time.Now(),
 		ra:    ra,
 		la:    la,
-		msg_t: MsgGetAddr,
+		msg_t: MsgFilterClear,
 	}
 
 	return record

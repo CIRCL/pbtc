@@ -11,7 +11,8 @@ type AlertRecord struct {
 	stamp  time.Time
 	ra     *net.TCPAddr
 	la     *net.TCPAddr
-	string text
+	msg_t  MsgType
+	text   string
 	id     uint32
 	cancel uint32
 	expire uint64
@@ -25,6 +26,7 @@ func NewAlertRecord(msg *wire.MsgAlert, ra *net.TCPAddr,
 		stamp:  time.Now(),
 		ra:     ra,
 		la:     la,
+		msg_t:  MsgAlert,
 		id:     msg.Payload.ID,
 		text:   msg.Payload.Comment,
 		expire: msg.Payload.Expiration,

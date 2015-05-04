@@ -16,6 +16,7 @@ type VersionRecord struct {
 	ra       *net.TCPAddr
 	la       *net.TCPAddr
 	stamp    time.Time
+	msg_t    MsgType
 	version  int32
 	services uint64
 	rstamp   time.Time
@@ -44,6 +45,7 @@ func NewVersionRecord(msg *wire.MsgVersion, ra *net.TCPAddr,
 		stamp:    time.Now(),
 		ra:       ra,
 		la:       la,
+		msg_t:    MsgVersion,
 		version:  msg.ProtocolVersion,
 		services: uint64(msg.Services),
 		rstamp:   msg.Timestamp,
