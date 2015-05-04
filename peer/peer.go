@@ -350,7 +350,7 @@ DrainLoop:
 			break DrainLoop
 
 		case <-p.sendQ:
-			p.log.Debug("[PEER] %v drained message")
+			p.log.Debug("[PEER] %v drained message", p)
 		}
 	}
 

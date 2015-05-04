@@ -60,7 +60,6 @@ func main() {
 			wire.CmdAddr),
 		recorder.SetFileSize(0),
 		recorder.SetFileAge(time.Minute*5),
-		recorder.EnableReset(),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize recorder (%v)", err)
@@ -75,7 +74,7 @@ func main() {
 		manager.SetNetwork(wire.MainNet),
 		manager.SetVersion(wire.RejectVersion),
 		manager.SetConnectionRate(time.Second/25),
-		manager.SetInformationRate(time.Second*2),
+		manager.SetInformationRate(time.Second*10),
 		manager.SetPeerLimit(1000),
 	)
 	if err != nil {
@@ -98,8 +97,10 @@ SigLoop:
 
 	log.Info("[PBTC] Stopping modules")
 
-	mgr.Stop()
-	repo.Stop()
+	go func() {
+		mgr.Stop()
+		repo.Stop()
+	}()
 
 	log.Info("[PBTC] All modules shutdown complete")
 
