@@ -1,6 +1,9 @@
 - add records for all message types (recorder)
+- add custom enum for record type (add it also for reject msg)
+- move ip & port to filenames
 - full comments in all files (meta)
 - full logging in all files (logger)
+- add decoding for all records (recorder)
 - port range configuration option (manager)
 - invalid/unreachable IP filter (repo)
 - record format definition (docu)

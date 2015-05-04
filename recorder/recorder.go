@@ -14,13 +14,14 @@ import (
 )
 
 type Recorder struct {
-	wg        *sync.WaitGroup
-	cmdConfig map[string]bool
-	fileTimer *time.Timer
-	sigWriter chan struct{}
-	txtQ      chan string
-	binQ      chan []byte
-	txIndex   *parmap.ParMap
+	wg         *sync.WaitGroup
+	cmdConfig  map[string]bool
+	fileTimer  *time.Timer
+	sigWriter  chan struct{}
+	txtQ       chan string
+	binQ       chan []byte
+	txIndex    *parmap.ParMap
+	blockIndex *parmap.ParMap
 
 	log adaptor.Logger
 
@@ -39,12 +40,13 @@ type Recorder struct {
 
 func New(options ...func(*Recorder)) (*Recorder, error) {
 	rec := &Recorder{
-		wg:        &sync.WaitGroup{},
-		cmdConfig: make(map[string]bool),
-		sigWriter: make(chan struct{}),
-		txtQ:      make(chan string, 1),
-		binQ:      make(chan []byte, 1),
-		txIndex:   parmap.New(),
+		wg:         &sync.WaitGroup{},
+		cmdConfig:  make(map[string]bool),
+		sigWriter:  make(chan struct{}),
+		txtQ:       make(chan string, 1),
+		binQ:       make(chan []byte, 1),
+		txIndex:    parmap.New(),
+		blockIndex: parmap.New(),
 
 		filePath: "records/",
 		fileName: time.Now().String(),
@@ -132,8 +134,8 @@ func EnableReset() func(*Recorder) {
 	}
 }
 
-func (rec *Recorder) Message(msg wire.Message, la *net.TCPAddr,
-	ra *net.TCPAddr) {
+func (rec *Recorder) Message(msg wire.Message, ra *net.TCPAddr,
+	la *net.TCPAddr) {
 	if !rec.cmdConfig[msg.Command()] {
 		return
 	}
@@ -141,14 +143,37 @@ func (rec *Recorder) Message(msg wire.Message, la *net.TCPAddr,
 	var record Record
 
 	switch m := msg.(type) {
-	case *wire.MsgVersion:
-		record = NewVersionRecord(m, la, ra)
-
 	case *wire.MsgAddr:
-		record = NewAddressRecord(m, la, ra)
+		record = NewAddressRecord(m, ra, la)
+
+	case *wire.MsgAlert:
+		record = NewAlertRecord(m, ra, la)
+
+	case *wire.MsgBlock:
+		if rec.blockIndex.Has(m.BlockSha()) {
+			return
+		}
+
+		rec.blockIndex.Insert(m.BlockSha())
+		record = NewBlockRecord(m, ra, la)
+
+	case *wire.MsgHeaders:
+		record = NewHeadersRecord(m, ra, la)
 
 	case *wire.MsgInv:
-		record = NewInventoryRecord(m, la, ra)
+		record = NewInventoryRecord(m, ra, la)
+
+	case *wire.MsgPing:
+		record = NewPingRecord(m, ra, la)
+
+	case *wire.MsgPong:
+		record = NewPongRecord(m, ra, la)
+
+	case *wire.MsgReject:
+		record = NewRejectRecord(m, ra, la)
+
+	case *wire.MsgVersion:
+		record = NewVersionRecord(m, ra, la)
 
 	case *wire.MsgTx:
 		if rec.txIndex.Has(m.TxSha()) {
@@ -156,7 +181,40 @@ func (rec *Recorder) Message(msg wire.Message, la *net.TCPAddr,
 		}
 
 		rec.txIndex.Insert(m.TxSha())
-		record = NewTransactionRecord(m, la, ra)
+		record = NewTransactionRecord(m, ra, la)
+
+	case *wire.MsgFilterAdd:
+		record = NewFilterAddRecord(m, ra, la)
+
+	case *wire.MsgFilterClear:
+		record = NewFilterClearRecord(m, ra, la)
+
+	case *wire.MsgFilterLoad:
+		record = NewFilterLoadRecord(m, ra, la)
+
+	case *wire.MsgGetAddr:
+		record = NewGetAddrRecord(m, ra, la)
+
+	case *wire.MsgGetBlocks:
+		record = NewGetBlockRecord(m, ra, la)
+
+	case *wire.MsgGetData:
+		record = NewGetDataRecord(m, ra, la)
+
+	case *wire.MsgGetHeaders:
+		record = NewGetHeadersRecord(m, ra, la)
+
+	case *wire.MsgMemPool:
+		record = NewMemPoolRecord(m, ra, la)
+
+	case *wire.MsgMerkleBlock:
+		record = NewMerkleBlockRecord(m, ra, la)
+
+	case *wire.MsgNotFound:
+		record = NewNotFoundRecord(m, ra, la)
+
+	case *wire.MsgVerAck:
+		record = NewVerAckRecord(m, ra, la)
 	}
 
 	rec.txtQ <- record.String()
