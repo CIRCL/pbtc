@@ -73,8 +73,8 @@ func main() {
 		manager.SetNetwork(wire.MainNet),
 		manager.SetVersion(wire.RejectVersion),
 		manager.SetConnectionRate(time.Second/25),
-		manager.SetInformationRate(time.Second),
-		manager.SetPeerLimit(100),
+		manager.SetInformationRate(time.Second*5),
+		manager.SetPeerLimit(1000),
 	)
 	if err != nil {
 		log.Critical("Unable to create manager (%v)", err)
