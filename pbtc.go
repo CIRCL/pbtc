@@ -92,8 +92,17 @@ SigLoop:
 		}
 	}
 
-	mgr.Stop()
-	repo.Stop()
+	go func() {
+		mgr.Stop()
+		repo.Stop()
+	}()
+
+	for sig := range sigc {
+		switch sig {
+		case syscall.SIGINT:
+			panic("panic")
+		}
+	}
 
 	os.Exit(0)
 }
