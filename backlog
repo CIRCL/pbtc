@@ -1,5 +1,4 @@
-- add string & bytes encoding for all records (recorder)
-- record format definition (docu)
+- record format definition (docu & recorder)
 - full comments in all files (meta)
 - full logging in all files (logger)
 - add decoding for all records (recorder)
