@@ -1,6 +1,7 @@
 package recorder
 
 import (
+	"bytes"
 	"net"
 	"time"
 
@@ -11,7 +12,7 @@ type VerAckRecord struct {
 	stamp time.Time
 	ra    *net.TCPAddr
 	la    *net.TCPAddr
-	msg_t MsgType
+	cmd   string
 }
 
 func NewVerAckRecord(msg *wire.MsgVerAck, ra *net.TCPAddr,
@@ -20,8 +21,25 @@ func NewVerAckRecord(msg *wire.MsgVerAck, ra *net.TCPAddr,
 		stamp: time.Now(),
 		ra:    ra,
 		la:    la,
-		msg_t: MsgVerAck,
+		cmd:   msg.Command(),
 	}
 
 	return record
+}
+
+func (vr *VerAckRecord) String() string {
+	buf := new(bytes.Buffer)
+	buf.WriteString(vr.stamp.String())
+	buf.WriteString(" ")
+	buf.WriteString(vr.ra.String())
+	buf.WriteString(" ")
+	buf.WriteString(vr.la.String())
+	buf.WriteString(" ")
+	buf.WriteString(vr.cmd)
+
+	return buf.String()
+}
+
+func (hr *VerAckRecord) Bytes() []byte {
+	return make([]byte, 0)
 }

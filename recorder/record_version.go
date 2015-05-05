@@ -2,7 +2,6 @@ package recorder
 
 import (
 	"bytes"
-	"encoding/binary"
 	"net"
 	"strconv"
 	"time"
@@ -16,45 +15,34 @@ type VersionRecord struct {
 	ra       *net.TCPAddr
 	la       *net.TCPAddr
 	stamp    time.Time
-	msg_t    MsgType
+	cmd      string
 	version  int32
 	services uint64
-	rstamp   time.Time
-	remote   *net.TCPAddr
-	local    *net.TCPAddr
-	nonce    uint64
+	sent     time.Time
+	raddr    *net.TCPAddr
+	laddr    *net.TCPAddr
 	agent    string
 	block    int32
 	relay    bool
+	nonce    uint64
 }
 
 func NewVersionRecord(msg *wire.MsgVersion, ra *net.TCPAddr,
 	la *net.TCPAddr) *VersionRecord {
-
-	remote, err := util.ParseNetAddress(&msg.AddrYou)
-	if err != nil {
-		remote = &net.TCPAddr{IP: net.IPv4zero, Port: 0}
-	}
-
-	local, err := util.ParseNetAddress(&msg.AddrMe)
-	if err != nil {
-		local = &net.TCPAddr{IP: net.IPv4zero, Port: 0}
-	}
-
 	vr := &VersionRecord{
 		stamp:    time.Now(),
 		ra:       ra,
 		la:       la,
-		msg_t:    MsgVersion,
+		cmd:      msg.Command(),
 		version:  msg.ProtocolVersion,
 		services: uint64(msg.Services),
-		rstamp:   msg.Timestamp,
-		remote:   remote,
-		local:    local,
-		nonce:    msg.Nonce,
+		sent:     msg.Timestamp,
+		raddr:    util.ParseNetAddress(&msg.AddrYou),
+		laddr:    util.ParseNetAddress(&msg.AddrMe),
 		agent:    msg.UserAgent,
 		block:    msg.LastBlock,
 		relay:    !msg.DisableRelayTx,
+		nonce:    msg.Nonce,
 	}
 
 	return vr
@@ -70,44 +58,27 @@ func (vr *VersionRecord) String() string {
 	buf.WriteString(" ver ")
 	buf.WriteString(strconv.FormatInt(int64(vr.version), 10))
 	buf.WriteString(" ")
-	buf.WriteString(strconv.FormatUint(uint64(vr.services), 10))
+	buf.WriteString(strconv.FormatUint(vr.services, 10))
 	buf.WriteString(" ")
-	buf.WriteString(vr.rstamp.String())
+	buf.WriteString(strconv.FormatInt(vr.sent.Unix(), 10))
 	buf.WriteString(" ")
-	buf.WriteString(vr.remote.String())
+	buf.WriteString(vr.raddr.String())
 	buf.WriteString(" ")
-	buf.WriteString(vr.local.String())
-	buf.WriteString(" ")
-	buf.WriteString(strconv.FormatUint(vr.nonce, 10))
+	buf.WriteString(vr.laddr.String())
 	buf.WriteString(" ")
 	buf.WriteString(vr.agent)
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(int64(vr.block), 10))
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatBool(vr.relay))
+	buf.WriteString(" ")
+	buf.WriteString(strconv.FormatUint(vr.nonce, 10))
 
 	return buf.String()
 }
 
 func (vr *VersionRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, vr.stamp.Unix())
-	binary.Write(buf, binary.LittleEndian, vr.la.IP)
-	binary.Write(buf, binary.LittleEndian, vr.la.Port)
-	binary.Write(buf, binary.LittleEndian, vr.ra.IP)
-	binary.Write(buf, binary.LittleEndian, vr.ra.Port)
-	binary.Write(buf, binary.LittleEndian, wire.CmdVersion)
-	binary.Write(buf, binary.LittleEndian, vr.version)
-	binary.Write(buf, binary.LittleEndian, vr.services)
-	binary.Write(buf, binary.LittleEndian, vr.rstamp.Unix())
-	binary.Write(buf, binary.LittleEndian, vr.remote.IP)
-	binary.Write(buf, binary.LittleEndian, vr.remote.Port)
-	binary.Write(buf, binary.LittleEndian, vr.local.IP)
-	binary.Write(buf, binary.LittleEndian, vr.local.Port)
-	binary.Write(buf, binary.LittleEndian, vr.nonce)
-	binary.Write(buf, binary.LittleEndian, vr.agent)
-	binary.Write(buf, binary.LittleEndian, vr.block)
-	binary.Write(buf, binary.LittleEndian, vr.relay)
 
 	return buf.Bytes()
 }

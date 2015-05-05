@@ -58,3 +58,7 @@ func (gr *GetHeadersRecord) String() string {
 
 	return buf.String()
 }
+
+func (hr *GetHeadersRecord) Bytes() []byte {
+	return make([]byte, 0)
+}

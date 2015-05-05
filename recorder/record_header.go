@@ -53,3 +53,7 @@ func (hr *HeaderRecord) String() string {
 
 	return buf.String()
 }
+
+func (hr *HeaderRecord) Bytes() []byte {
+	return make([]byte, 0)
+}

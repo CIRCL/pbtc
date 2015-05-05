@@ -39,3 +39,7 @@ func (fr *FilterLoadRecord) String() string {
 
 	return buf.String()
 }
+
+func (hr *FilterLoadRecord) Bytes() []byte {
+	return make([]byte, 0)
+}

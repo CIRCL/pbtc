@@ -39,3 +39,7 @@ func (gr *GetAddrRecord) String() string {
 
 	return buf.String()
 }
+
+func (hr *GetAddrRecord) Bytes() []byte {
+	return make([]byte, 0)
+}

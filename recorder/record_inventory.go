@@ -42,7 +42,9 @@ func (ir *InventoryRecord) String() string {
 	buf.WriteString(ir.ra.String())
 	buf.WriteString(" ")
 	buf.WriteString(ir.la.String())
-	buf.WriteString(" inv ")
+	buf.WriteString(" ")
+	buf.WriteString(ir.cmd)
+	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(int64(len(ir.inv)), 10))
 
 	for _, item := range ir.inv {

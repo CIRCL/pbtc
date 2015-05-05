@@ -60,9 +60,11 @@ func (ar *AlertRecord) String() string {
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(int64(ar.maxver), 10))
 	buf.WriteString(" ")
-	buf.WriteString("\"")
 	buf.WriteString(ar.text)
-	buf.WriteString("\"")
 
 	return buf.String()
+}
+
+func (ar *AlertRecord) Bytes() []byte {
+	return make([]byte, 0)
 }

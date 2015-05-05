@@ -53,3 +53,7 @@ func (gr *GetDataRecord) String() string {
 
 	return buf.String()
 }
+
+func (hr *GetDataRecord) Bytes() []byte {
+	return make([]byte, 0)
+}

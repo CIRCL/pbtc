@@ -58,3 +58,7 @@ func (gr *GetBlocksRecord) String() string {
 
 	return buf.String()
 }
+
+func (hr *GetBlocksRecord) Bytes() []byte {
+	return make([]byte, 0)
+}

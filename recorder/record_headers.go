@@ -53,3 +53,7 @@ func (hr *HeadersRecord) String() string {
 
 	return buf.String()
 }
+
+func (hr *HeadersRecord) Bytes() []byte {
+	return make([]byte, 0)
+}

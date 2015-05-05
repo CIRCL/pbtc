@@ -1,7 +1,6 @@
 package util
 
 import (
-	"errors"
 	"net"
 
 	"github.com/btcsuite/btcd/wire"
@@ -82,18 +81,14 @@ func MinUint32(x uint32, y uint32) uint32 {
 
 // ParseNetAddress can be used to turn a Bitcoin / btcd.wire NetAddress back
 // into a net package TCPAddr.
-func ParseNetAddress(na *wire.NetAddress) (*net.TCPAddr, error) {
+func ParseNetAddress(na *wire.NetAddress) *net.TCPAddr {
 	ip := net.ParseIP(na.IP.String())
 	if ip == nil {
-		return nil, errors.New("Nil IP for address")
+		ip = net.IPv4zero
 	}
 
 	port := int(na.Port)
-	if port == 0 {
-		return nil, errors.New("Zero port for address")
-	}
-
 	addr := &net.TCPAddr{IP: ip, Port: port}
 
-	return addr, nil
+	return addr
 }

@@ -10,14 +10,16 @@ import (
 )
 
 type InputRecord struct {
-	hash  [32]byte
-	index uint32
+	hash     []byte
+	index    uint32
+	sequence uint32
 }
 
 func NewInputRecord(txin *wire.TxIn) *InputRecord {
 	ir := &InputRecord{
-		hash:  [32]byte(txin.PreviousOutPoint.Hash),
-		index: txin.PreviousOutPoint.Index,
+		hash:     txin.PreviousOutPoint.Hash.Bytes(),
+		index:    txin.PreviousOutPoint.Index,
+		sequence: txin.Sequence,
 	}
 
 	return ir
@@ -25,9 +27,11 @@ func NewInputRecord(txin *wire.TxIn) *InputRecord {
 
 func (ir *InputRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString(hex.EncodeToString(ir.hash[:]))
+	buf.WriteString(hex.EncodeToString(ir.hash))
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatUint(uint64(ir.index), 10))
+	buf.WriteString(" ")
+	buf.WriteString(strconv.FormatUint(uint64(ir.sequence), 10))
 
 	return buf.String()
 }

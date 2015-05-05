@@ -15,19 +15,22 @@ type TransactionRecord struct {
 	stamp time.Time
 	ra    *net.TCPAddr
 	la    *net.TCPAddr
-	msg_t MsgType
-	hash  [32]byte
+	cmd   string
+	hash  []byte
 	ins   []*InputRecord
 	outs  []*OutputRecord
 }
 
 func NewTransactionRecord(msg *wire.MsgTx, ra *net.TCPAddr,
 	la *net.TCPAddr) *TransactionRecord {
+	hash := msg.TxSha()
+
 	tr := &TransactionRecord{
 		stamp: time.Now(),
 		ra:    ra,
 		la:    la,
-		hash:  [32]byte(msg.TxSha()),
+		cmd:   msg.Command(),
+		hash:  hash.Bytes(),
 		ins:   make([]*InputRecord, len(msg.TxIn)),
 		outs:  make([]*OutputRecord, len(msg.TxOut)),
 	}
@@ -50,12 +53,14 @@ func (tr *TransactionRecord) String() string {
 	buf.WriteString(tr.ra.String())
 	buf.WriteString(" ")
 	buf.WriteString(tr.la.String())
-	buf.WriteString(" tx ")
-	buf.WriteString(hex.EncodeToString(tr.hash[:]))
 	buf.WriteString(" ")
-	buf.WriteString(strconv.Itoa(len(tr.ins)))
+	buf.WriteString(tr.cmd)
 	buf.WriteString(" ")
-	buf.WriteString(strconv.Itoa(len(tr.outs)))
+	buf.WriteString(hex.EncodeToString(tr.hash))
+	buf.WriteString(" ")
+	buf.WriteString(strconv.FormatInt(int64(len(tr.ins)), 10))
+	buf.WriteString(" ")
+	buf.WriteString(strconv.FormatInt(int64(len(tr.outs)), 10))
 
 	for _, input := range tr.ins {
 		buf.WriteString("\n")

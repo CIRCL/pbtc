@@ -57,3 +57,7 @@ func (br *BlockRecord) String() string {
 
 	return buf.String()
 }
+
+func (hr *BlockRecord) Bytes() []byte {
+	return make([]byte, 0)
+}

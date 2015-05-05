@@ -1,0 +1,150 @@
+2015-05-05T10:08:41.767+02:00 INFO pbtc.go:42 [PBTC] Starting modules[0m
+2015-05-05T10:08:41.767+02:00 INFO repository.go:154 [REPO] Initialization complete[0m
+2015-05-05T10:08:41.767+02:00 INFO repository.go:212 [REPO] Address routine started[0m
+2015-05-05T10:08:41.8+02:00 INFO manager.go:200 [MGR] Initialization complete[0m
+2015-05-05T10:08:41.8+02:00 INFO manager.go:268 [MGR] Address routine started[0m
+2015-05-05T10:08:41.8+02:00 INFO pbtc.go:85 [PBTC] All modules initialization complete[0m
+2015-05-05T10:08:41.8+02:00 INFO manager.go:299 [MGR] Connection routine started (172.16.100.98:8333)[0m
+2015-05-05T10:08:41.8+02:00 INFO manager.go:330 [MGR] Peer routine started[0m
+[33m2015-05-05T10:08:45.64+02:00 WARNING peer.go:397 [PEER] 106.186.123.180:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:08:45.719+02:00 WARNING peer.go:397 [PEER] 54.65.24.139:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:08:46.062+02:00 WARNING peer.go:397 [PEER] 178.79.179.49:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:08:46.158+02:00 WARNING peer.go:397 [PEER] 50.31.189.37:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:08:47.902+02:00 WARNING peer.go:397 [PEER] 37.110.46.187:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:08:48.487+02:00 WARNING peer.go:397 [PEER] 81.10.159.18:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:08:49.127+02:00 WARNING peer.go:397 [PEER] 54.179.183.108:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:08:50.208+02:00 WARNING peer.go:397 [PEER] 78.129.251.170:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:08:51.743+02:00 WARNING peer.go:397 [PEER] 69.76.189.43:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+2015-05-05T10:08:51.8+02:00 INFO manager.go:336 [MGR] 63 total peers managed[0m
+[33m2015-05-05T10:08:52.905+02:00 WARNING peer.go:397 [PEER] 101.162.190.61:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:08:53.276+02:00 WARNING peer.go:397 [PEER] 207.81.218.128:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:08:53.732+02:00 WARNING peer.go:397 [PEER] 62.216.212.216:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:08:54.224+02:00 WARNING peer.go:397 [PEER] 52.28.68.176:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:08:54.352+02:00 WARNING peer.go:397 [PEER] 162.244.27.106:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:08:57.105+02:00 WARNING peer.go:397 [PEER] 129.143.140.50:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:08:57.569+02:00 WARNING peer.go:397 [PEER] 81.96.121.121:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:00.118+02:00 WARNING peer.go:397 [PEER] 93.121.168.226:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+2015-05-05T10:09:01.8+02:00 INFO manager.go:336 [MGR] 91 total peers managed[0m
+[33m2015-05-05T10:09:03.107+02:00 WARNING peer.go:397 [PEER] 73.172.152.230:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:09:04.257+02:00 WARNING peer.go:397 [PEER] 54.173.98.168:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:09:04.624+02:00 WARNING peer.go:397 [PEER] 24.61.226.3:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:04.976+02:00 WARNING peer.go:397 [PEER] 50.148.78.168:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:06.036+02:00 WARNING peer.go:397 [PEER] 98.142.47.54:8333: receive failed (ReadMessage: message payload is too large - header indicates 4294901760 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:06.306+02:00 WARNING peer.go:397 [PEER] 146.185.239.5:8333: receive failed (ReadMessage: message from other network [Unknown BitcoinNet (1737445887)])[0m
+[33m2015-05-05T10:09:07.628+02:00 WARNING peer.go:397 [PEER] 83.137.41.3:8333: receive failed (EOF)[0m
+2015-05-05T10:09:11.8+02:00 INFO manager.go:336 [MGR] 103 total peers managed[0m
+[33m2015-05-05T10:09:14.903+02:00 WARNING peer.go:397 [PEER] 192.117.155.70:8333: receive failed (ReadMessage: message from other network [Unknown BitcoinNet (1241513728)])[0m
+[33m2015-05-05T10:09:15.371+02:00 WARNING peer.go:397 [PEER] 173.217.62.63:8333: receive failed (read tcp 173.217.62.63:8333: connection reset by peer)[0m
+[33m2015-05-05T10:09:19.877+02:00 WARNING peer.go:397 [PEER] 175.126.124.91:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:09:20.943+02:00 WARNING peer.go:397 [PEER] 84.245.32.195:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:21.155+02:00 WARNING peer.go:397 [PEER] 176.198.252.186:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+2015-05-05T10:09:21.8+02:00 INFO manager.go:336 [MGR] 132 total peers managed[0m
+[33m2015-05-05T10:09:23.809+02:00 WARNING peer.go:397 [PEER] 79.107.176.196:8333: receive failed (ReadMessage: message from other network [Unknown BitcoinNet (3490362111)])[0m
+[33m2015-05-05T10:09:23.886+02:00 WARNING peer.go:397 [PEER] 75.140.54.42:8333: receive failed (ReadMessage: message from other network [Unknown BitcoinNet (1660944213)])[0m
+[33m2015-05-05T10:09:25.039+02:00 WARNING peer.go:397 [PEER] 62.142.91.194:8333: receive failed (read tcp 62.142.91.194:8333: connection reset by peer)[0m
+[33m2015-05-05T10:09:27.593+02:00 WARNING peer.go:397 [PEER] 95.215.45.36:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:09:28.779+02:00 WARNING peer.go:397 [PEER] 97.100.99.98:8333: receive failed (ReadMessage: message payload is too large - header indicates 549087412 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:29.997+02:00 WARNING peer.go:397 [PEER] 76.180.30.237:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:31.616+02:00 WARNING peer.go:397 [PEER] 58.150.103.251:8333: receive failed (EOF)[0m
+2015-05-05T10:09:31.8+02:00 INFO manager.go:336 [MGR] 155 total peers managed[0m
+[33m2015-05-05T10:09:32.291+02:00 WARNING peer.go:397 [PEER] 52.1.226.199:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:34.447+02:00 WARNING peer.go:397 [PEER] 103.254.208.58:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:09:34.992+02:00 WARNING peer.go:397 [PEER] 104.229.206.214:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:35.017+02:00 WARNING peer.go:397 [PEER] 54.186.5.1:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:35.557+02:00 WARNING peer.go:397 [PEER] 91.122.47.82:8333: receive failed (read tcp 91.122.47.82:8333: connection reset by peer)[0m
+[33m2015-05-05T10:09:36.983+02:00 WARNING peer.go:397 [PEER] 72.54.15.240:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:37.271+02:00 WARNING peer.go:397 [PEER] 68.117.41.38:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:37.451+02:00 WARNING peer.go:397 [PEER] 122.151.233.127:8333: receive failed (ReadMessage: message from other network [Unknown BitcoinNet (540311811)])[0m
+[33m2015-05-05T10:09:38.901+02:00 WARNING peer.go:397 [PEER] 68.203.73.246:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:40.586+02:00 WARNING peer.go:397 [PEER] 108.22.243.221:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:41.731+02:00 WARNING peer.go:397 [PEER] 99.169.167.147:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+2015-05-05T10:09:41.8+02:00 INFO manager.go:336 [MGR] 172 total peers managed[0m
+[33m2015-05-05T10:09:42.535+02:00 WARNING peer.go:397 [PEER] 204.68.122.11:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:44.753+02:00 WARNING peer.go:397 [PEER] 41.190.90.245:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:48.538+02:00 WARNING peer.go:397 [PEER] 211.27.115.149:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:09:48.66+02:00 WARNING peer.go:397 [PEER] 71.10.82.210:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:50.35+02:00 WARNING peer.go:397 [PEER] 42.121.3.121:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:09:51.06+02:00 WARNING peer.go:397 [PEER] 104.236.90.36:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+2015-05-05T10:09:51.8+02:00 INFO manager.go:336 [MGR] 202 total peers managed[0m
+[33m2015-05-05T10:09:51.894+02:00 WARNING peer.go:397 [PEER] 93.170.131.178:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:52.428+02:00 WARNING peer.go:397 [PEER] 73.15.90.174:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:52.582+02:00 WARNING peer.go:397 [PEER] 193.90.55.169:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:52.668+02:00 WARNING peer.go:397 [PEER] 93.170.131.154:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:09:52.886+02:00 WARNING peer.go:397 [PEER] 82.224.154.40:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:52.995+02:00 WARNING peer.go:397 [PEER] 46.185.61.4:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:54.334+02:00 WARNING peer.go:397 [PEER] 67.50.68.117:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:09:55.185+02:00 WARNING peer.go:397 [PEER] 84.251.126.156:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:09:58.75+02:00 WARNING peer.go:397 [PEER] 72.252.174.114:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:09:59.51+02:00 WARNING peer.go:397 [PEER] 147.87.116.161:8333: receive failed (read tcp 147.87.116.161:8333: connection reset by peer)[0m
+2015-05-05T10:10:01.8+02:00 INFO manager.go:336 [MGR] 206 total peers managed[0m
+[33m2015-05-05T10:10:03.172+02:00 WARNING peer.go:397 [PEER] 86.4.100.161:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:10:05.216+02:00 WARNING peer.go:397 [PEER] 105.226.252.72:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:06.811+02:00 WARNING peer.go:397 [PEER] 24.5.138.218:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:08.253+02:00 WARNING peer.go:397 [PEER] 98.237.67.147:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:10.671+02:00 WARNING peer.go:397 [PEER] 89.129.10.43:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+2015-05-05T10:10:11.767+02:00 INFO repository.go:223 [REPO] Saving node index[0m
+2015-05-05T10:10:11.8+02:00 INFO manager.go:336 [MGR] 222 total peers managed[0m
+[33m2015-05-05T10:10:12.102+02:00 WARNING peer.go:397 [PEER] 104.7.88.191:8333: receive failed (ReadMessage: message from other network [Unknown BitcoinNet (100663040)])[0m
+[33m2015-05-05T10:10:15.485+02:00 WARNING peer.go:397 [PEER] 209.126.70.170:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:16.582+02:00 WARNING peer.go:397 [PEER] 59.127.138.11:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:18.568+02:00 WARNING peer.go:424 84.200.28.180:8333: out of order non-version message[0m
+[33m2015-05-05T10:10:18.591+02:00 WARNING peer.go:397 [PEER] 84.200.28.180:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:10:20.169+02:00 WARNING peer.go:397 [PEER] 46.28.206.96:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:10:20.179+02:00 WARNING peer.go:397 [PEER] 78.46.241.172:8333: receive failed (EOF)[0m
+2015-05-05T10:10:21.8+02:00 INFO manager.go:336 [MGR] 239 total peers managed[0m
+[33m2015-05-05T10:10:22.222+02:00 WARNING peer.go:397 [PEER] 50.173.24.163:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:22.535+02:00 WARNING peer.go:397 [PEER] 60.225.34.85:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:23.157+02:00 WARNING peer.go:397 [PEER] 108.51.35.105:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:25.468+02:00 WARNING peer.go:397 [PEER] 74.72.64.20:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:27.91+02:00 WARNING peer.go:397 [PEER] 207.81.30.44:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:30.735+02:00 WARNING peer.go:397 [PEER] 24.119.119.105:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+2015-05-05T10:10:31.8+02:00 INFO manager.go:336 [MGR] 256 total peers managed[0m
+[33m2015-05-05T10:10:33.065+02:00 WARNING peer.go:397 [PEER] 222.67.10.7:8333: receive failed (ReadMessage: message payload is too large - header indicates 544435751 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:33.859+02:00 WARNING peer.go:397 [PEER] 98.144.123.251:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:10:33.918+02:00 WARNING peer.go:397 [PEER] 175.143.37.224:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:34.089+02:00 WARNING peer.go:397 [PEER] 77.242.108.18:8333: receive failed (ReadMessage: message payload is too large - header indicates 544961016 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:34.39+02:00 WARNING peer.go:397 [PEER] 125.162.29.212:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:10:35.422+02:00 WARNING peer.go:397 [PEER] 104.236.220.173:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:37.088+02:00 WARNING peer.go:397 [PEER] 115.64.77.250:8333: receive failed (ReadMessage: message from other network [Unknown BitcoinNet (2441945130)])[0m
+2015-05-05T10:10:41.8+02:00 INFO manager.go:336 [MGR] 267 total peers managed[0m
+[33m2015-05-05T10:10:44.135+02:00 WARNING peer.go:397 [PEER] 109.26.58.178:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:10:44.988+02:00 WARNING peer.go:397 [PEER] 125.227.225.237:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:45.255+02:00 WARNING peer.go:397 [PEER] 179.107.230.235:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:45.753+02:00 WARNING peer.go:397 [PEER] 86.99.53.110:8333: receive failed (ReadMessage: message from other network [Unknown BitcoinNet (1375731456)])[0m
+[33m2015-05-05T10:10:47.418+02:00 WARNING peer.go:397 [PEER] 5.135.155.195:8333: receive failed (ReadMessage: message payload is too large - header indicates 1528758843 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:48.794+02:00 WARNING peer.go:397 [PEER] 85.64.146.198:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:10:49.834+02:00 WARNING peer.go:397 [PEER] 130.211.189.123:8333: receive failed (ReadMessage: message from other network [Unknown BitcoinNet (3918340221)])[0m
+[33m2015-05-05T10:10:50.77+02:00 WARNING peer.go:397 [PEER] 42.121.65.60:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:10:51.006+02:00 WARNING peer.go:397 [PEER] 75.139.93.224:8333: receive failed (read tcp 75.139.93.224:8333: connection reset by peer)[0m
+2015-05-05T10:10:51.8+02:00 INFO manager.go:336 [MGR] 277 total peers managed[0m
+[33m2015-05-05T10:10:52.642+02:00 WARNING peer.go:397 [PEER] 134.90.152.153:8333: receive failed (ReadMessage: message from other network [Unknown BitcoinNet (22366123)])[0m
+[33m2015-05-05T10:10:55.281+02:00 WARNING peer.go:397 [PEER] 121.208.88.192:8333: receive failed (ReadMessage: message payload is too large - header indicates 2156732450 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:10:55.358+02:00 WARNING peer.go:397 [PEER] 162.251.108.53:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:10:58.155+02:00 WARNING peer.go:397 [PEER] 218.103.84.18:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+2015-05-05T10:11:01.8+02:00 INFO manager.go:336 [MGR] 299 total peers managed[0m
+[33m2015-05-05T10:11:07.302+02:00 WARNING peer.go:397 [PEER] 85.25.214.107:8333: receive failed (EOF)[0m
+2015-05-05T10:11:11.8+02:00 INFO manager.go:336 [MGR] 318 total peers managed[0m
+[33m2015-05-05T10:11:13.359+02:00 WARNING peer.go:397 [PEER] 52.64.90.39:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:11:13.373+02:00 WARNING peer.go:397 [PEER] 85.138.115.149:8333: receive failed (read tcp 85.138.115.149:8333: connection reset by peer)[0m
+[33m2015-05-05T10:11:14.768+02:00 WARNING peer.go:397 [PEER] 69.61.29.79:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:11:15.795+02:00 WARNING peer.go:397 [PEER] 75.66.253.9:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:11:16.292+02:00 WARNING peer.go:397 [PEER] 45.63.13.115:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:11:16.871+02:00 WARNING peer.go:397 [PEER] 110.248.173.188:8333: receive failed (ReadMessage: message from other network [Unknown BitcoinNet (2097151744)])[0m
+[33m2015-05-05T10:11:18.452+02:00 WARNING peer.go:397 [PEER] 99.40.26.162:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:11:19.575+02:00 WARNING peer.go:397 [PEER] 209.190.75.59:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:11:19.6+02:00 WARNING peer.go:397 [PEER] 213.107.150.131:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:11:21.283+02:00 WARNING peer.go:397 [PEER] 78.231.23.84:8333: receive failed (ReadMessage: message payload is too large - header indicates 551698896 bytes, but max message payload is 33554432 bytes.)[0m
+2015-05-05T10:11:21.8+02:00 INFO manager.go:336 [MGR] 324 total peers managed[0m
+[33m2015-05-05T10:11:22.985+02:00 WARNING peer.go:397 [PEER] 118.189.205.236:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:11:23.663+02:00 WARNING peer.go:397 [PEER] 54.235.94.19:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:11:24.579+02:00 WARNING peer.go:397 [PEER] 198.27.76.1:8333: receive failed (read tcp 198.27.76.1:8333: connection reset by peer)[0m
+[33m2015-05-05T10:11:25.958+02:00 WARNING peer.go:424 199.231.215.189:8333: out of order non-version message[0m
+[33m2015-05-05T10:11:26.155+02:00 WARNING peer.go:397 [PEER] 104.156.231.51:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:11:28.19+02:00 WARNING peer.go:397 [PEER] 89.248.164.64:8333: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:11:29.403+02:00 WARNING peer.go:397 [PEER] 203.173.244.31:8333: receive failed (ReadMessage: message payload is too large - header indicates 1193740685 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:11:29.657+02:00 WARNING peer.go:397 [PEER] 98.185.18.7:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:11:31.326+02:00 WARNING peer.go:397 [PEER] 178.172.248.214:8333: receive failed (ReadMessage: message from other network [Unknown BitcoinNet (1476394752)])[0m
+2015-05-05T10:11:31.8+02:00 INFO manager.go:336 [MGR] 331 total peers managed[0m
+[33m2015-05-05T10:11:33.922+02:00 WARNING peer.go:397 [PEER] 121.9.210.124:8336: receive failed (ReadMessage: message payload is too large - header indicates 4278190080 bytes, but max message payload is 33554432 bytes.)[0m
+[33m2015-05-05T10:11:36.468+02:00 WARNING peer.go:397 [PEER] 109.190.81.150:8333: receive failed (EOF)[0m
+[33m2015-05-05T10:11:37.571+02:00 WARNING peer.go:397 [PEER] 135.19.216.228:8333: receive failed (read tcp 135.19.216.228:8333: connection reset by peer)[0m
