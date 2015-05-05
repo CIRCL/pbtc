@@ -40,6 +40,7 @@ func (ir *InputRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, ir.hash)
 	binary.Write(buf, binary.LittleEndian, ir.index)
+	binary.Write(buf, binary.LittleEndian, ir.sequence)
 
 	return buf.Bytes()
 }

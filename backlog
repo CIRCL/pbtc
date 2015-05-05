@@ -1,4 +1,5 @@
-- document text format log entries (recorder)
+- exchange []byte for [32]byte for length safety
+- fix variable length stuff in binary records
 - document binary format log entries (recorder)
 - add filter for bitcoin/ip addresses (recorder)
 - full comments in all files (meta)

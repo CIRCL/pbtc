@@ -2,6 +2,7 @@ package recorder
 
 import (
 	"bytes"
+	"encoding/binary"
 	"net"
 	"time"
 
@@ -40,6 +41,14 @@ func (mr *MemPoolRecord) String() string {
 	return buf.String()
 }
 
-func (hr *MemPoolRecord) Bytes() []byte {
-	return make([]byte, 0)
+func (mr *MemPoolRecord) Bytes() []byte {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, mr.stamp.UnixNano())
+	binary.Write(buf, binary.LittleEndian, mr.ra.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(mr.ra.Port))
+	binary.Write(buf, binary.LittleEndian, mr.la.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(mr.la.Port))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(mr.cmd))
+
+	return buf.Bytes()
 }

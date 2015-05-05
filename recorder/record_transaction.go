@@ -77,12 +77,12 @@ func (tr *TransactionRecord) String() string {
 
 func (tr *TransactionRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, tr.stamp.Unix())
-	binary.Write(buf, binary.LittleEndian, tr.ra.IP)
-	binary.Write(buf, binary.LittleEndian, tr.ra.Port)
-	binary.Write(buf, binary.LittleEndian, tr.la.IP)
-	binary.Write(buf, binary.LittleEndian, tr.la.Port)
-	binary.Write(buf, binary.LittleEndian, wire.CmdTx)
+	binary.Write(buf, binary.LittleEndian, tr.stamp.UnixNano())
+	binary.Write(buf, binary.LittleEndian, tr.ra.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(tr.ra.Port))
+	binary.Write(buf, binary.LittleEndian, tr.la.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(tr.la.Port))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(tr.cmd))
 	binary.Write(buf, binary.LittleEndian, tr.hash)
 	binary.Write(buf, binary.LittleEndian, len(tr.ins))
 	binary.Write(buf, binary.LittleEndian, len(tr.outs))

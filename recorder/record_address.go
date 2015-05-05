@@ -32,6 +32,7 @@ func NewAddressRecord(msg *wire.MsgAddr, ra *net.TCPAddr,
 
 	for i, na := range msg.AddrList {
 		ar.addrs[i] = util.ParseNetAddress(na)
+
 	}
 
 	return ar
@@ -59,17 +60,17 @@ func (ar *AddressRecord) String() string {
 
 func (ar *AddressRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ar.stamp.Unix())
-	binary.Write(buf, binary.LittleEndian, ar.ra.IP)
-	binary.Write(buf, binary.LittleEndian, ar.ra.Port)
-	binary.Write(buf, binary.LittleEndian, ar.la.IP)
-	binary.Write(buf, binary.LittleEndian, ar.la.Port)
-	binary.Write(buf, binary.LittleEndian, wire.CmdAddr)
-	binary.Write(buf, binary.LittleEndian, len(ar.addrs))
+	binary.Write(buf, binary.LittleEndian, ar.stamp.UnixNano())
+	binary.Write(buf, binary.LittleEndian, ar.ra.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(ar.ra.Port))
+	binary.Write(buf, binary.LittleEndian, ar.la.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(ar.la.Port))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(ar.cmd))
+	binary.Write(buf, binary.LittleEndian, uint16(len(ar.addrs)))
 
 	for _, addr := range ar.addrs {
-		binary.Write(buf, binary.LittleEndian, addr.IP)
-		binary.Write(buf, binary.LittleEndian, addr.Port)
+		binary.Write(buf, binary.LittleEndian, addr.IP.To16())
+		binary.Write(buf, binary.LittleEndian, uint16(addr.Port))
 	}
 
 	return buf.Bytes()

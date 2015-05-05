@@ -2,6 +2,7 @@ package recorder
 
 import (
 	"bytes"
+	"encoding/binary"
 	"net"
 	"strconv"
 	"time"
@@ -58,6 +59,20 @@ func (br *BlockRecord) String() string {
 	return buf.String()
 }
 
-func (hr *BlockRecord) Bytes() []byte {
-	return make([]byte, 0)
+func (br *BlockRecord) Bytes() []byte {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, br.stamp.UnixNano())
+	binary.Write(buf, binary.LittleEndian, br.ra.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(br.ra.Port))
+	binary.Write(buf, binary.LittleEndian, br.la.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(br.la.Port))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(br.cmd))
+	binary.Write(buf, binary.LittleEndian, br.hdr.Bytes())
+	binary.Write(buf, binary.LittleEndian, len(br.txs))
+
+	for _, tx := range br.txs {
+		binary.Write(buf, binary.LittleEndian, tx.Bytes())
+	}
+
+	return buf.Bytes()
 }

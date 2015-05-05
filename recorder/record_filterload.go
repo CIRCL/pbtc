@@ -2,6 +2,7 @@ package recorder
 
 import (
 	"bytes"
+	"encoding/binary"
 	"net"
 	"time"
 
@@ -40,6 +41,14 @@ func (fr *FilterLoadRecord) String() string {
 	return buf.String()
 }
 
-func (hr *FilterLoadRecord) Bytes() []byte {
-	return make([]byte, 0)
+func (fr *FilterLoadRecord) Bytes() []byte {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, fr.stamp.UnixNano())
+	binary.Write(buf, binary.LittleEndian, fr.ra.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(fr.ra.Port))
+	binary.Write(buf, binary.LittleEndian, fr.la.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(fr.la.Port))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(fr.cmd))
+
+	return buf.Bytes()
 }

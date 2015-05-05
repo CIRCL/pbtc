@@ -9,8 +9,6 @@ type Record interface {
 	Bytes() []byte
 }
 
-type MsgType uint8
-
 const (
 	MsgAddr = iota
 	MsgAlert
@@ -36,7 +34,7 @@ const (
 	MsgUnknown
 )
 
-func ParseCommand(command string) MsgType {
+func ParseCommand(command string) uint8 {
 	switch command {
 	case wire.CmdAddr:
 		return MsgAddr

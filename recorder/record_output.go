@@ -2,6 +2,7 @@ package recorder
 
 import (
 	"bytes"
+	"encoding/binary"
 	"strconv"
 
 	"github.com/btcsuite/btcd/chaincfg"
@@ -32,7 +33,6 @@ func NewOutputRecord(txout *wire.TxOut) *OutputRecord {
 
 func (or *OutputRecord) String() string {
 	buf := new(bytes.Buffer)
-
 	buf.WriteString(strconv.FormatInt(or.value, 10))
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(int64(len(or.addrs)), 10))
@@ -47,6 +47,12 @@ func (or *OutputRecord) String() string {
 
 func (or *OutputRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, or.value)
+	binary.Write(buf, binary.LittleEndian, len(or.addrs))
+
+	for _, addr := range or.addrs {
+		binary.Write(buf, binary.LittleEndian, addr.ScriptAddress())
+	}
 
 	return buf.Bytes()
 }

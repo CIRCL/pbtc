@@ -2,6 +2,7 @@ package recorder
 
 import (
 	"bytes"
+	"encoding/binary"
 	"net"
 	"strconv"
 	"time"
@@ -66,5 +67,20 @@ func (ar *AlertRecord) String() string {
 }
 
 func (ar *AlertRecord) Bytes() []byte {
-	return make([]byte, 0)
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, ar.stamp.UnixNano())
+	binary.Write(buf, binary.LittleEndian, ar.ra.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(ar.ra.Port))
+	binary.Write(buf, binary.LittleEndian, ar.la.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(ar.la.Port))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(ar.cmd))
+	binary.Write(buf, binary.LittleEndian, ar.id)
+	binary.Write(buf, binary.LittleEndian, ar.cancel)
+	binary.Write(buf, binary.LittleEndian, ar.expire)
+	binary.Write(buf, binary.LittleEndian, ar.minver)
+	binary.Write(buf, binary.LittleEndian, ar.maxver)
+	binary.Write(buf, binary.LittleEndian, len(ar.text))
+	binary.Write(buf, binary.LittleEndian, ar.text)
+
+	return buf.Bytes()
 }

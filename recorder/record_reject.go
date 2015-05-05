@@ -2,6 +2,7 @@ package recorder
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"net"
 	"strconv"
@@ -58,6 +59,19 @@ func (rr *RejectRecord) String() string {
 	return buf.String()
 }
 
-func (hr *RejectRecord) Bytes() []byte {
-	return make([]byte, 0)
+func (rr *RejectRecord) Bytes() []byte {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, rr.stamp.UnixNano())
+	binary.Write(buf, binary.LittleEndian, rr.ra.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(rr.ra.Port))
+	binary.Write(buf, binary.LittleEndian, rr.la.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(rr.la.Port))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(rr.cmd))
+	binary.Write(buf, binary.LittleEndian, rr.code)
+	binary.Write(buf, binary.LittleEndian, ParseCommand(rr.reject))
+	binary.Write(buf, binary.LittleEndian, rr.hash)
+	binary.Write(buf, binary.LittleEndian, len(rr.reason))
+	binary.Write(buf, binary.LittleEndian, rr.reason)
+
+	return buf.Bytes()
 }

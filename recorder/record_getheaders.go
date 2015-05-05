@@ -2,6 +2,7 @@ package recorder
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"net"
 	"strconv"
@@ -59,6 +60,19 @@ func (gr *GetHeadersRecord) String() string {
 	return buf.String()
 }
 
-func (hr *GetHeadersRecord) Bytes() []byte {
-	return make([]byte, 0)
+func (gr *GetHeadersRecord) Bytes() []byte {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, gr.stamp.UnixNano())
+	binary.Write(buf, binary.LittleEndian, gr.ra.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(gr.ra.Port))
+	binary.Write(buf, binary.LittleEndian, gr.la.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(gr.la.Port))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(gr.cmd))
+	binary.Write(buf, binary.LittleEndian, len(gr.hashes))
+
+	for _, hash := range gr.hashes {
+		binary.Write(buf, binary.LittleEndian, hash)
+	}
+
+	return buf.Bytes()
 }

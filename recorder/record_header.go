@@ -2,6 +2,7 @@ package recorder
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"strconv"
 	"time"
@@ -55,5 +56,14 @@ func (hr *HeaderRecord) String() string {
 }
 
 func (hr *HeaderRecord) Bytes() []byte {
-	return make([]byte, 0)
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, hr.version)
+	binary.Write(buf, binary.LittleEndian, hr.hash)
+	binary.Write(buf, binary.LittleEndian, hr.prev)
+	binary.Write(buf, binary.LittleEndian, hr.root)
+	binary.Write(buf, binary.LittleEndian, hr.mined.Unix())
+	binary.Write(buf, binary.LittleEndian, hr.difficulty)
+	binary.Write(buf, binary.LittleEndian, hr.nonce)
+
+	return buf.Bytes()
 }

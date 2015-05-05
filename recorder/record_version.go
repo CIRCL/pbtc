@@ -2,6 +2,7 @@ package recorder
 
 import (
 	"bytes"
+	"encoding/binary"
 	"net"
 	"strconv"
 	"time"
@@ -55,7 +56,9 @@ func (vr *VersionRecord) String() string {
 	buf.WriteString(vr.ra.String())
 	buf.WriteString(" ")
 	buf.WriteString(vr.la.String())
-	buf.WriteString(" ver ")
+	buf.WriteString(" ")
+	buf.WriteString(vr.cmd)
+	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(int64(vr.version), 10))
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatUint(vr.services, 10))
@@ -66,19 +69,37 @@ func (vr *VersionRecord) String() string {
 	buf.WriteString(" ")
 	buf.WriteString(vr.laddr.String())
 	buf.WriteString(" ")
-	buf.WriteString(vr.agent)
-	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(int64(vr.block), 10))
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatBool(vr.relay))
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatUint(vr.nonce, 10))
+	buf.WriteString(" ")
+	buf.WriteString(vr.agent)
 
 	return buf.String()
 }
 
 func (vr *VersionRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, vr.stamp.UnixNano())
+	binary.Write(buf, binary.LittleEndian, vr.ra.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(vr.ra.Port))
+	binary.Write(buf, binary.LittleEndian, vr.la.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(vr.la.Port))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(vr.cmd))
+	binary.Write(buf, binary.LittleEndian, vr.version)
+	binary.Write(buf, binary.LittleEndian, vr.services)
+	binary.Write(buf, binary.LittleEndian, vr.sent.Unix())
+	binary.Write(buf, binary.LittleEndian, vr.raddr.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(vr.raddr.Port))
+	binary.Write(buf, binary.LittleEndian, vr.laddr.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(vr.laddr.Port))
+	binary.Write(buf, binary.LittleEndian, vr.block)
+	binary.Write(buf, binary.LittleEndian, vr.relay)
+	binary.Write(buf, binary.LittleEndian, vr.nonce)
+	binary.Write(buf, binary.LittleEndian, len(vr.agent))
+	binary.Write(buf, binary.LittleEndian, vr.agent)
 
 	return buf.Bytes()
 }

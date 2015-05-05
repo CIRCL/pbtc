@@ -57,12 +57,12 @@ func (ir *InventoryRecord) String() string {
 
 func (ir *InventoryRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ir.stamp.Unix())
-	binary.Write(buf, binary.LittleEndian, ir.ra.IP)
-	binary.Write(buf, binary.LittleEndian, ir.ra.Port)
-	binary.Write(buf, binary.LittleEndian, ir.la.IP)
-	binary.Write(buf, binary.LittleEndian, ir.la.Port)
-	binary.Write(buf, binary.LittleEndian, wire.CmdInv)
+	binary.Write(buf, binary.LittleEndian, ir.stamp.UnixNano())
+	binary.Write(buf, binary.LittleEndian, ir.ra.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(ir.ra.Port))
+	binary.Write(buf, binary.LittleEndian, ir.la.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(ir.la.Port))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(ir.cmd))
 	binary.Write(buf, binary.LittleEndian, len(ir.inv))
 
 	for _, item := range ir.inv {

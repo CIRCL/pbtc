@@ -2,6 +2,7 @@ package recorder
 
 import (
 	"bytes"
+	"encoding/binary"
 	"net"
 	"time"
 
@@ -41,5 +42,13 @@ func (gr *GetAddrRecord) String() string {
 }
 
 func (hr *GetAddrRecord) Bytes() []byte {
-	return make([]byte, 0)
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, hr.stamp.UnixNano())
+	binary.Write(buf, binary.LittleEndian, hr.ra.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(hr.ra.Port))
+	binary.Write(buf, binary.LittleEndian, hr.la.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(hr.la.Port))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(hr.cmd))
+
+	return buf.Bytes()
 }

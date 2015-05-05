@@ -2,6 +2,7 @@ package recorder
 
 import (
 	"bytes"
+	"encoding/binary"
 	"net"
 	"strconv"
 	"time"
@@ -54,6 +55,19 @@ func (nr *NotFoundRecord) String() string {
 	return buf.String()
 }
 
-func (hr *NotFoundRecord) Bytes() []byte {
-	return make([]byte, 0)
+func (nr *NotFoundRecord) Bytes() []byte {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, nr.stamp.UnixNano())
+	binary.Write(buf, binary.LittleEndian, nr.ra.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(nr.ra.Port))
+	binary.Write(buf, binary.LittleEndian, nr.la.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(nr.la.Port))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(nr.cmd))
+	binary.Write(buf, binary.LittleEndian, len(nr.inv))
+
+	for _, item := range nr.inv {
+		binary.Write(buf, binary.LittleEndian, item.Bytes())
+	}
+
+	return buf.Bytes()
 }

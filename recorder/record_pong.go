@@ -2,6 +2,7 @@ package recorder
 
 import (
 	"bytes"
+	"encoding/binary"
 	"net"
 	"strconv"
 	"time"
@@ -45,6 +46,15 @@ func (pr *PongRecord) String() string {
 	return buf.String()
 }
 
-func (hr *PongRecord) Bytes() []byte {
-	return make([]byte, 0)
+func (pr *PongRecord) Bytes() []byte {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, pr.stamp.UnixNano())
+	binary.Write(buf, binary.LittleEndian, pr.ra.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(pr.ra.Port))
+	binary.Write(buf, binary.LittleEndian, pr.la.IP.To16())
+	binary.Write(buf, binary.LittleEndian, uint16(pr.la.Port))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(pr.cmd))
+	binary.Write(buf, binary.LittleEndian, pr.nonce)
+
+	return buf.Bytes()
 }
