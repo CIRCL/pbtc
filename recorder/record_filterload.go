@@ -1,6 +1,7 @@
 package recorder
 
 import (
+	"bytes"
 	"net"
 	"time"
 
@@ -11,7 +12,7 @@ type FilterLoadRecord struct {
 	stamp time.Time
 	ra    *net.TCPAddr
 	la    *net.TCPAddr
-	msg_t MsgType
+	cmd   string
 }
 
 func NewFilterLoadRecord(msg *wire.MsgFilterLoad, ra *net.TCPAddr,
@@ -20,8 +21,21 @@ func NewFilterLoadRecord(msg *wire.MsgFilterLoad, ra *net.TCPAddr,
 		stamp: time.Now(),
 		ra:    ra,
 		la:    la,
-		msg_t: MsgFilterLoad,
+		cmd:   msg.Command(),
 	}
 
 	return record
+}
+
+func (fr *FilterLoadRecord) String() string {
+	buf := new(bytes.Buffer)
+	buf.WriteString(fr.stamp.String())
+	buf.WriteString(" ")
+	buf.WriteString(fr.ra.String())
+	buf.WriteString(" ")
+	buf.WriteString(fr.la.String())
+	buf.WriteString(" ")
+	buf.WriteString(fr.cmd)
+
+	return buf.String()
 }

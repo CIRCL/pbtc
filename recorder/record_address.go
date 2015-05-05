@@ -16,7 +16,7 @@ type AddressRecord struct {
 	stamp time.Time
 	la    *net.TCPAddr
 	ra    *net.TCPAddr
-	msg_t MsgType
+	cmd   string
 	addrs []*net.TCPAddr
 }
 
@@ -36,7 +36,7 @@ func NewAddressRecord(msg *wire.MsgAddr, ra *net.TCPAddr,
 		stamp: time.Now(),
 		ra:    ra,
 		la:    la,
-		msg_t: MsgAddr,
+		cmd:   msg.Command(),
 		addrs: addrs,
 	}
 
@@ -50,7 +50,9 @@ func (ar *AddressRecord) String() string {
 	buf.WriteString(ar.ra.String())
 	buf.WriteString(" ")
 	buf.WriteString(ar.la.String())
-	buf.WriteString(" addr ")
+	buf.WriteString(" ")
+	buf.WriteString(ar.cmd)
+	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(int64(len(ar.addrs)), 10))
 
 	for _, addr := range ar.addrs {

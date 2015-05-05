@@ -1,6 +1,7 @@
 package recorder
 
 import (
+	"bytes"
 	"net"
 	"time"
 
@@ -11,7 +12,7 @@ type GetAddrRecord struct {
 	stamp time.Time
 	ra    *net.TCPAddr
 	la    *net.TCPAddr
-	msg_t MsgType
+	cmd   string
 }
 
 func NewGetAddrRecord(msg *wire.MsgGetAddr, ra *net.TCPAddr,
@@ -20,8 +21,21 @@ func NewGetAddrRecord(msg *wire.MsgGetAddr, ra *net.TCPAddr,
 		stamp: time.Now(),
 		ra:    ra,
 		la:    la,
-		msg_t: MsgGetAddr,
+		cmd:   msg.Command(),
 	}
 
 	return record
+}
+
+func (gr *GetAddrRecord) String() string {
+	buf := new(bytes.Buffer)
+	buf.WriteString(gr.stamp.String())
+	buf.WriteString(" ")
+	buf.WriteString(gr.ra.String())
+	buf.WriteString(" ")
+	buf.WriteString(gr.la.String())
+	buf.WriteString(" ")
+	buf.WriteString(gr.cmd)
+
+	return buf.String()
 }

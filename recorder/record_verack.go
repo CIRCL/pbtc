@@ -11,7 +11,7 @@ type VerAckRecord struct {
 	stamp time.Time
 	ra    *net.TCPAddr
 	la    *net.TCPAddr
-	msg_t MsgVerAck
+	msg_t MsgType
 }
 
 func NewVerAckRecord(msg *wire.MsgVerAck, ra *net.TCPAddr,

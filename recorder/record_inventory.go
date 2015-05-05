@@ -14,7 +14,7 @@ type InventoryRecord struct {
 	stamp time.Time
 	ra    *net.TCPAddr
 	la    *net.TCPAddr
-	msg_t MsgType
+	cmd   string
 	inv   []*ItemRecord
 }
 
@@ -24,12 +24,12 @@ func NewInventoryRecord(msg *wire.MsgInv, ra *net.TCPAddr,
 		stamp: time.Now(),
 		ra:    ra,
 		la:    la,
-		msg_t: MsgInv,
+		cmd:   msg.Command(),
 		inv:   make([]*ItemRecord, len(msg.InvList)),
 	}
 
 	for i, item := range msg.InvList {
-		ir.inv[i] = NewItemRecord(inv)
+		ir.inv[i] = NewItemRecord(item)
 	}
 
 	return ir
@@ -43,9 +43,9 @@ func (ir *InventoryRecord) String() string {
 	buf.WriteString(" ")
 	buf.WriteString(ir.la.String())
 	buf.WriteString(" inv ")
-	buf.WriteString(strconv.FormatInt(int64(len(ir.inv_list)), 10))
+	buf.WriteString(strconv.FormatInt(int64(len(ir.inv)), 10))
 
-	for _, item := range ir.inv_list {
+	for _, item := range ir.inv {
 		buf.WriteString("\n")
 		buf.WriteString(item.String())
 	}
@@ -61,9 +61,9 @@ func (ir *InventoryRecord) Bytes() []byte {
 	binary.Write(buf, binary.LittleEndian, ir.la.IP)
 	binary.Write(buf, binary.LittleEndian, ir.la.Port)
 	binary.Write(buf, binary.LittleEndian, wire.CmdInv)
-	binary.Write(buf, binary.LittleEndian, len(ir.inv_list))
+	binary.Write(buf, binary.LittleEndian, len(ir.inv))
 
-	for _, item := range ir.inv_list {
+	for _, item := range ir.inv {
 		binary.Write(buf, binary.LittleEndian, item.Bytes())
 	}
 

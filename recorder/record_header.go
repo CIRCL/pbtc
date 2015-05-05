@@ -1,31 +1,55 @@
 package recorder
 
 import (
+	"bytes"
+	"encoding/hex"
+	"strconv"
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
 )
 
 type HeaderRecord struct {
-	hash    [32]byte
-	version uint32
-	prev    [32]byte
-	root    [32]byte
-	rstamp  time.Time
-	bits    uint32
-	nonce   uint32
+	version    int32
+	hash       []byte
+	prev       []byte
+	root       []byte
+	mined      time.Time
+	difficulty uint32
+	nonce      uint32
 }
 
 func NewHeaderRecord(hdr *wire.BlockHeader) *HeaderRecord {
+	hash := hdr.BlockSha()
+
 	record := &HeaderRecord{
-		hash:    hdr.BlockSha(),
-		version: hdr.Version,
-		prev:    hdr.PrevBlock,
-		root:    hdr.MerkleRoot,
-		rstamp:  hdr.Timstamp,
-		bits:    hdr.Bits,
-		nonce:   hdr.Nonce,
+		version:    hdr.Version,
+		hash:       hash.Bytes(),
+		prev:       hdr.PrevBlock.Bytes(),
+		root:       hdr.MerkleRoot.Bytes(),
+		mined:      hdr.Timestamp,
+		difficulty: hdr.Bits,
+		nonce:      hdr.Nonce,
 	}
 
 	return record
+}
+
+func (hr *HeaderRecord) String() string {
+	buf := new(bytes.Buffer)
+	buf.WriteString(strconv.FormatInt(int64(hr.version), 10))
+	buf.WriteString(" ")
+	buf.WriteString(hex.EncodeToString(hr.hash))
+	buf.WriteString(" ")
+	buf.WriteString(hex.EncodeToString(hr.prev))
+	buf.WriteString(" ")
+	buf.WriteString(hex.EncodeToString(hr.root))
+	buf.WriteString(" ")
+	buf.WriteString(strconv.FormatInt(hr.mined.Unix(), 10))
+	buf.WriteString(" ")
+	buf.WriteString(strconv.FormatUint(uint64(hr.difficulty), 10))
+	buf.WriteString(" ")
+	buf.WriteString(strconv.FormatUint(uint64(hr.nonce), 10))
+
+	return buf.String()
 }

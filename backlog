@@ -1,4 +1,6 @@
-- record format definition (docu & recorder)
+- document text format log entries (recorder)
+- document binary format log entries (recorder)
+- add filter for bitcoin/ip addresses (recorder)
 - full comments in all files (meta)
 - full logging in all files (logger)
 - add decoding for all records (recorder)

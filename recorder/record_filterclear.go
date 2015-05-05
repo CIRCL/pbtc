@@ -1,6 +1,7 @@
 package recorder
 
 import (
+	"bytes"
 	"net"
 	"time"
 
@@ -11,7 +12,7 @@ type FilterClearRecord struct {
 	stamp time.Time
 	ra    *net.TCPAddr
 	la    *net.TCPAddr
-	msg_t MsgType
+	cmd   string
 }
 
 func NewFilterClearRecord(msg *wire.MsgFilterClear, ra *net.TCPAddr,
@@ -20,8 +21,21 @@ func NewFilterClearRecord(msg *wire.MsgFilterClear, ra *net.TCPAddr,
 		stamp: time.Now(),
 		ra:    ra,
 		la:    la,
-		msg_t: MsgFilterClear,
+		cmd:   msg.Command(),
 	}
 
 	return record
+}
+
+func (fr *FilterClearRecord) String() string {
+	buf := new(bytes.Buffer)
+	buf.WriteString(fr.stamp.String())
+	buf.WriteString(" ")
+	buf.WriteString(fr.ra.String())
+	buf.WriteString(" ")
+	buf.WriteString(fr.la.String())
+	buf.WriteString(" ")
+	buf.WriteString(fr.cmd)
+
+	return buf.String()
 }

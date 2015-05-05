@@ -1,7 +1,9 @@
 package recorder
 
 import (
+	"bytes"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
@@ -11,7 +13,7 @@ type BlockRecord struct {
 	stamp time.Time
 	ra    *net.TCPAddr
 	la    *net.TCPAddr
-	msg_t MsgType
+	cmd   string
 	hdr   *HeaderRecord
 	txs   []*TransactionRecord
 }
@@ -22,8 +24,8 @@ func NewBlockRecord(msg *wire.MsgBlock, ra *net.TCPAddr,
 		stamp: time.Now(),
 		ra:    ra,
 		la:    la,
-		msg_t: MsgBlock,
-		hdr:   NewHeaderRecord(msg.Header),
+		cmd:   msg.Command(),
+		hdr:   NewHeaderRecord(&msg.Header),
 		txs:   make([]*TransactionRecord, len(msg.Transactions)),
 	}
 
@@ -32,4 +34,26 @@ func NewBlockRecord(msg *wire.MsgBlock, ra *net.TCPAddr,
 	}
 
 	return record
+}
+
+func (br *BlockRecord) String() string {
+	buf := new(bytes.Buffer)
+	buf.WriteString(br.stamp.String())
+	buf.WriteString(" ")
+	buf.WriteString(br.ra.String())
+	buf.WriteString(" ")
+	buf.WriteString(br.la.String())
+	buf.WriteString(" ")
+	buf.WriteString(br.cmd)
+	buf.WriteString(" ")
+	buf.WriteString(strconv.FormatInt(int64(len(br.txs)), 10))
+	buf.WriteString("\n")
+	buf.WriteString(br.hdr.String())
+
+	for _, tr := range br.txs {
+		buf.WriteString("\n")
+		buf.WriteString(tr.String())
+	}
+
+	return buf.String()
 }

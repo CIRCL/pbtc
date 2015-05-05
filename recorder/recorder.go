@@ -178,8 +178,8 @@ func (rec *Recorder) Message(msg wire.Message, ra *net.TCPAddr,
 
 	case *wire.MsgTx:
 		if rec.txIndex.Has(m.TxSha()) {
-			record = NewInventoryRecord(wire.NewInvVect(wire.InvTypeTx,
-				m.TxSha()), ra, la)
+			record = NewItemRecord(wire.NewInvVect(wire.InvTypeTx,
+				m.TxSha()))
 			return
 		}
 

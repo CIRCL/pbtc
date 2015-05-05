@@ -10,7 +10,6 @@ type Record interface {
 }
 
 type MsgType uint8
-type ShaHash [32]byte
 
 const (
 	MsgAddr = iota
@@ -34,9 +33,10 @@ const (
 	MsgMerkleBlock
 	MsgNotFound
 	MsgVerAck
+	MsgUnknown
 )
 
-func ParseCommand(string command) MsgType {
+func ParseCommand(command string) MsgType {
 	switch command {
 	case wire.CmdAddr:
 		return MsgAddr
@@ -101,4 +101,6 @@ func ParseCommand(string command) MsgType {
 	case wire.CmdVerAck:
 		return MsgVerAck
 	}
+
+	return MsgUnknown
 }
