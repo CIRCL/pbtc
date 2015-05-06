@@ -16,6 +16,7 @@ import (
 type Recorder struct {
 	wg         *sync.WaitGroup
 	cmdConfig  map[string]bool
+	ipConfig   map[string]bool
 	fileTimer  *time.Timer
 	sigWriter  chan struct{}
 	txtQ       chan string
@@ -36,12 +37,15 @@ type Recorder struct {
 
 	done         uint32
 	resetLogging bool
+	filterCmd    bool
+	filterIP     bool
 }
 
 func New(options ...func(*Recorder)) (*Recorder, error) {
 	rec := &Recorder{
 		wg:         &sync.WaitGroup{},
 		cmdConfig:  make(map[string]bool),
+		ipConfig:   make(map[string]bool),
 		sigWriter:  make(chan struct{}),
 		txtQ:       make(chan string, 1),
 		binQ:       make(chan []byte, 1),
@@ -54,6 +58,8 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 		fileAge:  1 * time.Minute,
 
 		resetLogging: false,
+		filterCmd:    false,
+		filterIP:     false,
 	}
 
 	for _, option := range options {
@@ -136,7 +142,11 @@ func EnableReset() func(*Recorder) {
 
 func (rec *Recorder) Message(msg wire.Message, ra *net.TCPAddr,
 	la *net.TCPAddr) {
-	if !rec.cmdConfig[msg.Command()] {
+	if rec.filterCmd && !rec.cmdConfig[msg.Command()] {
+		return
+	}
+
+	if rec.filterIP && !rec.ipConfig[ra.IP.String()] {
 		return
 	}
 

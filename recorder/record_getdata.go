@@ -37,18 +37,22 @@ func NewGetDataRecord(msg *wire.MsgGetData, ra *net.TCPAddr,
 
 func (gr *GetDataRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString(gr.stamp.String())
+
+	// line 1: header + inventory length
+	buf.WriteString(gr.cmd)
+	buf.WriteString(" ")
+	buf.WriteString(gr.stamp.Format(time.RFC3339Nano))
 	buf.WriteString(" ")
 	buf.WriteString(gr.ra.String())
 	buf.WriteString(" ")
 	buf.WriteString(gr.la.String())
 	buf.WriteString(" ")
-	buf.WriteString(gr.cmd)
-	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(int64(len(gr.items)), 10))
 
+	// line 2 - (n+1): inventory items
 	for _, item := range gr.items {
 		buf.WriteString("\n")
+		buf.WriteString(" ")
 		buf.WriteString(item.String())
 	}
 

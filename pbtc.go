@@ -56,8 +56,6 @@ func main() {
 	// recorder
 	rec, err := recorder.New(
 		recorder.SetLogger(log),
-		recorder.SetTypes(wire.CmdTx, wire.CmdVersion, wire.CmdInv,
-			wire.CmdAddr),
 		recorder.SetFileSize(0),
 		recorder.SetFileAge(time.Minute*5),
 	)
@@ -75,7 +73,7 @@ func main() {
 		manager.SetVersion(wire.RejectVersion),
 		manager.SetConnectionRate(time.Second/25),
 		manager.SetInformationRate(time.Second*10),
-		manager.SetPeerLimit(1000),
+		manager.SetPeerLimit(100),
 	)
 	if err != nil {
 		log.Critical("Unable to create manager (%v)", err)

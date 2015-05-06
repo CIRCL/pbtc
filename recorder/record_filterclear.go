@@ -30,13 +30,15 @@ func NewFilterClearRecord(msg *wire.MsgFilterClear, ra *net.TCPAddr,
 
 func (fr *FilterClearRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString(fr.stamp.String())
+
+	// line 1: header
+	buf.WriteString(fr.cmd)
+	buf.WriteString(" ")
+	buf.WriteString(fr.stamp.Format(time.RFC3339Nano))
 	buf.WriteString(" ")
 	buf.WriteString(fr.ra.String())
 	buf.WriteString(" ")
 	buf.WriteString(fr.la.String())
-	buf.WriteString(" ")
-	buf.WriteString(fr.cmd)
 
 	return buf.String()
 }

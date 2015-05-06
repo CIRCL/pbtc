@@ -450,10 +450,7 @@ func (p *Peer) processMessage(msg wire.Message) {
 
 		p.version = util.MinUint32(p.version, uint32(m.ProtocolVersion))
 
-		if atomic.SwapUint32(&p.sent, 1) == 0 {
-			p.pushVersion()
-		}
-
+		p.pushVersion()
 		p.pushVerAck()
 
 	case *wire.MsgVerAck:
@@ -484,6 +481,7 @@ func (p *Peer) processMessage(msg wire.Message) {
 	case *wire.MsgGetBlocks:
 
 	case *wire.MsgBlock:
+		p.mgr.Mark(m.BlockSha())
 
 	case *wire.MsgGetData:
 
@@ -502,6 +500,10 @@ func (p *Peer) pushVerAck() {
 }
 
 func (p *Peer) pushVersion() {
+	if atomic.SwapUint32(&p.sent, 1) == 1 {
+		return
+	}
+
 	msg := wire.NewMsgVersion(p.me, p.you, p.nonce, 0)
 	msg.AddUserAgent(agentName, agentVersion)
 	msg.AddrYou.Services = wire.SFNodeNetwork
@@ -537,10 +539,6 @@ func (p *Peer) pushGetData(m *wire.MsgInv) {
 	msg := wire.NewMsgGetData()
 
 	for _, inv := range m.InvList {
-		if inv.Type == 2 {
-			continue
-		}
-
 		if p.mgr.Knows(inv.Hash) {
 			continue
 		}

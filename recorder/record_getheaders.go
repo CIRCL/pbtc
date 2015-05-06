@@ -16,8 +16,8 @@ type GetHeadersRecord struct {
 	ra     *net.TCPAddr
 	la     *net.TCPAddr
 	cmd    string
-	stop   []byte
-	hashes [][]byte
+	stop   [32]byte
+	hashes [][32]byte
 }
 
 func NewGetHeadersRecord(msg *wire.MsgGetHeaders, ra *net.TCPAddr,
@@ -27,12 +27,12 @@ func NewGetHeadersRecord(msg *wire.MsgGetHeaders, ra *net.TCPAddr,
 		ra:     ra,
 		la:     la,
 		cmd:    msg.Command(),
-		stop:   msg.HashStop.Bytes(),
-		hashes: make([][]byte, len(msg.BlockLocatorHashes)),
+		stop:   msg.HashStop,
+		hashes: make([][32]byte, len(msg.BlockLocatorHashes)),
 	}
 
 	for i, hash := range msg.BlockLocatorHashes {
-		record.hashes[i] = hash.Bytes()
+		record.hashes[i] = *hash
 	}
 
 	return record
@@ -40,21 +40,25 @@ func NewGetHeadersRecord(msg *wire.MsgGetHeaders, ra *net.TCPAddr,
 
 func (gr *GetHeadersRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString(gr.stamp.String())
+
+	// line 1: header
+	buf.WriteString(gr.cmd)
+	buf.WriteString(" ")
+	buf.WriteString(gr.stamp.Format(time.RFC3339Nano))
 	buf.WriteString(" ")
 	buf.WriteString(gr.ra.String())
 	buf.WriteString(" ")
 	buf.WriteString(gr.la.String())
 	buf.WriteString(" ")
-	buf.WriteString(gr.cmd)
-	buf.WriteString(" ")
-	buf.WriteString(hex.EncodeToString(gr.stop))
+	buf.WriteString(hex.EncodeToString(gr.stop[:]))
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(int64(len(gr.hashes)), 10))
 
+	// line 2: locator hashes
+	buf.WriteString("\n")
 	for _, hash := range gr.hashes {
 		buf.WriteString(" ")
-		buf.WriteString(hex.EncodeToString(hash))
+		buf.WriteString(hex.EncodeToString(hash[:]))
 	}
 
 	return buf.String()

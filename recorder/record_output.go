@@ -36,7 +36,6 @@ func (or *OutputRecord) String() string {
 	buf.WriteString(strconv.FormatInt(or.value, 10))
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(int64(len(or.addrs)), 10))
-
 	for _, addr := range or.addrs {
 		buf.WriteString(" ")
 		buf.WriteString(addr.EncodeAddress())

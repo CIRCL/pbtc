@@ -51,13 +51,13 @@ func NewVersionRecord(msg *wire.MsgVersion, ra *net.TCPAddr,
 
 func (vr *VersionRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString(vr.stamp.String())
+	buf.WriteString(vr.cmd)
+	buf.WriteString(" ")
+	buf.WriteString(vr.stamp.Format(time.RFC3339Nano))
 	buf.WriteString(" ")
 	buf.WriteString(vr.ra.String())
 	buf.WriteString(" ")
 	buf.WriteString(vr.la.String())
-	buf.WriteString(" ")
-	buf.WriteString(vr.cmd)
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(int64(vr.version), 10))
 	buf.WriteString(" ")

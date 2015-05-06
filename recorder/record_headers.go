@@ -37,18 +37,19 @@ func NewHeadersRecord(msg *wire.MsgHeaders, ra *net.TCPAddr,
 
 func (hr *HeadersRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString(hr.stamp.String())
+	buf.WriteString(hr.cmd)
+	buf.WriteString(" ")
+	buf.WriteString(hr.stamp.Format(time.RFC3339Nano))
 	buf.WriteString(" ")
 	buf.WriteString(hr.ra.String())
 	buf.WriteString(" ")
 	buf.WriteString(hr.la.String())
 	buf.WriteString(" ")
-	buf.WriteString(hr.cmd)
-	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(int64(len(hr.hdrs)), 10))
 
 	for _, hdr := range hr.hdrs {
 		buf.WriteString("\n")
+		buf.WriteString(" ")
 		buf.WriteString(hdr.String())
 	}
 

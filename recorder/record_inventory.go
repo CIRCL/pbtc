@@ -37,18 +37,19 @@ func NewInventoryRecord(msg *wire.MsgInv, ra *net.TCPAddr,
 
 func (ir *InventoryRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString(ir.stamp.String())
+	buf.WriteString(ir.cmd)
+	buf.WriteString(" ")
+	buf.WriteString(ir.stamp.Format(time.RFC3339Nano))
 	buf.WriteString(" ")
 	buf.WriteString(ir.ra.String())
 	buf.WriteString(" ")
 	buf.WriteString(ir.la.String())
 	buf.WriteString(" ")
-	buf.WriteString(ir.cmd)
-	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(int64(len(ir.inv)), 10))
 
 	for _, item := range ir.inv {
 		buf.WriteString("\n")
+		buf.WriteString(" ")
 		buf.WriteString(item.String())
 	}
 

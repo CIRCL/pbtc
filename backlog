@@ -1,6 +1,6 @@
-- exchange []byte for [32]byte for length safety
-- fix variable length stuff in binary records
-- document binary format log entries (recorder)
+- rewrite all log formats & documentation
+- fix block requesting logic
+- fix output record address list
 - add filter for bitcoin/ip addresses (recorder)
 - full comments in all files (meta)
 - full logging in all files (logger)

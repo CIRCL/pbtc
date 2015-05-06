@@ -11,26 +11,26 @@ import (
 )
 
 type HeaderRecord struct {
-	version    int32
-	hash       []byte
-	prev       []byte
-	root       []byte
-	mined      time.Time
-	difficulty uint32
-	nonce      uint32
+	block_hash  [32]byte
+	version     int32
+	prev_block  [32]byte
+	merkle_root [32]byte
+	timestamp   time.Time
+	bits        uint32
+	nonce       uint32
+	txn_count   uint64
 }
 
 func NewHeaderRecord(hdr *wire.BlockHeader) *HeaderRecord {
-	hash := hdr.BlockSha()
-
 	record := &HeaderRecord{
-		version:    hdr.Version,
-		hash:       hash.Bytes(),
-		prev:       hdr.PrevBlock.Bytes(),
-		root:       hdr.MerkleRoot.Bytes(),
-		mined:      hdr.Timestamp,
-		difficulty: hdr.Bits,
-		nonce:      hdr.Nonce,
+		block_hash:  hdr.BlockSha(), // this is calculated, not sent
+		version:     hdr.Version,
+		prev_block:  hdr.PrevBlock,
+		merkle_root: hdr.MerkleRoot,
+		timestamp:   hdr.Timestamp,
+		bits:        hdr.Bits,
+		nonce:       hdr.Nonce,
+		txn_count:   0, // for some reason this is always zero in ref. client
 	}
 
 	return record
@@ -38,32 +38,30 @@ func NewHeaderRecord(hdr *wire.BlockHeader) *HeaderRecord {
 
 func (hr *HeaderRecord) String() string {
 	buf := new(bytes.Buffer)
+
+	// line 1: header information
+	buf.WriteString(hex.EncodeToString(hr.block_hash[:]))
+	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(int64(hr.version), 10))
 	buf.WriteString(" ")
-	buf.WriteString(hex.EncodeToString(hr.hash))
+	buf.WriteString(hex.EncodeToString(hr.prev_block[:]))
 	buf.WriteString(" ")
-	buf.WriteString(hex.EncodeToString(hr.prev))
+	buf.WriteString(hex.EncodeToString(hr.merkle_root[:]))
 	buf.WriteString(" ")
-	buf.WriteString(hex.EncodeToString(hr.root))
+	buf.WriteString(strconv.FormatInt(hr.timestamp.Unix(), 10))
 	buf.WriteString(" ")
-	buf.WriteString(strconv.FormatInt(hr.mined.Unix(), 10))
-	buf.WriteString(" ")
-	buf.WriteString(strconv.FormatUint(uint64(hr.difficulty), 10))
+	buf.WriteString(strconv.FormatUint(uint64(hr.bits), 10))
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatUint(uint64(hr.nonce), 10))
+	buf.WriteString(" ")
+	buf.WriteString(strconv.FormatUint(hr.txn_count, 10))
 
 	return buf.String()
 }
 
 func (hr *HeaderRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, hr.version)
-	binary.Write(buf, binary.LittleEndian, hr.hash)
-	binary.Write(buf, binary.LittleEndian, hr.prev)
-	binary.Write(buf, binary.LittleEndian, hr.root)
-	binary.Write(buf, binary.LittleEndian, hr.mined.Unix())
-	binary.Write(buf, binary.LittleEndian, hr.difficulty)
-	binary.Write(buf, binary.LittleEndian, hr.nonce)
+	binary.Write(buf, binary.LittleEndian, hr.block_hash)
 
 	return buf.Bytes()
 }

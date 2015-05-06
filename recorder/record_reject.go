@@ -40,13 +40,13 @@ func NewRejectRecord(msg *wire.MsgReject, ra *net.TCPAddr,
 
 func (rr *RejectRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString(rr.stamp.String())
+	buf.WriteString(rr.cmd)
+	buf.WriteString(" ")
+	buf.WriteString(rr.stamp.Format(time.RFC3339Nano))
 	buf.WriteString(" ")
 	buf.WriteString(rr.ra.String())
 	buf.WriteString(" ")
 	buf.WriteString(rr.la.String())
-	buf.WriteString(" ")
-	buf.WriteString(rr.cmd)
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatInt(int64(rr.code), 10))
 	buf.WriteString(" ")

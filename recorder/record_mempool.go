@@ -30,13 +30,13 @@ func NewMemPoolRecord(msg *wire.MsgMemPool, ra *net.TCPAddr,
 
 func (mr *MemPoolRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString(mr.stamp.String())
+	buf.WriteString(mr.cmd)
+	buf.WriteString(" ")
+	buf.WriteString(mr.stamp.Format(time.RFC3339Nano))
 	buf.WriteString(" ")
 	buf.WriteString(mr.ra.String())
 	buf.WriteString(" ")
 	buf.WriteString(mr.la.String())
-	buf.WriteString(" ")
-	buf.WriteString(mr.cmd)
 
 	return buf.String()
 }
