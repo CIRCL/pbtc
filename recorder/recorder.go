@@ -266,7 +266,7 @@ WriteLoop:
 			rec.checkTime()
 
 		case txt := <-rec.txtQ:
-			_, err := rec.txtFile.WriteString(txt + "\n")
+			_, err := rec.txtFile.WriteString("\n" + txt)
 			if err != nil {
 				rec.log.Error("[REC] Could not write txt file (%v)", err)
 			}
@@ -274,7 +274,12 @@ WriteLoop:
 			rec.checkTxtSize()
 
 		case bin := <-rec.binQ:
-			_, err := rec.binFile.Write(bin)
+			_, err := rec.binFile.Write([]byte("\n"))
+			if err != nil {
+				rec.log.Error("[REC] Could not write newline (%v)", err)
+			}
+
+			_, err = rec.binFile.Write(bin)
 			if err != nil {
 				rec.log.Error("[REC] Could not write bin file (%v)", err)
 			}

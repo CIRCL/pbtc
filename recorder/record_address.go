@@ -31,7 +31,7 @@ func NewAddressRecord(msg *wire.MsgAddr, ra *net.TCPAddr,
 	}
 
 	for i, na := range msg.AddrList {
-		ar.addrs[i] = NewAddressInfoRecord(na)
+		ar.addrs[i] = NewEntryRecord(na)
 	}
 
 	return ar
@@ -64,12 +64,12 @@ func (ar *AddressRecord) String() string {
 func (ar *AddressRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
 	// header
+	binary.Write(buf, binary.LittleEndian, ParseCommand(ar.cmd)) // 1 byte
 	binary.Write(buf, binary.LittleEndian, ar.stamp.UnixNano())  // 8 bytes
 	binary.Write(buf, binary.LittleEndian, ar.ra.IP.To16())      //16 bytes
 	binary.Write(buf, binary.LittleEndian, uint16(ar.ra.Port))   // 2 bytes
 	binary.Write(buf, binary.LittleEndian, ar.la.IP.To16())      //16 bytes
 	binary.Write(buf, binary.LittleEndian, uint16(ar.la.Port))   // 2 bytes
-	binary.Write(buf, binary.LittleEndian, ParseCommand(ar.cmd)) // 1 byte
 
 	// the protocol allows for a maximum of 1000 addresses, so uint16 will do
 	binary.Write(buf, binary.LittleEndian, uint16(len(ar.addrs))) // 2 bytes
