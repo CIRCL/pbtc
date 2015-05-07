@@ -16,7 +16,7 @@ type AddressRecord struct {
 	ra    *net.TCPAddr
 	cmd   string
 
-	addrs []*AddressInfoRecord
+	addrs []*EntryRecord
 }
 
 func NewAddressRecord(msg *wire.MsgAddr, ra *net.TCPAddr,
@@ -27,7 +27,7 @@ func NewAddressRecord(msg *wire.MsgAddr, ra *net.TCPAddr,
 		la:    la,
 		cmd:   msg.Command(),
 
-		addrs: make([]*AddressInfoRecord, len(msg.AddrList)),
+		addrs: make([]*EntryRecord, len(msg.AddrList)),
 	}
 
 	for i, na := range msg.AddrList {

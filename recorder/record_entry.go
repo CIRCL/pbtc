@@ -12,14 +12,14 @@ import (
 	"github.com/CIRCL/pbtc/util"
 )
 
-type AddressInfoRecord struct {
+type EntryRecord struct {
 	addr     *net.TCPAddr
 	stamp    time.Time
 	services uint64
 }
 
-func NewAddressInfoRecord(na *wire.NetAddress) *AddressInfoRecord {
-	record := &AddressInfoRecord{
+func NewEntryRecord(na *wire.NetAddress) *EntryRecord {
+	record := &EntryRecord{
 		addr:     util.ParseNetAddress(na),
 		stamp:    na.Timestamp,
 		services: uint64(na.Services),
@@ -28,7 +28,7 @@ func NewAddressInfoRecord(na *wire.NetAddress) *AddressInfoRecord {
 	return record
 }
 
-func (ar *AddressInfoRecord) String() string {
+func (ar *EntryRecord) String() string {
 	buf := new(bytes.Buffer)
 
 	// line 1: address information
@@ -41,7 +41,7 @@ func (ar *AddressInfoRecord) String() string {
 	return buf.String()
 }
 
-func (ar *AddressInfoRecord) Bytes() []byte {
+func (ar *EntryRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
 	// the bitcoin protocol uses an uint32 for UNIX timestamps
 	binary.Write(buf, binary.LittleEndian, uint32(ar.stamp.Unix())) //  4 bytes
