@@ -1,6 +1,7 @@
 package recorder
 
 import (
+	"bytes"
 	"net"
 	"os"
 	"sync"
@@ -278,6 +279,8 @@ WriteLoop:
 			if err != nil {
 				rec.log.Error("[REC] Could not write newline (%v)", err)
 			}
+
+			bin = bytes.Replace(bin, []byte("\n"), []byte("\t\t"), -1)
 
 			_, err = rec.binFile.Write(bin)
 			if err != nil {

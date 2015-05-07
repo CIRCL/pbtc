@@ -126,12 +126,39 @@ func (ar *AlertRecord) String() string {
 func (ar *AlertRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
 	// header
+	binary.Write(buf, binary.LittleEndian, ParseCommand(ar.cmd)) //  1 byte
 	binary.Write(buf, binary.LittleEndian, ar.stamp.UnixNano())  //  8 bytes
 	binary.Write(buf, binary.LittleEndian, ar.ra.IP.To16())      // 16 bytes
 	binary.Write(buf, binary.LittleEndian, uint16(ar.ra.Port))   //  2 bytes
 	binary.Write(buf, binary.LittleEndian, ar.la.IP.To16())      // 16 bytes
 	binary.Write(buf, binary.LittleEndian, uint16(ar.la.Port))   //  2 bytes
-	binary.Write(buf, binary.LittleEndian, ParseCommand(ar.cmd)) //  1 byte
+
+	binary.Write(buf, binary.LittleEndian, ar.version)
+	binary.Write(buf, binary.LittleEndian, ar.relayUntil)
+	binary.Write(buf, binary.LittleEndian, ar.expiration)
+	binary.Write(buf, binary.LittleEndian, ar.id)
+	binary.Write(buf, binary.LittleEndian, ar.cancel)
+	binary.Write(buf, binary.LittleEndian, ar.minVer)
+	binary.Write(buf, binary.LittleEndian, ar.maxVer)
+	binary.Write(buf, binary.LittleEndian, ar.priority)
+	binary.Write(buf, binary.LittleEndian, len(ar.comment))
+	binary.Write(buf, binary.LittleEndian, len(ar.statusBar))
+	binary.Write(buf, binary.LittleEndian, len(ar.reserved))
+	binary.Write(buf, binary.LittleEndian, len(ar.setCancel))
+	binary.Write(buf, binary.LittleEndian, len(ar.setSubVer))
+
+	binary.Write(buf, binary.LittleEndian, ar.comment)
+	binary.Write(buf, binary.LittleEndian, ar.statusBar)
+	binary.Write(buf, binary.LittleEndian, ar.reserved)
+
+	for _, cancel := range ar.setCancel {
+		binary.Write(buf, binary.LittleEndian, cancel)
+	}
+
+	for _, subver := range ar.setSubVer {
+		binary.Write(buf, binary.LittleEndian, len(subver))
+		binary.Write(buf, binary.LittleEndian, subver)
+	}
 
 	return buf.Bytes()
 }
