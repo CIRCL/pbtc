@@ -104,7 +104,7 @@ func (ar *AlertRecord) String() string {
 		buf.WriteString(subver)
 	}
 
-	// line 4: comment string withoutnewlines
+	// line 4: comment string without newlines
 	buf.WriteString("\n")
 	buf.WriteString(" ")
 	buf.WriteString(strings.Replace(ar.comment, "\n", " ", -1))

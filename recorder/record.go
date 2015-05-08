@@ -1,6 +1,7 @@
 package recorder
 
 import (
+	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 )
 
@@ -33,6 +34,33 @@ const (
 	MsgVerAck
 	MsgUnknown
 )
+
+func ParseClass(class uint8) string {
+	newclass := txscript.ScriptClass(class)
+
+	switch newclass {
+	case txscript.NonStandardTy:
+		return "nonstandard"
+
+	case txscript.PubKeyTy:
+		return "pubkey"
+
+	case txscript.PubKeyHashTy:
+		return "pubkeyhash"
+
+	case txscript.ScriptHashTy:
+		return "scripthash"
+
+	case txscript.MultiSigTy:
+		return "multisig"
+
+	case txscript.NullDataTy:
+		return "nulldata"
+
+	default:
+		return "invalid"
+	}
+}
 
 func ParseCommand(command string) uint8 {
 	switch command {

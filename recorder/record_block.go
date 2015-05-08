@@ -11,27 +11,27 @@ import (
 )
 
 type BlockRecord struct {
-	stamp time.Time
-	ra    *net.TCPAddr
-	la    *net.TCPAddr
-	cmd   string
-	hdr   *HeaderRecord
-	txs   []*TransactionRecord
+	stamp   time.Time
+	ra      *net.TCPAddr
+	la      *net.TCPAddr
+	cmd     string
+	hdr     *HeaderRecord
+	details []*DetailsRecord
 }
 
 func NewBlockRecord(msg *wire.MsgBlock, ra *net.TCPAddr,
 	la *net.TCPAddr) *BlockRecord {
 	record := &BlockRecord{
-		stamp: time.Now(),
-		ra:    ra,
-		la:    la,
-		cmd:   msg.Command(),
-		hdr:   NewHeaderRecord(&msg.Header),
-		txs:   make([]*TransactionRecord, len(msg.Transactions)),
+		stamp:   time.Now(),
+		ra:      ra,
+		la:      la,
+		cmd:     msg.Command(),
+		hdr:     NewHeaderRecord(&msg.Header),
+		details: make([]*DetailsRecord, len(msg.Transactions)),
 	}
 
 	for i, tx := range msg.Transactions {
-		record.txs[i] = NewTransactionRecord(tx, ra, la)
+		record.details[i] = NewDetailsRecord(tx)
 	}
 
 	return record
@@ -51,9 +51,14 @@ func (br *BlockRecord) String() string {
 	buf.WriteString(" ")
 	buf.WriteString(br.hdr.String())
 	buf.WriteString(" ")
-	buf.WriteString(strconv.FormatInt(int64(len(br.txs)), 10))
+	buf.WriteString(strconv.FormatInt(int64(len(br.details)), 10))
 
-	// should we add transaction summaries here ??
+	// show many lines of details for each transaction
+	for _, tx := range br.details {
+		buf.WriteString("\n")
+		buf.WriteString(" ")
+		buf.WriteString(tx.String())
+	}
 
 	return buf.String()
 }
@@ -67,9 +72,9 @@ func (br *BlockRecord) Bytes() []byte {
 	binary.Write(buf, binary.LittleEndian, uint16(br.la.Port))
 	binary.Write(buf, binary.LittleEndian, ParseCommand(br.cmd))
 	binary.Write(buf, binary.LittleEndian, br.hdr.Bytes())
-	binary.Write(buf, binary.LittleEndian, len(br.txs))
+	binary.Write(buf, binary.LittleEndian, len(br.details))
 
-	for _, tx := range br.txs {
+	for _, tx := range br.details {
 		binary.Write(buf, binary.LittleEndian, tx.Bytes())
 	}
 
