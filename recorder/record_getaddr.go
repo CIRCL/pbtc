@@ -45,12 +45,12 @@ func (gr *GetAddrRecord) String() string {
 
 func (hr *GetAddrRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, hr.stamp.UnixNano())
-	binary.Write(buf, binary.LittleEndian, hr.ra.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(hr.ra.Port))
-	binary.Write(buf, binary.LittleEndian, hr.la.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(hr.la.Port))
-	binary.Write(buf, binary.LittleEndian, ParseCommand(hr.cmd))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(hr.cmd)) //  1
+	binary.Write(buf, binary.LittleEndian, hr.stamp.UnixNano())  //  8
+	binary.Write(buf, binary.LittleEndian, hr.ra.IP.To16())      // 16
+	binary.Write(buf, binary.LittleEndian, uint16(hr.ra.Port))   //  2
+	binary.Write(buf, binary.LittleEndian, hr.la.IP.To16())      // 16
+	binary.Write(buf, binary.LittleEndian, uint16(hr.la.Port))   //  2
 
 	return buf.Bytes()
 }

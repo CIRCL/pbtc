@@ -66,18 +66,19 @@ func (gr *GetBlocksRecord) String() string {
 
 func (gr *GetBlocksRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, gr.stamp.UnixNano())
-	binary.Write(buf, binary.LittleEndian, gr.ra.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(gr.ra.Port))
-	binary.Write(buf, binary.LittleEndian, gr.la.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(gr.la.Port))
-	binary.Write(buf, binary.LittleEndian, ParseCommand(gr.cmd))
-	binary.Write(buf, binary.LittleEndian, gr.stop)
-	binary.Write(buf, binary.LittleEndian, len(gr.hashes))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(gr.cmd))   //  1
+	binary.Write(buf, binary.LittleEndian, gr.stamp.UnixNano())    //  8
+	binary.Write(buf, binary.LittleEndian, gr.ra.IP.To16())        // 16
+	binary.Write(buf, binary.LittleEndian, uint16(gr.ra.Port))     //  2
+	binary.Write(buf, binary.LittleEndian, gr.la.IP.To16())        // 16
+	binary.Write(buf, binary.LittleEndian, uint16(gr.la.Port))     //  2
+	binary.Write(buf, binary.LittleEndian, gr.stop)                // 32
+	binary.Write(buf, binary.LittleEndian, uint32(len(gr.hashes))) //  4
 
-	for _, hash := range gr.hashes {
-		binary.Write(buf, binary.LittleEndian, hash)
+	for _, hash := range gr.hashes { // N
+		binary.Write(buf, binary.LittleEndian, hash) // 32
 	}
 
+	// total: 81 + N*32
 	return buf.Bytes()
 }

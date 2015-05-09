@@ -1,4 +1,3 @@
-- rewrite all log formats & documentation
 - fix block requesting logic
 - add filter for bitcoin/ip addresses (recorder)
 - full comments in all files (meta)

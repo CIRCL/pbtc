@@ -64,23 +64,18 @@ func (ar *AddressRecord) String() string {
 func (ar *AddressRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
 	// header
-	binary.Write(buf, binary.LittleEndian, ParseCommand(ar.cmd)) // 1 byte
-	binary.Write(buf, binary.LittleEndian, ar.stamp.UnixNano())  // 8 bytes
-	binary.Write(buf, binary.LittleEndian, ar.ra.IP.To16())      //16 bytes
-	binary.Write(buf, binary.LittleEndian, uint16(ar.ra.Port))   // 2 bytes
-	binary.Write(buf, binary.LittleEndian, ar.la.IP.To16())      //16 bytes
-	binary.Write(buf, binary.LittleEndian, uint16(ar.la.Port))   // 2 bytes
-
-	// the protocol allows for a maximum of 1000 addresses, so uint16 will do
-	binary.Write(buf, binary.LittleEndian, uint16(len(ar.addrs))) // 2 bytes
+	binary.Write(buf, binary.LittleEndian, ParseCommand(ar.cmd))  //  1
+	binary.Write(buf, binary.LittleEndian, ar.stamp.UnixNano())   //  8
+	binary.Write(buf, binary.LittleEndian, ar.ra.IP.To16())       // 16
+	binary.Write(buf, binary.LittleEndian, uint16(ar.ra.Port))    //  2
+	binary.Write(buf, binary.LittleEndian, ar.la.IP.To16())       // 16
+	binary.Write(buf, binary.LittleEndian, uint16(ar.la.Port))    //  2
+	binary.Write(buf, binary.LittleEndian, uint16(len(ar.addrs))) //  2
 
 	for _, addr := range ar.addrs {
-		// each entry contains timestamp, service flags and tcp address
-		binary.Write(buf, binary.LittleEndian, addr.Bytes()) // 30 bytes
+		binary.Write(buf, binary.LittleEndian, addr.Bytes()) // 30
 	}
 
-	// total: 47 + N*30 bytes
-	// minimum:   77 bytes (N=1)
-	// maximum: 3077 bytes (N=1000)
+	// total: 47 + N*30
 	return buf.Bytes()
 }

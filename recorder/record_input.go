@@ -38,9 +38,10 @@ func (ir *InputRecord) String() string {
 
 func (ir *InputRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ir.hash)
-	binary.Write(buf, binary.LittleEndian, ir.index)
-	binary.Write(buf, binary.LittleEndian, ir.sequence)
+	binary.Write(buf, binary.LittleEndian, ir.hash)     // 32
+	binary.Write(buf, binary.LittleEndian, ir.index)    //  4
+	binary.Write(buf, binary.LittleEndian, ir.sequence) //  4
 
+	// total: 40
 	return buf.Bytes()
 }

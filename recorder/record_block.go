@@ -65,18 +65,19 @@ func (br *BlockRecord) String() string {
 
 func (br *BlockRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, br.stamp.UnixNano())
-	binary.Write(buf, binary.LittleEndian, br.ra.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(br.ra.Port))
-	binary.Write(buf, binary.LittleEndian, br.la.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(br.la.Port))
-	binary.Write(buf, binary.LittleEndian, ParseCommand(br.cmd))
-	binary.Write(buf, binary.LittleEndian, br.hdr.Bytes())
-	binary.Write(buf, binary.LittleEndian, len(br.details))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(br.cmd))    //   1
+	binary.Write(buf, binary.LittleEndian, br.stamp.UnixNano())     //   8
+	binary.Write(buf, binary.LittleEndian, br.ra.IP.To16())         //  16
+	binary.Write(buf, binary.LittleEndian, uint16(br.ra.Port))      //   2
+	binary.Write(buf, binary.LittleEndian, br.la.IP.To16())         //  16
+	binary.Write(buf, binary.LittleEndian, uint16(br.la.Port))      //   2
+	binary.Write(buf, binary.LittleEndian, br.hdr.Bytes())          // 113
+	binary.Write(buf, binary.LittleEndian, uint32(len(br.details))) //   4
 
-	for _, tx := range br.details {
-		binary.Write(buf, binary.LittleEndian, tx.Bytes())
+	for _, tx := range br.details { // N
+		binary.Write(buf, binary.LittleEndian, tx.Bytes()) // X
 	}
 
+	// total: 162 + N*X
 	return buf.Bytes()
 }

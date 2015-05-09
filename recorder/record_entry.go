@@ -43,11 +43,10 @@ func (ar *EntryRecord) String() string {
 
 func (ar *EntryRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	// the bitcoin protocol uses an uint32 for UNIX timestamps
-	binary.Write(buf, binary.LittleEndian, uint32(ar.stamp.Unix())) //  4 bytes
-	binary.Write(buf, binary.LittleEndian, ar.services)             //  8 bytes
-	binary.Write(buf, binary.LittleEndian, ar.addr.IP.To16())       // 16 bytes
-	binary.Write(buf, binary.LittleEndian, uint16(ar.addr.Port))    //  2 bytes
+	binary.Write(buf, binary.LittleEndian, uint32(ar.stamp.Unix())) //  4
+	binary.Write(buf, binary.LittleEndian, ar.services)             //  8
+	binary.Write(buf, binary.LittleEndian, ar.addr.IP.To16())       // 16
+	binary.Write(buf, binary.LittleEndian, uint16(ar.addr.Port))    //  2
 
 	// total: 30 bytes
 	return buf.Bytes()

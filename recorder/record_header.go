@@ -18,7 +18,7 @@ type HeaderRecord struct {
 	timestamp   time.Time
 	bits        uint32
 	nonce       uint32
-	txn_count   uint64
+	txn_count   uint8
 }
 
 func NewHeaderRecord(hdr *wire.BlockHeader) *HeaderRecord {
@@ -54,14 +54,22 @@ func (hr *HeaderRecord) String() string {
 	buf.WriteString(" ")
 	buf.WriteString(strconv.FormatUint(uint64(hr.nonce), 10))
 	buf.WriteString(" ")
-	buf.WriteString(strconv.FormatUint(hr.txn_count, 10))
+	buf.WriteString(strconv.FormatUint(uint64(hr.txn_count), 10))
 
 	return buf.String()
 }
 
 func (hr *HeaderRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, hr.block_hash)
+	binary.Write(buf, binary.LittleEndian, hr.block_hash)               // 32
+	binary.Write(buf, binary.LittleEndian, hr.version)                  //  4
+	binary.Write(buf, binary.LittleEndian, hr.prev_block)               // 32
+	binary.Write(buf, binary.LittleEndian, hr.merkle_root)              // 32
+	binary.Write(buf, binary.LittleEndian, uint32(hr.timestamp.Unix())) //  4
+	binary.Write(buf, binary.LittleEndian, hr.bits)                     //  4
+	binary.Write(buf, binary.LittleEndian, hr.nonce)                    //  4
+	binary.Write(buf, binary.LittleEndian, hr.txn_count)                //  1
 
+	// total: 113
 	return buf.Bytes()
 }

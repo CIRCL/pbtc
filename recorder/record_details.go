@@ -2,6 +2,7 @@ package recorder
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"strconv"
 
@@ -57,6 +58,18 @@ func (dr *DetailsRecord) String() string {
 
 func (dr *DetailsRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, dr.hash)              // 32
+	binary.Write(buf, binary.LittleEndian, uint32(len(dr.ins)))  //  4
+	binary.Write(buf, binary.LittleEndian, uint32(len(dr.outs))) //  4
 
+	for _, input := range dr.ins { // N
+		binary.Write(buf, binary.LittleEndian, input.Bytes()) // 40
+	}
+
+	for _, output := range dr.outs { // M
+		binary.Write(buf, binary.LittleEndian, output.Bytes()) // X
+	}
+
+	// total: 40 + N*40 + M*X
 	return buf.Bytes()
 }
