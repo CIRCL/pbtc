@@ -48,13 +48,14 @@ func (pr *PingRecord) String() string {
 
 func (pr *PingRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, pr.stamp.UnixNano())
-	binary.Write(buf, binary.LittleEndian, pr.ra.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(pr.ra.Port))
-	binary.Write(buf, binary.LittleEndian, pr.la.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(pr.la.Port))
-	binary.Write(buf, binary.LittleEndian, ParseCommand(pr.cmd))
-	binary.Write(buf, binary.LittleEndian, pr.nonce)
+	binary.Write(buf, binary.LittleEndian, ParseCommand(pr.cmd)) // 1
+	binary.Write(buf, binary.LittleEndian, pr.stamp.UnixNano())  // 8
+	binary.Write(buf, binary.LittleEndian, pr.ra.IP.To16())      // 16
+	binary.Write(buf, binary.LittleEndian, uint16(pr.ra.Port))   // 2
+	binary.Write(buf, binary.LittleEndian, pr.la.IP.To16())      // 16
+	binary.Write(buf, binary.LittleEndian, uint16(pr.la.Port))   // 2
+	binary.Write(buf, binary.LittleEndian, pr.nonce)             // 8
 
+	// total: 53
 	return buf.Bytes()
 }

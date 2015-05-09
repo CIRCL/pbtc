@@ -30,7 +30,7 @@ func NewHeaderRecord(hdr *wire.BlockHeader) *HeaderRecord {
 		timestamp:   hdr.Timestamp,
 		bits:        hdr.Bits,
 		nonce:       hdr.Nonce,
-		txn_count:   0, // for some reason this is always zero in ref. client
+		txn_count:   0,
 	}
 
 	return record

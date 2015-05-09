@@ -58,17 +58,18 @@ func (hr *HeadersRecord) String() string {
 
 func (hr *HeadersRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, hr.stamp.UnixNano())
-	binary.Write(buf, binary.LittleEndian, hr.ra.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(hr.ra.Port))
-	binary.Write(buf, binary.LittleEndian, hr.la.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(hr.la.Port))
-	binary.Write(buf, binary.LittleEndian, ParseCommand(hr.cmd))
-	binary.Write(buf, binary.LittleEndian, len(hr.hdrs))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(hr.cmd)) //  1
+	binary.Write(buf, binary.LittleEndian, hr.stamp.UnixNano())  //  8
+	binary.Write(buf, binary.LittleEndian, hr.ra.IP.To16())      // 16
+	binary.Write(buf, binary.LittleEndian, uint16(hr.ra.Port))   //  2
+	binary.Write(buf, binary.LittleEndian, hr.la.IP.To16())      // 16
+	binary.Write(buf, binary.LittleEndian, uint16(hr.la.Port))   //  2
+	binary.Write(buf, binary.LittleEndian, uint32(len(hr.hdrs))) //  4
 
-	for _, hdr := range hr.hdrs {
-		binary.Write(buf, binary.LittleEndian, hdr.Bytes())
+	for _, hdr := range hr.hdrs { // N
+		binary.Write(buf, binary.LittleEndian, hdr.Bytes()) // 113
 	}
 
+	// total: 39 + N*113
 	return buf.Bytes()
 }

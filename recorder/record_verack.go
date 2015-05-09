@@ -43,12 +43,13 @@ func (vr *VerAckRecord) String() string {
 
 func (vr *VerAckRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, vr.stamp.UnixNano())
-	binary.Write(buf, binary.LittleEndian, vr.ra.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(vr.ra.Port))
-	binary.Write(buf, binary.LittleEndian, vr.la.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(vr.la.Port))
-	binary.Write(buf, binary.LittleEndian, ParseCommand(vr.cmd))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(vr.cmd)) //  1
+	binary.Write(buf, binary.LittleEndian, vr.stamp.UnixNano())  //  8
+	binary.Write(buf, binary.LittleEndian, vr.ra.IP.To16())      // 16
+	binary.Write(buf, binary.LittleEndian, uint16(vr.ra.Port))   //  2
+	binary.Write(buf, binary.LittleEndian, vr.la.IP.To16())      // 16
+	binary.Write(buf, binary.LittleEndian, uint16(vr.la.Port))   //  2
 
+	// total: 45
 	return buf.Bytes()
 }

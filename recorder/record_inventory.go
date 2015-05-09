@@ -58,17 +58,18 @@ func (ir *InventoryRecord) String() string {
 
 func (ir *InventoryRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ir.stamp.UnixNano())
-	binary.Write(buf, binary.LittleEndian, ir.ra.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(ir.ra.Port))
-	binary.Write(buf, binary.LittleEndian, ir.la.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(ir.la.Port))
-	binary.Write(buf, binary.LittleEndian, ParseCommand(ir.cmd))
-	binary.Write(buf, binary.LittleEndian, len(ir.inv))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(ir.cmd)) // 1
+	binary.Write(buf, binary.LittleEndian, ir.stamp.UnixNano())  // 8
+	binary.Write(buf, binary.LittleEndian, ir.ra.IP.To16())      // 16
+	binary.Write(buf, binary.LittleEndian, uint16(ir.ra.Port))   // 2
+	binary.Write(buf, binary.LittleEndian, ir.la.IP.To16())      // 16
+	binary.Write(buf, binary.LittleEndian, uint16(ir.la.Port))   // 2
+	binary.Write(buf, binary.LittleEndian, uint16(len(ir.inv)))  // 2
 
-	for _, item := range ir.inv {
-		binary.Write(buf, binary.LittleEndian, item.Bytes())
+	for _, item := range ir.inv { // N
+		binary.Write(buf, binary.LittleEndian, item.Bytes()) // 33
 	}
 
+	// total: 47 + N*33
 	return buf.Bytes()
 }

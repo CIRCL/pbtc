@@ -43,12 +43,13 @@ func (mr *MerkleBlockRecord) String() string {
 
 func (mr *MerkleBlockRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, mr.stamp.UnixNano())
-	binary.Write(buf, binary.LittleEndian, mr.ra.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(mr.ra.Port))
-	binary.Write(buf, binary.LittleEndian, mr.la.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(mr.la.Port))
-	binary.Write(buf, binary.LittleEndian, ParseCommand(mr.cmd))
+	binary.Write(buf, binary.LittleEndian, ParseCommand(mr.cmd)) //  1
+	binary.Write(buf, binary.LittleEndian, mr.stamp.UnixNano())  //  8
+	binary.Write(buf, binary.LittleEndian, mr.ra.IP.To16())      // 16
+	binary.Write(buf, binary.LittleEndian, uint16(mr.ra.Port))   //  2
+	binary.Write(buf, binary.LittleEndian, mr.la.IP.To16())      // 16
+	binary.Write(buf, binary.LittleEndian, uint16(mr.la.Port))   //  2
 
+	// total: 45
 	return buf.Bytes()
 }

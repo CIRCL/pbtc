@@ -61,17 +61,18 @@ func (rr *RejectRecord) String() string {
 
 func (rr *RejectRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, rr.stamp.UnixNano())
-	binary.Write(buf, binary.LittleEndian, rr.ra.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(rr.ra.Port))
-	binary.Write(buf, binary.LittleEndian, rr.la.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(rr.la.Port))
-	binary.Write(buf, binary.LittleEndian, ParseCommand(rr.cmd))
-	binary.Write(buf, binary.LittleEndian, rr.code)
-	binary.Write(buf, binary.LittleEndian, ParseCommand(rr.reject))
-	binary.Write(buf, binary.LittleEndian, rr.hash)
-	binary.Write(buf, binary.LittleEndian, len(rr.reason))
-	binary.Write(buf, binary.LittleEndian, rr.reason)
+	binary.Write(buf, binary.LittleEndian, ParseCommand(rr.cmd))    //  1
+	binary.Write(buf, binary.LittleEndian, rr.stamp.UnixNano())     //  8
+	binary.Write(buf, binary.LittleEndian, rr.ra.IP.To16())         // 16
+	binary.Write(buf, binary.LittleEndian, uint16(rr.ra.Port))      //  2
+	binary.Write(buf, binary.LittleEndian, rr.la.IP.To16())         // 16
+	binary.Write(buf, binary.LittleEndian, uint16(rr.la.Port))      //  2
+	binary.Write(buf, binary.LittleEndian, rr.code)                 //  1
+	binary.Write(buf, binary.LittleEndian, ParseCommand(rr.reject)) //  1
+	binary.Write(buf, binary.LittleEndian, rr.hash)                 // 32
+	binary.Write(buf, binary.LittleEndian, uint32(len(rr.reason)))  //  4
+	binary.Write(buf, binary.LittleEndian, rr.reason)               //  X
 
+	// total: 83 + X
 	return buf.Bytes()
 }

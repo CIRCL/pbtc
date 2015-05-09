@@ -82,24 +82,25 @@ func (vr *VersionRecord) String() string {
 
 func (vr *VersionRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, vr.stamp.UnixNano())
-	binary.Write(buf, binary.LittleEndian, vr.ra.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(vr.ra.Port))
-	binary.Write(buf, binary.LittleEndian, vr.la.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(vr.la.Port))
-	binary.Write(buf, binary.LittleEndian, ParseCommand(vr.cmd))
-	binary.Write(buf, binary.LittleEndian, vr.version)
-	binary.Write(buf, binary.LittleEndian, vr.services)
-	binary.Write(buf, binary.LittleEndian, vr.sent.Unix())
-	binary.Write(buf, binary.LittleEndian, vr.raddr.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(vr.raddr.Port))
-	binary.Write(buf, binary.LittleEndian, vr.laddr.IP.To16())
-	binary.Write(buf, binary.LittleEndian, uint16(vr.laddr.Port))
-	binary.Write(buf, binary.LittleEndian, vr.block)
-	binary.Write(buf, binary.LittleEndian, vr.relay)
-	binary.Write(buf, binary.LittleEndian, vr.nonce)
-	binary.Write(buf, binary.LittleEndian, len(vr.agent))
-	binary.Write(buf, binary.LittleEndian, vr.agent)
+	binary.Write(buf, binary.LittleEndian, ParseCommand(vr.cmd))  //  1
+	binary.Write(buf, binary.LittleEndian, vr.stamp.UnixNano())   //  8
+	binary.Write(buf, binary.LittleEndian, vr.ra.IP.To16())       // 16
+	binary.Write(buf, binary.LittleEndian, uint16(vr.ra.Port))    //  2
+	binary.Write(buf, binary.LittleEndian, vr.la.IP.To16())       // 16
+	binary.Write(buf, binary.LittleEndian, uint16(vr.la.Port))    //  2
+	binary.Write(buf, binary.LittleEndian, vr.version)            //  4
+	binary.Write(buf, binary.LittleEndian, vr.services)           //  8
+	binary.Write(buf, binary.LittleEndian, vr.sent.Unix())        //  8
+	binary.Write(buf, binary.LittleEndian, vr.raddr.IP.To16())    // 16
+	binary.Write(buf, binary.LittleEndian, uint16(vr.raddr.Port)) //  2
+	binary.Write(buf, binary.LittleEndian, vr.laddr.IP.To16())    // 16
+	binary.Write(buf, binary.LittleEndian, uint16(vr.laddr.Port)) //  2
+	binary.Write(buf, binary.LittleEndian, vr.block)              //  4
+	binary.Write(buf, binary.LittleEndian, vr.relay)              //  1
+	binary.Write(buf, binary.LittleEndian, vr.nonce)              //  8
+	binary.Write(buf, binary.LittleEndian, uint32(len(vr.agent))) //  4
+	binary.Write(buf, binary.LittleEndian, vr.agent)              //  X
 
+	// total: 114 + X
 	return buf.Bytes()
 }

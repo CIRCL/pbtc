@@ -1,9 +1,12 @@
+- move timestamp to first row
+- add versioning to records
 - fix block requesting logic
 - add filter for bitcoin/ip addresses (recorder)
 - full comments in all files (meta)
 - full logging in all files (logger)
 - add decoding for all records (recorder)
 - add encode & decode tests for all records (recorder)
+- document text & binary format (dox)
 - port range configuration option (manager)
 - invalid/unreachable IP filter (repo)
 - sorted node data structure (repo)
