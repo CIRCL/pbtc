@@ -1,12 +1,8 @@
+- fix peers still getting stuck on shutdown sometimes
 - full comments in all files (meta)
 - full logging in all files (logger)
 - add filter for bitcoin/ip addresses (recorder)
 - port range configuration option (manager)
-- fix manager freezes
-- fix manager running out of addresses
-- fix peer getting stuck on shutdown
-- fix missing disconnects
-- fix version data race
 - add decoding for all records (recorder)
 - add encode & decode tests for all records (recorder)
 - document text & binary format (dox)
@@ -22,4 +18,5 @@
 - structure & dependency injection (docu)
 - add node failure score (repo)
 - add fakes, dummies & tests (testing)
+- profile cpu performance/usage
 - remove logging overhead (logger)

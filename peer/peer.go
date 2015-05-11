@@ -26,10 +26,12 @@ const (
 )
 
 type Peer struct {
-	wg    *sync.WaitGroup
-	sig   chan struct{}
-	sendQ chan wire.Message
-	recvQ chan wire.Message
+	wg         *sync.WaitGroup
+	sigSend    chan struct{}
+	sigRecv    chan struct{}
+	sigProcess chan struct{}
+	sendQ      chan wire.Message
+	recvQ      chan wire.Message
 
 	log  adaptor.Logger
 	mgr  adaptor.Manager
@@ -52,10 +54,12 @@ type Peer struct {
 
 func New(options ...func(*Peer)) (*Peer, error) {
 	p := &Peer{
-		wg:    &sync.WaitGroup{},
-		sig:   make(chan struct{}),
-		sendQ: make(chan wire.Message, 1),
-		recvQ: make(chan wire.Message, 1),
+		wg:         &sync.WaitGroup{},
+		sigSend:    make(chan struct{}),
+		sigRecv:    make(chan struct{}),
+		sigProcess: make(chan struct{}),
+		sendQ:      make(chan wire.Message, 1),
+		recvQ:      make(chan wire.Message, 1),
 
 		network: wire.TestNet3,
 		version: wire.RejectVersion,
@@ -235,7 +239,9 @@ func (p *Peer) shutdown() {
 		return
 	}
 
-	close(p.sig)
+	close(p.sigRecv)
+	close(p.sigProcess)
+	close(p.sigSend)
 
 	p.wg.Wait()
 
@@ -309,7 +315,7 @@ SendLoop:
 	for {
 		select {
 		// signal for shutdown, so break outer loop
-		case _, ok := <-p.sig:
+		case _, ok := <-p.sigSend:
 			if !ok {
 				break SendLoop
 			}
@@ -373,7 +379,7 @@ ReceiveLoop:
 	for {
 		select {
 		// the p has shutdown so break outer loop
-		case _, ok := <-p.sig:
+		case _, ok := <-p.sigRecv:
 			if !ok {
 				break ReceiveLoop
 			}
@@ -415,7 +421,7 @@ func (p *Peer) goProcess() {
 ProcessLoop:
 	for {
 		select {
-		case _, ok := <-p.sig:
+		case _, ok := <-p.sigProcess:
 			if !ok {
 				break ProcessLoop
 			}
@@ -437,7 +443,7 @@ func (p *Peer) processMessage(msg wire.Message) {
 	if atomic.LoadUint32(&p.rcvd) == 0 {
 		_, ok := msg.(*wire.MsgVersion)
 		if !ok {
-			p.log.Warning("%v: out of order non-version message", p.String())
+			p.log.Warning("%v: out of order non-version message", p)
 			p.Stop()
 			return
 		}
