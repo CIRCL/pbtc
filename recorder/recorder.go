@@ -1,7 +1,6 @@
 package recorder
 
 import (
-	"bytes"
 	"net"
 	"os"
 	"sync"
@@ -21,7 +20,6 @@ type Recorder struct {
 	fileTimer  *time.Timer
 	sigWriter  chan struct{}
 	txtQ       chan string
-	binQ       chan []byte
 	txIndex    *parmap.ParMap
 	blockIndex *parmap.ParMap
 
@@ -33,13 +31,10 @@ type Recorder struct {
 	fileSize int64
 	fileAge  time.Duration
 
-	txtFile *os.File
-	binFile *os.File
+	file *os.File
 
 	done         uint32
 	resetLogging bool
-	filterCmd    bool
-	filterIP     bool
 }
 
 func New(options ...func(*Recorder)) (*Recorder, error) {
@@ -49,18 +44,15 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 		ipConfig:   make(map[string]bool),
 		sigWriter:  make(chan struct{}),
 		txtQ:       make(chan string, 1),
-		binQ:       make(chan []byte, 1),
 		txIndex:    parmap.New(),
 		blockIndex: parmap.New(),
 
 		filePath: "records/",
 		fileName: time.Now().String(),
 		fileSize: 1 * 1024 * 1024,
-		fileAge:  1 * time.Minute,
+		fileAge:  1 * 60 * time.Minute,
 
 		resetLogging: false,
-		filterCmd:    false,
-		filterIP:     false,
 	}
 
 	for _, option := range options {
@@ -82,8 +74,7 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 		}
 	}
 
-	rec.rotateTxtLog()
-	rec.rotateBinLog()
+	rec.rotateLog()
 
 	rec.fileTimer = time.NewTimer(rec.fileAge)
 
@@ -132,14 +123,6 @@ func EnableReset() func(*Recorder) {
 
 func (rec *Recorder) Message(msg wire.Message, ra *net.TCPAddr,
 	la *net.TCPAddr) {
-	if rec.filterCmd && !rec.cmdConfig[msg.Command()] {
-		return
-	}
-
-	if rec.filterIP && !rec.ipConfig[ra.IP.String()] {
-		return
-	}
-
 	var record Record
 
 	switch m := msg.(type) {
@@ -218,14 +201,12 @@ func (rec *Recorder) Message(msg wire.Message, ra *net.TCPAddr,
 	}
 
 	rec.txtQ <- record.String()
-	rec.binQ <- record.Bytes()
 }
 
 func (rec *Recorder) Cleanup() {
 	rec.shutdown()
 	rec.wg.Wait()
-	rec.txtFile.Close()
-	rec.binFile.Close()
+	rec.file.Close()
 }
 
 func (rec *Recorder) startup() {
@@ -256,27 +237,12 @@ WriteLoop:
 			rec.checkTime()
 
 		case txt := <-rec.txtQ:
-			_, err := rec.txtFile.WriteString("\n" + txt)
+			_, err := rec.file.WriteString("\n" + txt)
 			if err != nil {
 				rec.log.Error("[REC] Could not write txt file (%v)", err)
 			}
 
-			rec.checkTxtSize()
-
-		case bin := <-rec.binQ:
-			_, err := rec.binFile.Write([]byte("\n"))
-			if err != nil {
-				rec.log.Error("[REC] Could not write newline (%v)", err)
-			}
-
-			bin = bytes.Replace(bin, []byte("\n"), []byte("\t\t"), -1)
-
-			_, err = rec.binFile.Write(bin)
-			if err != nil {
-				rec.log.Error("[REC] Could not write bin file (%v)", err)
-			}
-
-			rec.checkBinSize()
+			rec.checkSize()
 		}
 	}
 }
@@ -286,76 +252,43 @@ func (rec *Recorder) checkTime() {
 		return
 	}
 
-	rec.rotateTxtLog()
-	rec.rotateBinLog()
+	rec.rotateLog()
 
 	rec.fileTimer.Reset(rec.fileAge)
 }
 
-func (rec *Recorder) checkTxtSize() {
+func (rec *Recorder) checkSize() {
 	if rec.fileSize == 0 {
 		return
 	}
 
-	statTxt, err := rec.txtFile.Stat()
+	fileStat, err := rec.file.Stat()
 	if err != nil {
 		panic(err)
 	}
 
-	if statTxt.Size() >= rec.fileSize {
-		rec.rotateTxtLog()
+	if fileStat.Size() >= rec.fileSize {
+		rec.rotateLog()
 	}
 }
 
-func (rec *Recorder) checkBinSize() {
-	if rec.fileSize == 0 {
-		return
-	}
-
-	statBin, err := rec.binFile.Stat()
-	if err != nil {
-		panic(err)
-	}
-
-	if statBin.Size() >= rec.fileSize {
-		rec.rotateBinLog()
-	}
-}
-
-func (rec *Recorder) rotateTxtLog() {
-	if rec.txtFile != nil {
-		err := rec.txtFile.Close()
+func (rec *Recorder) rotateLog() {
+	if rec.file != nil {
+		err := rec.file.Close()
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	txtFile, err := os.Create(rec.filePath +
+	file, err := os.Create(rec.filePath +
 		time.Now().Format(time.RFC3339) + ".txt")
 	if err != nil {
 		panic(err)
 	}
 
-	txtFile.WriteString("#")
-	txtFile.WriteString(Version)
-	txtFile.WriteString("\n")
+	file.WriteString("#")
+	file.WriteString(Version)
+	file.WriteString("\n")
 
-	rec.txtFile = txtFile
-}
-
-func (rec *Recorder) rotateBinLog() {
-	if rec.binFile != nil {
-		err := rec.binFile.Close()
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	binFile, err := os.Create(rec.filePath +
-		time.Now().Format(time.RFC3339) + ".bin")
-	if err != nil {
-		panic(err)
-	}
-
-	rec.binFile = binFile
+	rec.file = file
 }

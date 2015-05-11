@@ -28,10 +28,10 @@ const (
 )
 
 type Peer struct {
-	wg      *sync.WaitGroup
-	sigSend chan struct{}
-	sigRecv chan struct{}
-	sendQ   chan wire.Message
+	wg    *sync.WaitGroup
+	sig   chan struct{}
+	sendQ chan wire.Message
+	recvQ chan wire.Message
 
 	log  adaptor.Logger
 	mgr  adaptor.Manager
@@ -54,10 +54,10 @@ type Peer struct {
 
 func New(options ...func(*Peer)) (*Peer, error) {
 	p := &Peer{
-		wg:      &sync.WaitGroup{},
-		sigSend: make(chan struct{}),
-		sigRecv: make(chan struct{}),
-		sendQ:   make(chan wire.Message, bufferSend),
+		wg:    &sync.WaitGroup{},
+		sig:   make(chan struct{}),
+		sendQ: make(chan wire.Message, bufferSend),
+		recvQ: make(chan wire.Message, bufferRecv),
 
 		network: wire.TestNet3,
 		version: wire.RejectVersion,
@@ -226,9 +226,10 @@ func (p *Peer) start() {
 		return
 	}
 
-	p.wg.Add(2)
+	p.wg.Add(3)
 	go p.goSend()
 	go p.goReceive()
+	go p.goProcess()
 }
 
 func (p *Peer) shutdown() {
@@ -236,8 +237,7 @@ func (p *Peer) shutdown() {
 		return
 	}
 
-	close(p.sigSend)
-	close(p.sigRecv)
+	close(p.sig)
 
 	p.wg.Wait()
 
@@ -309,7 +309,7 @@ SendLoop:
 	for {
 		select {
 		// signal for shutdown, so break outer loop
-		case _, ok := <-p.sigSend:
+		case _, ok := <-p.sig:
 			if !ok {
 				break SendLoop
 			}
@@ -373,7 +373,7 @@ ReceiveLoop:
 	for {
 		select {
 		// the p has shutdown so break outer loop
-		case _, ok := <-p.sigRecv:
+		case _, ok := <-p.sig:
 			if !ok {
 				break ReceiveLoop
 			}
@@ -401,13 +401,29 @@ ReceiveLoop:
 			// we successfully received a message, so reset the idle timer and
 			// onte the reception queue for further processing
 			idleTimer.Reset(timeoutIdle)
-			p.processMessage(msg)
+			p.recvQ <- msg
 		}
 	}
 
 	p.Stop()
 
 	p.log.Debug("[PEER] %v receive routine stopped", p)
+}
+
+func (p *Peer) goProcess() {
+	defer p.wg.Done()
+ProcessLoop:
+	for {
+		select {
+		case _, ok := <-p.sig:
+			if !ok {
+				break ProcessLoop
+			}
+
+		case msg := <-p.recvQ:
+			p.processMessage(msg)
+		}
+	}
 }
 
 // handleMessages is the handler to process messages from our reception queue.

@@ -1,4 +1,3 @@
-- add versioning to records
 - add filter for bitcoin/ip addresses (recorder)
 - fix block requesting logic
 - full comments in all files (meta)
