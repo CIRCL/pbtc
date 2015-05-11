@@ -35,21 +35,20 @@ func NewDetailsRecord(msg *wire.MsgTx) *DetailsRecord {
 
 func (dr *DetailsRecord) String() string {
 	buf := new(bytes.Buffer)
+
 	buf.WriteString(hex.EncodeToString(dr.hash[:]))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(strconv.FormatInt(int64(len(dr.ins)), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(strconv.FormatInt(int64(len(dr.outs)), 10))
 
 	for _, input := range dr.ins {
-		buf.WriteString("\n")
-		buf.WriteString(" ")
+		buf.WriteString(Delimiter2)
 		buf.WriteString(input.String())
 	}
 
 	for _, output := range dr.outs {
-		buf.WriteString("\n")
-		buf.WriteString(" ")
+		buf.WriteString(Delimiter2)
 		buf.WriteString(output.String())
 	}
 

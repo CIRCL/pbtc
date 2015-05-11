@@ -39,21 +39,20 @@ func NewHeaderRecord(hdr *wire.BlockHeader) *HeaderRecord {
 func (hr *HeaderRecord) String() string {
 	buf := new(bytes.Buffer)
 
-	// line 1: header information
 	buf.WriteString(hex.EncodeToString(hr.block_hash[:]))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(strconv.FormatInt(int64(hr.version), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(hex.EncodeToString(hr.prev_block[:]))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(hex.EncodeToString(hr.merkle_root[:]))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(strconv.FormatInt(hr.timestamp.Unix(), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(strconv.FormatUint(uint64(hr.bits), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(strconv.FormatUint(uint64(hr.nonce), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(strconv.FormatUint(uint64(hr.txn_count), 10))
 
 	return buf.String()

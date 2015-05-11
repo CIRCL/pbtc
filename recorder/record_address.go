@@ -40,21 +40,18 @@ func NewAddressRecord(msg *wire.MsgAddr, ra *net.TCPAddr,
 func (ar *AddressRecord) String() string {
 	buf := new(bytes.Buffer)
 
-	// line 1: header + address count
-	buf.WriteString(ar.cmd)
-	buf.WriteString(" ")
 	buf.WriteString(ar.stamp.Format(time.RFC3339Nano))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
+	buf.WriteString(ar.cmd)
+	buf.WriteString(Delimiter1)
 	buf.WriteString(ar.ra.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(ar.la.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(strconv.FormatInt(int64(len(ar.addrs)), 10))
 
-	// line 2 - (n+1): address information
 	for _, addr := range ar.addrs {
-		buf.WriteString("\n")
-		buf.WriteString(" ")
+		buf.WriteString(Delimiter2)
 		buf.WriteString(addr.String())
 	}
 

@@ -50,7 +50,7 @@ func main() {
 	)
 	if err != nil {
 		log.Critical("Unable to create repository (%v)", err)
-		os.Exit(1)
+		os.Exit(2)
 	}
 
 	// recorder
@@ -61,7 +61,7 @@ func main() {
 	)
 	if err != nil {
 		log.Critical("Unable to initialize recorder (%v)", err)
-		os.Exit(1)
+		os.Exit(3)
 	}
 
 	// manager
@@ -73,11 +73,11 @@ func main() {
 		manager.SetVersion(wire.RejectVersion),
 		manager.SetConnectionRate(time.Second/25),
 		manager.SetInformationRate(time.Second*10),
-		manager.SetPeerLimit(100),
+		manager.SetPeerLimit(1000),
 	)
 	if err != nil {
 		log.Critical("Unable to create manager (%v)", err)
-		os.Exit(1)
+		os.Exit(4)
 	}
 
 	log.Info("[PBTC] All modules initialization complete")

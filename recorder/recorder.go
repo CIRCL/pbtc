@@ -82,12 +82,14 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 		}
 	}
 
-	txtFile, err := os.Create(rec.filePath + time.Now().String() + ".txt")
+	txtFile, err := os.Create(rec.filePath +
+		time.Now().Format(time.RFC3339) + ".txt")
 	if err != nil {
 		return nil, err
 	}
 
-	binFile, err := os.Create(rec.filePath + time.Now().String() + ".bin")
+	binFile, err := os.Create(rec.filePath +
+		time.Now().Format(time.RFC3339) + ".bin")
 	if err != nil {
 		txtFile.Close()
 		return nil, err
@@ -328,7 +330,8 @@ func (rec *Recorder) checkBinSize() {
 func (rec *Recorder) rotateTxtLog() {
 	_ = rec.txtFile.Close()
 
-	txtFile, err := os.Create(rec.filePath + time.Now().String() + ".txt")
+	txtFile, err := os.Create(rec.filePath +
+		time.Now().Format(time.RFC3339) + ".txt")
 	if err != nil {
 		panic(err)
 	}
@@ -339,7 +342,8 @@ func (rec *Recorder) rotateTxtLog() {
 func (rec *Recorder) rotateBinLog() {
 	_ = rec.binFile.Close()
 
-	binFile, err := os.Create(rec.filePath + time.Now().String() + ".bin")
+	binFile, err := os.Create(rec.filePath +
+		time.Now().Format(time.RFC3339) + ".bin")
 	if err != nil {
 		panic(err)
 	}

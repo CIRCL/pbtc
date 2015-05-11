@@ -41,23 +41,20 @@ func NewGetBlocksRecord(msg *wire.MsgGetBlocks, ra *net.TCPAddr,
 func (gr *GetBlocksRecord) String() string {
 	buf := new(bytes.Buffer)
 
-	// line 1: header + stop hash + locator list length
-	buf.WriteString(gr.cmd)
-	buf.WriteString(" ")
 	buf.WriteString(gr.stamp.Format(time.RFC3339Nano))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
+	buf.WriteString(gr.cmd)
+	buf.WriteString(Delimiter1)
 	buf.WriteString(gr.ra.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(gr.la.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(hex.EncodeToString(gr.stop[:]))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(strconv.FormatInt(int64(len(gr.hashes)), 10))
 
-	// line 2: block locater hashes
-	buf.WriteString("\n")
 	for _, hash := range gr.hashes {
-		buf.WriteString(" ")
+		buf.WriteString(Delimiter2)
 		buf.WriteString(hex.EncodeToString(hash[:]))
 	}
 

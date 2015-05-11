@@ -40,23 +40,21 @@ func NewBlockRecord(msg *wire.MsgBlock, ra *net.TCPAddr,
 func (br *BlockRecord) String() string {
 	buf := new(bytes.Buffer)
 
-	// line 1: header + block header information + tx number
-	buf.WriteString(br.cmd)
-	buf.WriteString(" ")
 	buf.WriteString(br.stamp.Format(time.RFC3339Nano))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
+	buf.WriteString(br.cmd)
+	buf.WriteString(Delimiter1)
 	buf.WriteString(br.ra.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(br.la.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(br.hdr.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(strconv.FormatInt(int64(len(br.details)), 10))
 
-	// show many lines of details for each transaction
+	buf.WriteString(Delimiter1)
 	for _, tx := range br.details {
-		buf.WriteString("\n")
-		buf.WriteString(" ")
+		buf.WriteString(Delimiter2)
 		buf.WriteString(tx.String())
 	}
 

@@ -2,10 +2,10 @@ package recorder
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"net"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
@@ -61,65 +61,61 @@ func NewAlertRecord(msg *wire.MsgAlert, ra *net.TCPAddr,
 func (ar *AlertRecord) String() string {
 	buf := new(bytes.Buffer)
 
-	// line 1: header + static information
-	buf.WriteString(ar.cmd)
-	buf.WriteString(" ")
 	buf.WriteString(ar.stamp.Format(time.RFC3339Nano))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
+	buf.WriteString(ar.cmd)
+	buf.WriteString(Delimiter1)
 	buf.WriteString(ar.ra.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(ar.la.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(strconv.FormatInt(int64(ar.version), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(strconv.FormatInt(int64(ar.relayUntil), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(strconv.FormatInt(int64(ar.expiration), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(strconv.FormatInt(int64(ar.id), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(strconv.FormatInt(int64(ar.cancel), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(strconv.FormatInt(int64(ar.minVer), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(strconv.FormatInt(int64(ar.maxVer), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(strconv.FormatInt(int64(ar.priority), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(strconv.FormatInt(int64(len(ar.setCancel)), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(strconv.FormatInt(int64(len(ar.setSubVer)), 10))
 
-	// line 2: cancel set items space separated
-	buf.WriteString("\n")
-	for _, cancel := range ar.setCancel {
-		buf.WriteString(" ")
+	buf.WriteString(Delimiter2)
+	for i, cancel := range ar.setCancel {
+		if i != 0 {
+			buf.WriteString(Delimiter3)
+		}
+
 		buf.WriteString(strconv.FormatInt(int64(cancel), 10))
 	}
 
-	// line 3: subversion set items space separated
-	buf.WriteString("\n")
-	for _, subver := range ar.setSubVer {
-		buf.WriteString(" ")
-		buf.WriteString(subver)
+	buf.WriteString(Delimiter2)
+	for i, subver := range ar.setSubVer {
+		if i != 0 {
+			buf.WriteString(Delimiter3)
+		}
+
+		buf.WriteString(base64.StdEncoding.EncodeToString([]byte(subver)))
 	}
 
-	// line 4: comment string without newlines
-	buf.WriteString("\n")
-	buf.WriteString(" ")
-	buf.WriteString(strings.Replace(ar.comment, "\n", " ", -1))
+	buf.WriteString(Delimiter2)
+	buf.WriteString(base64.StdEncoding.EncodeToString([]byte(ar.comment)))
 
-	// line 5: statusbar string without newlines
-	buf.WriteString("\n")
-	buf.WriteString(" ")
-	buf.WriteString(strings.Replace(ar.statusBar, "\n", " ", -1))
+	buf.WriteString(Delimiter2)
+	buf.WriteString(base64.StdEncoding.EncodeToString([]byte(ar.statusBar)))
 
-	// line 6: reserved string without newlines
-	buf.WriteString("\n")
-	buf.WriteString(" ")
-	buf.WriteString(strings.Replace(ar.reserved, "\n", " ", -1))
+	buf.WriteString(Delimiter2)
+	buf.WriteString(base64.StdEncoding.EncodeToString([]byte(ar.reserved)))
 
-	// total: very variable
 	return buf.String()
 }
 

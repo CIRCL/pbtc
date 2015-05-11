@@ -33,14 +33,14 @@ func NewPingRecord(msg *wire.MsgPing, ra *net.TCPAddr,
 
 func (pr *PingRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString(pr.cmd)
-	buf.WriteString(" ")
 	buf.WriteString(pr.stamp.Format(time.RFC3339Nano))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
+	buf.WriteString(pr.cmd)
+	buf.WriteString(Delimiter1)
 	buf.WriteString(pr.ra.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(pr.la.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(strconv.FormatUint(pr.nonce, 10))
 
 	return buf.String()

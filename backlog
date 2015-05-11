@@ -1,7 +1,6 @@
-- move timestamp to first row
 - add versioning to records
-- fix block requesting logic
 - add filter for bitcoin/ip addresses (recorder)
+- fix block requesting logic
 - full comments in all files (meta)
 - full logging in all files (logger)
 - add decoding for all records (recorder)
@@ -9,6 +8,7 @@
 - document text & binary format (dox)
 - port range configuration option (manager)
 - invalid/unreachable IP filter (repo)
+- complete protocol implementation fake (peer)
 - sorted node data structure (repo)
 - black/white lists (repo)
 - api & configuration options (docu)

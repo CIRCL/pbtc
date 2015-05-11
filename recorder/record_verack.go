@@ -30,12 +30,12 @@ func NewVerAckRecord(msg *wire.MsgVerAck, ra *net.TCPAddr,
 
 func (vr *VerAckRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString(vr.cmd)
-	buf.WriteString(" ")
 	buf.WriteString(vr.stamp.Format(time.RFC3339Nano))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
+	buf.WriteString(vr.cmd)
+	buf.WriteString(Delimiter1)
 	buf.WriteString(vr.ra.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(vr.la.String())
 
 	return buf.String()

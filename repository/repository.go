@@ -245,6 +245,10 @@ addrLoop:
 					continue
 				}
 
+				if node.addr.Port != repo.defaultPort {
+					continue
+				}
+
 				repo.log.Debug("[REPO] %v retrieved", node)
 				c <- node.addr
 				continue addrLoop

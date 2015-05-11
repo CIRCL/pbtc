@@ -36,14 +36,14 @@ func NewOutputRecord(txout *wire.TxOut) *OutputRecord {
 func (or *OutputRecord) String() string {
 	buf := new(bytes.Buffer)
 	buf.WriteString(strconv.FormatInt(or.value, 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(ParseClass(or.class))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(strconv.FormatUint(uint64(or.sigs), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(strconv.FormatInt(int64(len(or.addrs)), 10))
 	for _, addr := range or.addrs {
-		buf.WriteString(" ")
+		buf.WriteString(Delimiter3)
 		buf.WriteString(addr.EncodeAddress())
 	}
 

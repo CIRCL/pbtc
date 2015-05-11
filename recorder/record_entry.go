@@ -31,11 +31,10 @@ func NewEntryRecord(na *wire.NetAddress) *EntryRecord {
 func (ar *EntryRecord) String() string {
 	buf := new(bytes.Buffer)
 
-	// line 1: address information
 	buf.WriteString(strconv.FormatInt(ar.stamp.Unix(), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(strconv.FormatUint(ar.services, 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(ar.addr.String())
 
 	return buf.String()

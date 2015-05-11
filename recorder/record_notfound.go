@@ -37,19 +37,18 @@ func NewNotFoundRecord(msg *wire.MsgNotFound, ra *net.TCPAddr,
 
 func (nr *NotFoundRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString(nr.cmd)
-	buf.WriteString(" ")
 	buf.WriteString(nr.stamp.Format(time.RFC3339Nano))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
+	buf.WriteString(nr.cmd)
+	buf.WriteString(Delimiter1)
 	buf.WriteString(nr.ra.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(nr.la.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(strconv.FormatInt(int64(len(nr.inv)), 10))
 
 	for _, item := range nr.inv {
-		buf.WriteString("\n")
-		buf.WriteString(" ")
+		buf.WriteString(Delimiter2)
 		buf.WriteString(item.String())
 	}
 

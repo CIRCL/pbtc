@@ -32,14 +32,14 @@ func NewTransactionRecord(msg *wire.MsgTx, ra *net.TCPAddr,
 
 func (tr *TransactionRecord) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString(tr.cmd)
-	buf.WriteString(" ")
 	buf.WriteString(tr.stamp.Format(time.RFC3339Nano))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
+	buf.WriteString(tr.cmd)
+	buf.WriteString(Delimiter1)
 	buf.WriteString(tr.ra.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(tr.la.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(tr.details.String())
 
 	return buf.String()

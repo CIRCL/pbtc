@@ -31,13 +31,12 @@ func NewGetAddrRecord(msg *wire.MsgGetAddr, ra *net.TCPAddr,
 func (gr *GetAddrRecord) String() string {
 	buf := new(bytes.Buffer)
 
-	// line 1: header
-	buf.WriteString(gr.cmd)
-	buf.WriteString(" ")
 	buf.WriteString(gr.stamp.Format(time.RFC3339Nano))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
+	buf.WriteString(gr.cmd)
+	buf.WriteString(Delimiter1)
 	buf.WriteString(gr.ra.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(gr.la.String())
 
 	return buf.String()

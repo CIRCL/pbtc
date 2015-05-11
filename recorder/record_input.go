@@ -28,9 +28,9 @@ func NewInputRecord(txin *wire.TxIn) *InputRecord {
 func (ir *InputRecord) String() string {
 	buf := new(bytes.Buffer)
 	buf.WriteString(hex.EncodeToString(ir.hash[:]))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(strconv.FormatUint(uint64(ir.index), 10))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter3)
 	buf.WriteString(strconv.FormatUint(uint64(ir.sequence), 10))
 
 	return buf.String()

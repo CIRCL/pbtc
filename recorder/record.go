@@ -11,6 +11,12 @@ type Record interface {
 }
 
 const (
+	Delimiter1 = "|"
+	Delimiter2 = ","
+	Delimiter3 = "|"
+)
+
+const (
 	MsgAddr = iota
 	MsgAlert
 	MsgBlock

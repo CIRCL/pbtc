@@ -31,13 +31,12 @@ func NewFilterLoadRecord(msg *wire.MsgFilterLoad, ra *net.TCPAddr,
 func (fr *FilterLoadRecord) String() string {
 	buf := new(bytes.Buffer)
 
-	// line 1: header
-	buf.WriteString(fr.cmd)
-	buf.WriteString(" ")
 	buf.WriteString(fr.stamp.Format(time.RFC3339Nano))
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
+	buf.WriteString(fr.cmd)
+	buf.WriteString(Delimiter1)
 	buf.WriteString(fr.ra.String())
-	buf.WriteString(" ")
+	buf.WriteString(Delimiter1)
 	buf.WriteString(fr.la.String())
 
 	return buf.String()
