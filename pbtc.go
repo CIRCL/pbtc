@@ -102,5 +102,14 @@ SigLoop:
 
 	log.Info("[PBTC] All modules shutdown complete")
 
+	for sig := range sigc {
+		log.Notice("Signal caught (%v)", sig.String())
+
+		switch sig {
+		case syscall.SIGINT:
+			panic("AHAHAHAHAHA")
+		}
+	}
+
 	os.Exit(0)
 }

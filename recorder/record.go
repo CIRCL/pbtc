@@ -11,6 +11,10 @@ type Record interface {
 }
 
 const (
+	Version = "PBTC LOG VERSION 1.0"
+)
+
+const (
 	Delimiter1 = "|"
 	Delimiter2 = ","
 	Delimiter3 = "|"

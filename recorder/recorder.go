@@ -82,21 +82,8 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 		}
 	}
 
-	txtFile, err := os.Create(rec.filePath +
-		time.Now().Format(time.RFC3339) + ".txt")
-	if err != nil {
-		return nil, err
-	}
-
-	binFile, err := os.Create(rec.filePath +
-		time.Now().Format(time.RFC3339) + ".bin")
-	if err != nil {
-		txtFile.Close()
-		return nil, err
-	}
-
-	rec.txtFile = txtFile
-	rec.binFile = binFile
+	rec.rotateTxtLog()
+	rec.rotateBinLog()
 
 	rec.fileTimer = time.NewTimer(rec.fileAge)
 
@@ -310,7 +297,11 @@ func (rec *Recorder) checkTxtSize() {
 		return
 	}
 
-	statTxt, _ := rec.txtFile.Stat()
+	statTxt, err := rec.txtFile.Stat()
+	if err != nil {
+		panic(err)
+	}
+
 	if statTxt.Size() >= rec.fileSize {
 		rec.rotateTxtLog()
 	}
@@ -321,14 +312,23 @@ func (rec *Recorder) checkBinSize() {
 		return
 	}
 
-	statBin, _ := rec.binFile.Stat()
+	statBin, err := rec.binFile.Stat()
+	if err != nil {
+		panic(err)
+	}
+
 	if statBin.Size() >= rec.fileSize {
 		rec.rotateBinLog()
 	}
 }
 
 func (rec *Recorder) rotateTxtLog() {
-	_ = rec.txtFile.Close()
+	if rec.txtFile != nil {
+		err := rec.txtFile.Close()
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	txtFile, err := os.Create(rec.filePath +
 		time.Now().Format(time.RFC3339) + ".txt")
@@ -336,11 +336,20 @@ func (rec *Recorder) rotateTxtLog() {
 		panic(err)
 	}
 
+	txtFile.WriteString("#")
+	txtFile.WriteString(Version)
+	txtFile.WriteString("\n")
+
 	rec.txtFile = txtFile
 }
 
 func (rec *Recorder) rotateBinLog() {
-	_ = rec.binFile.Close()
+	if rec.binFile != nil {
+		err := rec.binFile.Close()
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	binFile, err := os.Create(rec.filePath +
 		time.Now().Format(time.RFC3339) + ".bin")
