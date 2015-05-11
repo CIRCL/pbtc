@@ -424,7 +424,6 @@ PeerLoop:
 			mgr.repo.Succeeded(p.Addr())
 			p.Poll()
 
-		// whenever there is an expired peer to be removed, process it
 		case p := <-mgr.peerStopped:
 			if !mgr.peerIndex.Has(p) {
 				mgr.log.Warning("[MGR] %v done unknown", p)

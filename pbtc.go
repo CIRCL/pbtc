@@ -93,17 +93,6 @@ SigLoop:
 		}
 	}
 
-	log.Info("[PBTC] Stopping modules")
-
-	for sig := range sigc {
-		log.Notice("Signal caught (%v)", sig.String())
-
-		switch sig {
-		case syscall.SIGINT:
-			panic("AHAHAHAHAHA")
-		}
-	}
-
 	mgr.Stop()
 	repo.Stop()
 
