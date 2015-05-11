@@ -277,7 +277,8 @@ func (p *Peer) parse() error {
 // the error if we didn't succeed.
 func (p *Peer) sendMessage(msg wire.Message) error {
 	p.conn.SetWriteDeadline(time.Now().Add(timeoutSend))
-	err := wire.WriteMessage(p.conn, msg, p.version, p.network)
+	version := atomic.LoadUint32(&p.version)
+	err := wire.WriteMessage(p.conn, msg, version, p.network)
 
 	return err
 }
@@ -287,7 +288,8 @@ func (p *Peer) sendMessage(msg wire.Message) error {
 /// the read message as well as the error.
 func (p *Peer) recvMessage() (wire.Message, error) {
 	p.conn.SetReadDeadline(time.Now().Add(timeoutRecv))
-	msg, _, err := wire.ReadMessage(p.conn, p.version, p.network)
+	version := atomic.LoadUint32(&p.version)
+	msg, _, err := wire.ReadMessage(p.conn, version, p.network)
 
 	return msg, err
 }
@@ -462,7 +464,9 @@ func (p *Peer) processMessage(msg wire.Message) {
 			return
 		}
 
-		p.version = util.MinUint32(p.version, uint32(m.ProtocolVersion))
+		version := atomic.LoadUint32(&p.version)
+		version = util.MinUint32(version, uint32(m.ProtocolVersion))
+		atomic.StoreUint32(&p.version, version)
 
 		p.pushVersion()
 		p.pushVerAck()
