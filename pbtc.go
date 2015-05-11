@@ -104,8 +104,8 @@ SigLoop:
 		}
 	}
 
-	//mgr.Stop()
-	//repo.Stop()
+	mgr.Stop()
+	repo.Stop()
 
 	log.Info("[PBTC] All modules shutdown complete")
 
