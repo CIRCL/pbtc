@@ -140,7 +140,7 @@ func (repo *Repository) Connected(addr *net.TCPAddr) {
 }
 
 func (repo *Repository) Succeeded(addr *net.TCPAddr) {
-	repo.addrConnected <- addr
+	repo.addrSucceeded <- addr
 }
 
 func (repo *Repository) Retrieve(c chan<- *net.TCPAddr) {
@@ -289,7 +289,7 @@ addrLoop:
 		case addr := <-repo.addrSucceeded:
 			n, ok := repo.nodeIndex[addr.String()]
 			if !ok {
-				repo.log.Warning("[REPO] %v succeded unknown", addr)
+				repo.log.Warning("[REPO] %v succeeded unknown", addr)
 				continue
 			}
 

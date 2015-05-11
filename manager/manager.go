@@ -342,7 +342,7 @@ PeerLoop:
 			}
 
 			if mgr.peerIndex.Count() >= mgr.peerLimit {
-				mgr.log.Debug("[MGR] %v discarded, limit reached")
+				mgr.log.Debug("[MGR] %v discarded, limit reached", addr)
 				continue
 			}
 
@@ -375,7 +375,7 @@ PeerLoop:
 			}
 
 			if mgr.peerIndex.Count() >= mgr.peerLimit {
-				mgr.log.Debug("[MGR] %v disconnected, limit reached")
+				mgr.log.Debug("[MGR] %v disconnected, limit reached", addr)
 				conn.Close()
 				continue
 			}
