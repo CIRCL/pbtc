@@ -315,6 +315,17 @@ func (mgr *Manager) goConnections(listener *net.TCPListener) {
 			break
 		}
 
+		addr, ok := conn.RemoteAddr().(*net.TCPAddr)
+		if !ok {
+			conn.Close()
+			break
+		}
+
+		if addr.Port != 8333 {
+			conn.Close()
+			break
+		}
+
 		mgr.connQ <- conn
 	}
 

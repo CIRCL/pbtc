@@ -15,8 +15,6 @@ import (
 )
 
 const (
-	bufferSend   = 1
-	bufferRecv   = 1
 	timeoutDial  = 1 * time.Second
 	timeoutSend  = 1 * time.Second
 	timeoutRecv  = 1 * time.Second
@@ -56,8 +54,8 @@ func New(options ...func(*Peer)) (*Peer, error) {
 	p := &Peer{
 		wg:    &sync.WaitGroup{},
 		sig:   make(chan struct{}),
-		sendQ: make(chan wire.Message, bufferSend),
-		recvQ: make(chan wire.Message, bufferRecv),
+		sendQ: make(chan wire.Message, 1),
+		recvQ: make(chan wire.Message, 1),
 
 		network: wire.TestNet3,
 		version: wire.RejectVersion,
