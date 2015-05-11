@@ -95,13 +95,6 @@ SigLoop:
 
 	log.Info("[PBTC] Stopping modules")
 
-	go func() {
-		mgr.Stop()
-		repo.Stop()
-	}()
-
-	log.Info("[PBTC] All modules shutdown complete")
-
 	for sig := range sigc {
 		log.Notice("Signal caught (%v)", sig.String())
 
@@ -110,6 +103,11 @@ SigLoop:
 			panic("AHAHAHAHAHA")
 		}
 	}
+
+	//mgr.Stop()
+	//repo.Stop()
+
+	log.Info("[PBTC] All modules shutdown complete")
 
 	os.Exit(0)
 }
