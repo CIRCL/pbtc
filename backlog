@@ -1,4 +1,3 @@
-- fix peers still getting stuck on shutdown sometimes
 - full comments in all files (meta)
 - full logging in all files (logger)
 - add filter for bitcoin/ip addresses (recorder)

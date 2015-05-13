@@ -93,8 +93,25 @@ SigLoop:
 		}
 	}
 
-	mgr.Stop()
-	repo.Stop()
+	// we will initialize shutdown in a non-blocking way
+	c := make(chan struct{})
+	go func() {
+		mgr.Stop()
+		repo.Stop()
+		rec.Stop()
+		c <- struct{}{}
+	}()
+
+	// if the shutdown completes, we simple quit normally
+	// however, if we receive another signal during shutdown, we panic
+	// this allows us to see the stacktrace in case shutdown blocks somewhere
+	select {
+	case <-sigc:
+		panic("SHUTDOWN FAILED")
+
+	case <-c:
+		break
+	}
 
 	log.Info("[PBTC] All modules shutdown complete")
 

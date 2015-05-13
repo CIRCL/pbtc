@@ -22,6 +22,7 @@ type Repository struct {
 	addrSucceeded  chan *net.TCPAddr
 	addrRetrieve   chan chan<- *net.TCPAddr
 	sigAddr        chan struct{}
+	sigRetrieval   chan struct{}
 	tickerBackup   *time.Ticker
 	tickerPoll     *time.Ticker
 	nodeIndex      map[string]*node
@@ -49,6 +50,7 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 		addrSucceeded:  make(chan *net.TCPAddr, 1),
 		addrRetrieve:   make(chan chan<- *net.TCPAddr, 1),
 		sigAddr:        make(chan struct{}),
+		sigRetrieval:   make(chan struct{}),
 		tickerBackup:   time.NewTicker(90 * time.Second),
 		tickerPoll:     time.NewTicker(30 * time.Minute),
 		defaultPort:    18333,
@@ -118,6 +120,7 @@ func (repo *Repository) Stop() {
 		return
 	}
 
+	close(repo.sigRetrieval)
 	close(repo.sigAddr)
 
 	repo.wg.Wait()
@@ -148,7 +151,8 @@ func (repo *Repository) Retrieve(c chan<- *net.TCPAddr) {
 }
 
 func (repo *Repository) start() {
-	repo.wg.Add(1)
+	repo.wg.Add(2)
+	go repo.goRetrieval()
 	go repo.goAddresses()
 
 	repo.log.Info("[REPO] Initialization complete")
@@ -206,26 +210,16 @@ func (repo *Repository) restore() {
 	}
 }
 
-func (repo *Repository) goAddresses() {
+func (repo *Repository) goRetrieval() {
 	defer repo.wg.Done()
 
-	repo.log.Info("[REPO] Address routine started")
-
-addrLoop:
+retrievalLoop:
 	for {
 		select {
-		case _, ok := <-repo.sigAddr:
+		case _, ok := <-repo.sigRetrieval:
 			if !ok {
-				break addrLoop
+				break retrievalLoop
 			}
-
-		case <-repo.tickerBackup.C:
-			repo.log.Info("[REPO] Saving node index")
-			repo.save()
-
-		case <-repo.tickerPoll.C:
-			repo.log.Info("[REPO] Polling DNS seeds")
-			repo.bootstrap()
 
 		case c := <-repo.addrRetrieve:
 			for _, node := range repo.nodeIndex {
@@ -251,8 +245,32 @@ addrLoop:
 
 				repo.log.Debug("[REPO] %v retrieved", node)
 				c <- node.addr
-				continue addrLoop
+				continue retrievalLoop
 			}
+		}
+	}
+}
+
+func (repo *Repository) goAddresses() {
+	defer repo.wg.Done()
+
+	repo.log.Info("[REPO] Address routine started")
+
+addrLoop:
+	for {
+		select {
+		case _, ok := <-repo.sigAddr:
+			if !ok {
+				break addrLoop
+			}
+
+		case <-repo.tickerBackup.C:
+			repo.log.Info("[REPO] Saving node index")
+			repo.save()
+
+		case <-repo.tickerPoll.C:
+			repo.log.Info("[REPO] Polling DNS seeds")
+			repo.bootstrap()
 
 		case addr := <-repo.addrDiscovered:
 			n, ok := repo.nodeIndex[addr.String()]

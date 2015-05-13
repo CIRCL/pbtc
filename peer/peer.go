@@ -430,6 +430,19 @@ ProcessLoop:
 			p.processMessage(msg)
 		}
 	}
+
+	timer := time.NewTimer(timeoutDrain)
+
+DrainRecvLoop:
+	for {
+		select {
+		case <-timer.C:
+			break DrainRecvLoop
+
+		case <-p.recvQ:
+			p.log.Debug("[PEER] %v drained recv message", p)
+		}
+	}
 }
 
 // handleMessages is the handler to process messages from our reception queue.

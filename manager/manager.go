@@ -213,16 +213,12 @@ func (mgr *Manager) shutdown() {
 		listener.Close()
 	}
 
+	close(mgr.peerSig)
+
 	for s := range mgr.peerIndex.Iter() {
 		p := s.(adaptor.Peer)
 		p.Stop()
 	}
-
-	for mgr.peerIndex.Count() > 0 {
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	close(mgr.peerSig)
 
 	mgr.wg.Wait()
 }
@@ -448,6 +444,30 @@ PeerLoop:
 			if !ok {
 				break PeerLoop
 			}
+		}
+	}
+
+	// drain all channels until all peers have stopped
+	for mgr.peerIndex.Count() > 0 {
+		select {
+		case <-mgr.addrQ:
+			break
+
+		case conn := <-mgr.connQ:
+			conn.Close()
+			break
+
+		case p := <-mgr.peerConnected:
+			p.Stop()
+			break
+
+		case p := <-mgr.peerReady:
+			p.Stop()
+			break
+
+		case p := <-mgr.peerStopped:
+			mgr.peerIndex.Remove(p)
+			break
 		}
 	}
 

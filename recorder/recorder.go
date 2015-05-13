@@ -203,23 +203,19 @@ func (rec *Recorder) Message(msg wire.Message, ra *net.TCPAddr,
 	rec.txtQ <- record.String()
 }
 
-func (rec *Recorder) Cleanup() {
-	rec.shutdown()
-	rec.wg.Wait()
-	rec.file.Close()
-}
-
-func (rec *Recorder) startup() {
-	rec.wg.Add(1)
-	go rec.goWriter()
-}
-
-func (rec *Recorder) shutdown() {
+func (rec *Recorder) Stop() {
 	if atomic.SwapUint32(&rec.done, 1) == 1 {
 		return
 	}
 
 	close(rec.sigWriter)
+
+	rec.wg.Wait()
+}
+
+func (rec *Recorder) startup() {
+	rec.wg.Add(1)
+	go rec.goWriter()
 }
 
 func (rec *Recorder) goWriter() {
@@ -245,6 +241,8 @@ WriteLoop:
 			rec.checkSize()
 		}
 	}
+
+	rec.file.Close()
 }
 
 func (rec *Recorder) checkTime() {
