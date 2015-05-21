@@ -25,6 +25,9 @@ const (
 	agentVersion = "0.9.3"
 )
 
+// Peer represents a single peer that we communicate with on the network. It
+// groups together all necessary parameters, as well as queues and communication
+// functions.
 type Peer struct {
 	wg         *sync.WaitGroup
 	sigSend    chan struct{}
@@ -52,6 +55,8 @@ type Peer struct {
 	rcvd    uint32
 }
 
+// New creates a new Peer withthe given options. If required options are missing
+// it returns an error as second return value.
 func New(options ...func(*Peer)) (*Peer, error) {
 	p := &Peer{
 		wg:         &sync.WaitGroup{},
@@ -93,84 +98,105 @@ func New(options ...func(*Peer)) (*Peer, error) {
 	return p, nil
 }
 
+// SetLogger injects the logger to be used for logging.
 func SetLogger(log adaptor.Logger) func(*Peer) {
 	return func(p *Peer) {
 		p.log = log
 	}
 }
 
+// SetManager injects the manager to notify about relevant changes to status.
 func SetManager(mgr adaptor.Manager) func(*Peer) {
 	return func(p *Peer) {
 		p.mgr = mgr
 	}
 }
 
+// SetRecorder injects the recorder to be used to log events on this connection.
 func SetRecorder(rec adaptor.Recorder) func(*Peer) {
 	return func(p *Peer) {
 		p.rec = rec
 	}
 }
 
+// SetRepository injects the repository to notify about newly discovered peers.
 func SetRepository(repo adaptor.Repository) func(*Peer) {
 	return func(p *Peer) {
 		p.repo = repo
 	}
 }
 
+// SetNetwork sets the type of the network we communicate on. It can be the
+// Bitcoin main network or one of the test networks.
 func SetNetwork(network wire.BitcoinNet) func(*Peer) {
 	return func(p *Peer) {
 		p.network = network
 	}
 }
 
+// SetVersion sets the maximum supported Bitcoin protocol version that we will
+// use to communicate with this peer.
 func SetVersion(version uint32) func(*Peer) {
 	return func(p *Peer) {
 		p.version = version
 	}
 }
 
+// SetNonce sets the nonce that we use to detect connections to self.
 func SetNonce(nonce uint64) func(*Peer) {
 	return func(p *Peer) {
 		p.nonce = nonce
 	}
 }
 
+// SetAddress sets the address that we will try to connect to if no connection
+// has been established yet.
 func SetAddress(addr *net.TCPAddr) func(*Peer) {
 	return func(p *Peer) {
 		p.addr = addr
 	}
 }
 
+// SetConnection sets an established TCP connection that this peer will use
+// for his handshake.
 func SetConnection(conn *net.TCPConn) func(*Peer) {
 	return func(p *Peer) {
 		p.conn = conn
 	}
 }
 
+// String returns the address of this peer as string value.
 func (p *Peer) String() string {
 	return p.addr.String()
 }
 
+// Addr returns the TCP address of this peer.
 func (p *Peer) Addr() *net.TCPAddr {
 	return p.addr
 }
 
+// Connect will try to start a connection attempt in a non-blocking manner.
 func (p *Peer) Connect() {
 	go p.connect()
 }
 
+// Start will try to start the peer sub-routines in a non-blocking manner.
 func (p *Peer) Start() {
 	go p.start()
 }
 
+// Stop will try to initialize peer shutdown in a non-blocking manner.
 func (p *Peer) Stop() {
 	go p.shutdown()
 }
 
+// Greet will queue a greeting message to this peer, used to conform to the
+// protocol.
 func (p *Peer) Greet() {
 	go p.pushVersion()
 }
 
+// Poll will queue a polling message to this peer, used to discover more peers.
 func (p *Peer) Poll() {
 	go p.pushGetAddr()
 }
@@ -186,7 +212,6 @@ func (p *Peer) connect() {
 		return
 	}
 
-	// if we can't establish the connection, abort
 	connGen, err := net.DialTimeout("tcp", p.addr.String(), timeoutDial)
 	if err != nil {
 		p.log.Debug("[PEER] %v connection failed (%v)", p, err)
@@ -194,7 +219,6 @@ func (p *Peer) connect() {
 		return
 	}
 
-	// this should always work
 	conn, ok := connGen.(*net.TCPConn)
 	if !ok {
 		p.log.Warning("[PEER] %v connection type assert failed", p)
@@ -211,7 +235,6 @@ func (p *Peer) connect() {
 
 	p.conn = conn
 
-	// this should also always work...
 	err = p.parse()
 	if err != nil {
 		p.log.Warning("[PEER] %v connection parsing failed", p)
@@ -278,9 +301,6 @@ func (p *Peer) parse() error {
 	return nil
 }
 
-// sendMessage will attempt to write a message on our connection. It will set th
-// deadline in order to respect the timeout defined in our configuration. It wil
-// the error if we didn't succeed.
 func (p *Peer) sendMessage(msg wire.Message) error {
 	p.conn.SetWriteDeadline(time.Now().Add(timeoutSend))
 	version := atomic.LoadUint32(&p.version)
@@ -289,9 +309,6 @@ func (p *Peer) sendMessage(msg wire.Message) error {
 	return err
 }
 
-// recvMessage will attempt to read a message from our connection. It will set t
-// deadline in order to respect the timeout defined in our configuration. It wil
-/// the read message as well as the error.
 func (p *Peer) recvMessage() (wire.Message, error) {
 	p.conn.SetReadDeadline(time.Now().Add(timeoutRecv))
 	version := atomic.LoadUint32(&p.version)
@@ -300,32 +317,24 @@ func (p *Peer) recvMessage() (wire.Message, error) {
 	return msg, err
 }
 
-// handleSend is the handler responsible for sending messages in the queue. It w
-// send messages from the queue and push ping messages if the connection is idli
 func (p *Peer) goSend() {
-	// let the waitgroup know when we are done
 	defer p.wg.Done()
 
 	p.log.Debug("[PEER] %v send routine started", p)
 
-	// initialize the idle timer to see when we didn't send for a while
 	idleTimer := time.NewTimer(timeoutPing)
 
 SendLoop:
 	for {
 		select {
-		// signal for shutdown, so break outer loop
 		case _, ok := <-p.sigSend:
 			if !ok {
 				break SendLoop
 			}
 
-		// we didnt's send a message in a long time, so send a ping
 		case <-idleTimer.C:
 			p.pushPing()
 
-		// try to send the next message in the queue
-		// on timeouts, we skip to next one, on other errors, we stop the p
 		case msg := <-p.sendQ:
 			err := p.sendMessage(msg)
 			if e, ok := err.(net.Error); ok && e.Timeout() {
@@ -340,7 +349,6 @@ SendLoop:
 				break SendLoop
 			}
 
-			// we successfully sent a message, so reset the idle timer
 			idleTimer.Reset(timeoutPing)
 		}
 	}
@@ -363,33 +371,24 @@ DrainLoop:
 	p.log.Debug("[PEER] %v send routine stopped", p)
 }
 
-// handleReceive is the handler responsible for receiving messages and pushing
-// the reception queue. It does not do any processing so that we read all messag
-// as possible.
 func (p *Peer) goReceive() {
-	// let the waitgroup know when we are done
 	defer p.wg.Done()
 
 	p.log.Debug("[PEER] %v receive routine started", p)
 
-	// initialize the timer to see when we didn't receive in a long time
 	idleTimer := time.NewTimer(timeoutIdle)
 
 ReceiveLoop:
 	for {
 		select {
-		// the p has shutdown so break outer loop
 		case _, ok := <-p.sigRecv:
 			if !ok {
 				break ReceiveLoop
 			}
 
-		// we didn't receive a message for too long, so time this p out and dump
 		case <-idleTimer.C:
 			break ReceiveLoop
 
-		// each iteration without other action, we try receiving a message for a
-		// if we time out, we try again, on error we quit
 		default:
 			msg, err := p.recvMessage()
 			if e, ok := err.(net.Error); ok && e.Timeout() {
@@ -404,8 +403,6 @@ ReceiveLoop:
 				break ReceiveLoop
 			}
 
-			// we successfully received a message, so reset the idle timer and
-			// onte the reception queue for further processing
 			idleTimer.Reset(timeoutIdle)
 			p.recvQ <- msg
 		}
@@ -445,7 +442,6 @@ DrainRecvLoop:
 	}
 }
 
-// handleMessages is the handler to process messages from our reception queue.
 func (p *Peer) processMessage(msg wire.Message) {
 	ra, ok1 := p.conn.RemoteAddr().(*net.TCPAddr)
 	la, ok2 := p.conn.LocalAddr().(*net.TCPAddr)
