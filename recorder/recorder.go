@@ -233,7 +233,7 @@ WriteLoop:
 			rec.checkTime()
 
 		case txt := <-rec.txtQ:
-			_, err := rec.file.WriteString("\n" + txt)
+			_, err := rec.file.WriteString(txt + "\n")
 			if err != nil {
 				rec.log.Error("[REC] Could not write txt file (%v)", err)
 			}
@@ -265,9 +265,11 @@ func (rec *Recorder) checkSize() {
 		panic(err)
 	}
 
-	if fileStat.Size() >= rec.fileSize {
-		rec.rotateLog()
+	if fileStat.Size() < rec.fileSize {
+		return
 	}
+
+	rec.rotateLog()
 }
 
 func (rec *Recorder) rotateLog() {
@@ -284,9 +286,7 @@ func (rec *Recorder) rotateLog() {
 		panic(err)
 	}
 
-	file.WriteString("#")
-	file.WriteString(Version)
-	file.WriteString("\n")
+	file.WriteString("#" + Version + "\n")
 
 	rec.file = file
 }

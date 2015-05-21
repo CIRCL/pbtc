@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"bytes"
 	"encoding/gob"
 	"net"
 	"os"
@@ -276,6 +277,132 @@ addrLoop:
 			n, ok := repo.nodeIndex[addr.String()]
 			if ok {
 				n.numSeen++
+				continue
+			}
+
+			// Filter IPv6 for now
+			ip := addr.IP.To4()
+			if ip == nil {
+				continue
+			}
+
+			// Broadcast
+			rfc1700_1 := net.ParseIP("0.0.0.0")
+			rfc1700_2 := net.ParseIP("0.255.255.255")
+			if bytes.Compare(ip, rfc1700_1) >= 0 &&
+				bytes.Compare(ip, rfc1700_2) <= 0 {
+				continue
+			}
+
+			// LAN class A
+			rfc1918_classa_1 := net.ParseIP("10.0.0.0")
+			rfc1918_classa_2 := net.ParseIP("10.255.255.255")
+			if bytes.Compare(ip, rfc1918_classa_1) >= 0 &&
+				bytes.Compare(ip, rfc1918_classa_2) <= 0 {
+				continue
+			}
+
+			// Carrier-grade NAT
+			rfc6598_1 := net.ParseIP("100.64.0.0")
+			rfc6598_2 := net.ParseIP("100.127.255.255")
+			if bytes.Compare(ip, rfc6598_1) >= 0 &&
+				bytes.Compare(ip, rfc6598_2) <= 0 {
+				continue
+			}
+
+			// Loopback
+			rfc990_1 := net.ParseIP("127.0.0.0")
+			rfc990_2 := net.ParseIP("127.255.255.255")
+			if bytes.Compare(ip, rfc990_1) >= 0 &&
+				bytes.Compare(ip, rfc990_2) <= 0 {
+				continue
+			}
+
+			// Link-local
+			rfc3927_1 := net.ParseIP("169.254.0.0")
+			rfc3927_2 := net.ParseIP("169.254.255.255")
+			if bytes.Compare(ip, rfc3927_1) >= 0 &&
+				bytes.Compare(ip, rfc3927_2) <= 0 {
+				continue
+			}
+
+			// LAN class B
+			rfc1918_classb_1 := net.ParseIP("172.16.0.0")
+			rfc1918_classb_2 := net.ParseIP("172.32.255.255")
+			if bytes.Compare(ip, rfc1918_classb_1) >= 0 &&
+				bytes.Compare(ip, rfc1918_classb_2) <= 0 {
+				continue
+			}
+
+			// Special Purpose Address Registry
+			rfc5736_1 := net.ParseIP("192.0.0.0")
+			rfc5736_2 := net.ParseIP("192.0.0.255")
+			if bytes.Compare(ip, rfc5736_1) >= 0 &&
+				bytes.Compare(ip, rfc5736_2) <= 0 {
+				continue
+			}
+
+			// TEST-NET
+			rfc5737_testnet_1 := net.ParseIP("192.0.2.0")
+			rfc5737_testnet_2 := net.ParseIP("192.0.2.255")
+			if bytes.Compare(ip, rfc5737_testnet_1) >= 0 &&
+				bytes.Compare(ip, rfc5737_testnet_2) <= 0 {
+				continue
+			}
+
+			// 6to4 anycast relays
+			rfc3068_1 := net.ParseIP("192.88.99.0")
+			rfc3068_2 := net.ParseIP("192.88.99.255")
+			if bytes.Compare(ip, rfc3068_1) >= 0 &&
+				bytes.Compare(ip, rfc3068_2) <= 0 {
+				continue
+			}
+
+			// LAN class C
+			rfc1918_classc_1 := net.ParseIP("192.168.0.0")
+			rfc1918_classc_2 := net.ParseIP("192.168.255.255")
+			if bytes.Compare(ip, rfc1918_classc_1) >= 0 &&
+				bytes.Compare(ip, rfc1918_classc_2) <= 0 {
+				continue
+			}
+
+			// Inter-network communications testing
+			rfc2544_1 := net.ParseIP("198.18.0.0")
+			rfc2544_2 := net.ParseIP("198.19.255.255")
+			if bytes.Compare(ip, rfc2544_1) >= 0 &&
+				bytes.Compare(ip, rfc2544_2) <= 0 {
+				continue
+			}
+
+			// TEST-NET-2
+			rfc5737_testnet2_1 := net.ParseIP("198.51.100.0")
+			rfc5737_testnet2_2 := net.ParseIP("198.51.100.255")
+			if bytes.Compare(ip, rfc5737_testnet2_1) >= 0 &&
+				bytes.Compare(ip, rfc5737_testnet2_2) <= 0 {
+				continue
+			}
+
+			// TEST-NET-3
+			rfc5737_testnet3_1 := net.ParseIP("203.0.113.0")
+			rfc5737_testnet3_2 := net.ParseIP("203.0.113.255")
+			if bytes.Compare(ip, rfc5737_testnet3_1) >= 0 &&
+				bytes.Compare(ip, rfc5737_testnet3_2) <= 0 {
+				continue
+			}
+
+			// MULTICAST
+			rfc5771_1 := net.ParseIP("224.0.0.0")
+			rfc5771_2 := net.ParseIP("239.255.255.255")
+			if bytes.Compare(ip, rfc5771_1) >= 0 &&
+				bytes.Compare(ip, rfc5771_2) <= 0 {
+				continue
+			}
+
+			// Reserved
+			rfc6890_1 := net.ParseIP("240.0.0.0")
+			rfc6890_2 := net.ParseIP("255.255.255.255")
+			if bytes.Compare(ip, rfc6890_1) >= 0 &&
+				bytes.Compare(ip, rfc6890_2) <= 0 {
 				continue
 			}
 

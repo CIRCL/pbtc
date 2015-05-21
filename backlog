@@ -1,14 +1,18 @@
-- full comments in all files (meta)
+- pub zeromq adaptor (per line)
+- invalid/unreachable IP filter (repo)
 - full logging in all files (logger)
-- add filter for bitcoin/ip addresses (recorder)
+- full comments in all files (meta)
+- fix manager freeze
+
+----- VERSION 1 feature freeze -----
+
 - port range configuration option (manager)
+- document text & binary format (dox)
+- black/white lists (repo)
 - add decoding for all records (recorder)
 - add encode & decode tests for all records (recorder)
-- document text & binary format (dox)
-- invalid/unreachable IP filter (repo)
 - complete protocol implementation fake (peer)
 - sorted node data structure (repo)
-- black/white lists (repo)
 - api & configuration options (docu)
 - write decent inventory tracking (inv)
 - ip range clustering nodes (repo)
