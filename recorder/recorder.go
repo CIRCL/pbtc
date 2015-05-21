@@ -63,7 +63,7 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 	}
 
 	if rec.comp == nil {
-		rec.comp = compressor.NewCompressorLZ4()
+		rec.comp = compressor.NewLZ4()
 	}
 
 	if rec.resetLogging {

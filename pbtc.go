@@ -11,6 +11,7 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	"github.com/op/go-logging"
 
+	"github.com/CIRCL/pbtc/compressor"
 	"github.com/CIRCL/pbtc/logger"
 	"github.com/CIRCL/pbtc/manager"
 	"github.com/CIRCL/pbtc/recorder"
@@ -58,6 +59,7 @@ func main() {
 		recorder.SetLogger(log),
 		recorder.SetSizeLimit(0),
 		recorder.SetAgeLimit(time.Minute*5),
+		recorder.SetCompressor(compressor.NewLZ4()),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize recorder (%v)", err)
