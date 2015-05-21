@@ -1,6 +1,8 @@
+- comments on public members in all packages
+- improve & complete logging fr all packages
+- extended comments in all packages
+- ip & address filter for recorder
 - fix manager freeze
-- full logging in all files (logger)
-- full comments in all files (meta)
 
 ----- FEATURE FREEZE -----
 

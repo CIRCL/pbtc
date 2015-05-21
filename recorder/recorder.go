@@ -15,6 +15,9 @@ import (
 	"github.com/CIRCL/pbtc/parmap"
 )
 
+// Recorder is responsible for writing records to a file. It can filter events
+// to only show certain types, or limit them to certain IP/Bitcoin addresses.
+// It will periodically rotate the files and supports compression.
 type Recorder struct {
 	wg         *sync.WaitGroup
 	cmdConfig  map[string]bool
@@ -40,6 +43,7 @@ type Recorder struct {
 	resetLogging bool
 }
 
+// New creates a new recorder with the given options.
 func New(options ...func(*Recorder)) (*Recorder, error) {
 	rec := &Recorder{
 		wg:         &sync.WaitGroup{},
@@ -90,12 +94,21 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 	return rec, nil
 }
 
+// SetLogger injects the logger to be used for logging.
 func SetLogger(log adaptor.Logger) func(*Recorder) {
 	return func(rec *Recorder) {
 		rec.log = log
 	}
 }
 
+// SetCompressor injects the compression wrapper to be used on rotation.
+func SetCompressor(comp adaptor.Compressor) func(*Recorder) {
+	return func(rec *Recorder) {
+		rec.comp = comp
+	}
+}
+
+// SetTypes sets the type of events to write to file.
 func SetTypes(cmds ...string) func(*Recorder) {
 	return func(rec *Recorder) {
 		for _, cmd := range cmds {
@@ -104,36 +117,35 @@ func SetTypes(cmds ...string) func(*Recorder) {
 	}
 }
 
-func SetCompressor(comp adaptor.Compressor) func(*Recorder) {
-	return func(rec *Recorder) {
-		rec.comp = comp
-	}
-}
-
+// SetFilePath sets the directory path to the files into.
 func SetFilePath(path string) func(*Recorder) {
 	return func(rec *Recorder) {
 		rec.filePath = path
 	}
 }
 
+// SetSizeLimit sets the size limit upon which the logs will rotate.
 func SetSizeLimit(size int64) func(*Recorder) {
 	return func(rec *Recorder) {
 		rec.fileSize = size
 	}
 }
 
+// SetAgeLimit sets the file age upon which the logs will rotate.
 func SetAgeLimit(age time.Duration) func(*Recorder) {
 	return func(rec *Recorder) {
 		rec.fileAge = age
 	}
 }
 
+// EnableReset will make the logger delete all previous logs in the given path.
 func EnableReset() func(*Recorder) {
 	return func(rec *Recorder) {
 		rec.resetLogging = true
 	}
 }
 
+// Message will process a given message and log it if it's elligible.
 func (rec *Recorder) Message(msg wire.Message, ra *net.TCPAddr,
 	la *net.TCPAddr) {
 	var record Record
@@ -216,6 +228,8 @@ func (rec *Recorder) Message(msg wire.Message, ra *net.TCPAddr,
 	rec.txtQ <- record.String()
 }
 
+// Stop ends the execution of the recorder sub-routines and returns once
+// everything was stopped cleanly.
 func (rec *Recorder) Stop() {
 	if atomic.SwapUint32(&rec.done, 1) == 1 {
 		return
