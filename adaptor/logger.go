@@ -1,5 +1,6 @@
 package adaptor
 
+// Logger defines a common interface to inject logging into most of our modules.
 type Logger interface {
 	Debug(format string, args ...interface{})
 	Info(format string, args ...interface{})

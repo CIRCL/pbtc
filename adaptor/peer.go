@@ -4,6 +4,8 @@ import (
 	"net"
 )
 
+// Peer defines a common interface for managers to communicate with peers. It
+// can be used to implement peers that display different behaviour.
 type Peer interface {
 	String() string
 	Addr() *net.TCPAddr
