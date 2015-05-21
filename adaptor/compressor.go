@@ -5,6 +5,6 @@ import (
 )
 
 type Compressor interface {
-	GetWriter(io.Writer) io.Writer
-	GetReader(io.Reader) io.Reader
+	GetWriter(io.Writer) (io.Writer, error)
+	GetReader(io.Reader) (io.Reader, error)
 }

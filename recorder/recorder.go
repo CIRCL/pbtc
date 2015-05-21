@@ -309,7 +309,7 @@ func (rec *Recorder) rotateLog() {
 }
 
 func (rec *Recorder) compressLog() {
-	_, err = rec.file.Seek(0, 0)
+	_, err := rec.file.Seek(0, 0)
 	if err != nil {
 		rec.log.Warning("[REC] Failed to seek output file (%v)", err)
 		return

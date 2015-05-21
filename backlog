@@ -1,5 +1,3 @@
-- clean-up invalid ip filter
-- clean-up compressor
 - full logging in all files (logger)
 - full comments in all files (meta)
 - fix manager freeze

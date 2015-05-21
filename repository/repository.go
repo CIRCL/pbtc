@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"bytes"
 	"encoding/gob"
 	"net"
 	"os"
@@ -28,8 +27,9 @@ type Repository struct {
 	tickerPoll     *time.Ticker
 	nodeIndex      map[string]*node
 
-	seeds      []string
-	backupPath string
+	seeds        []string
+	backupPath   string
+	invalidRange []*ipRange
 
 	log adaptor.Logger
 
@@ -55,6 +55,7 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 		tickerBackup:   time.NewTicker(90 * time.Second),
 		tickerPoll:     time.NewTicker(30 * time.Minute),
 		defaultPort:    18333,
+		invalidRange:   make([]*ipRange, 0, 16),
 
 		seeds:          []string{"testnet-seed.bitcoin.petertodd.org"},
 		backupPath:     "nodes.dat",
@@ -64,6 +65,22 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 	for _, option := range options {
 		option(repo)
 	}
+
+	repo.addRange(newIPRange("0.0.0.0", "0.255.255.255"))       // RFC1700
+	repo.addRange(newIPRange("10.0.0.0", "10.255.255.255"))     // RFC1918
+	repo.addRange(newIPRange("100.64.0.0", "100.127.255.255"))  // RFC6598
+	repo.addRange(newIPRange("127.0.0.0", "127.255.255.255"))   // RFC990
+	repo.addRange(newIPRange("169.254.0.0", "169.254.255.255")) // RFC3927
+	repo.addRange(newIPRange("172.16.0.0", "172.32.255.255"))   // RFC1918
+	repo.addRange(newIPRange("192.0.0.0", "192.0.0.255"))       // RFC5736
+	repo.addRange(newIPRange("192.0.2.0", "192.0.2.255"))       // RFC5737
+	repo.addRange(newIPRange("192.88.99.0", "192.88.99.255"))   // RFC3068
+	repo.addRange(newIPRange("192.168.0.0", "192.168.255.255")) // RFC1918
+	repo.addRange(newIPRange("198.18.0.0", "198.19.255.255"))   // RFC2544
+	repo.addRange(newIPRange("198.51.100.0", "198.51.100.255")) // RFC5737
+	repo.addRange(newIPRange("203.0.113.0", "203.0.113.255"))   // RFC5737
+	repo.addRange(newIPRange("224.0.0.0", "239.255.255.255"))   // RFC5771
+	repo.addRange(newIPRange("240.0.0.0", "255.255.255.255"))   // RFC6890
 
 	if repo.restoreEnabled {
 		repo.restore()
@@ -211,6 +228,10 @@ func (repo *Repository) restore() {
 	}
 }
 
+func (repo *Repository) addRange(ipRange *ipRange) {
+	repo.invalidRange = append(repo.invalidRange, ipRange)
+}
+
 func (repo *Repository) goRetrieval() {
 	defer repo.wg.Done()
 
@@ -280,130 +301,13 @@ addrLoop:
 				continue
 			}
 
-			// Filter IPv6 for now
 			ip := addr.IP.To4()
-			if ip == nil {
-				continue
-			}
-
-			// Broadcast
-			rfc1700_1 := net.ParseIP("0.0.0.0")
-			rfc1700_2 := net.ParseIP("0.255.255.255")
-			if bytes.Compare(ip, rfc1700_1) >= 0 &&
-				bytes.Compare(ip, rfc1700_2) <= 0 {
-				continue
-			}
-
-			// LAN class A
-			rfc1918_classa_1 := net.ParseIP("10.0.0.0")
-			rfc1918_classa_2 := net.ParseIP("10.255.255.255")
-			if bytes.Compare(ip, rfc1918_classa_1) >= 0 &&
-				bytes.Compare(ip, rfc1918_classa_2) <= 0 {
-				continue
-			}
-
-			// Carrier-grade NAT
-			rfc6598_1 := net.ParseIP("100.64.0.0")
-			rfc6598_2 := net.ParseIP("100.127.255.255")
-			if bytes.Compare(ip, rfc6598_1) >= 0 &&
-				bytes.Compare(ip, rfc6598_2) <= 0 {
-				continue
-			}
-
-			// Loopback
-			rfc990_1 := net.ParseIP("127.0.0.0")
-			rfc990_2 := net.ParseIP("127.255.255.255")
-			if bytes.Compare(ip, rfc990_1) >= 0 &&
-				bytes.Compare(ip, rfc990_2) <= 0 {
-				continue
-			}
-
-			// Link-local
-			rfc3927_1 := net.ParseIP("169.254.0.0")
-			rfc3927_2 := net.ParseIP("169.254.255.255")
-			if bytes.Compare(ip, rfc3927_1) >= 0 &&
-				bytes.Compare(ip, rfc3927_2) <= 0 {
-				continue
-			}
-
-			// LAN class B
-			rfc1918_classb_1 := net.ParseIP("172.16.0.0")
-			rfc1918_classb_2 := net.ParseIP("172.32.255.255")
-			if bytes.Compare(ip, rfc1918_classb_1) >= 0 &&
-				bytes.Compare(ip, rfc1918_classb_2) <= 0 {
-				continue
-			}
-
-			// Special Purpose Address Registry
-			rfc5736_1 := net.ParseIP("192.0.0.0")
-			rfc5736_2 := net.ParseIP("192.0.0.255")
-			if bytes.Compare(ip, rfc5736_1) >= 0 &&
-				bytes.Compare(ip, rfc5736_2) <= 0 {
-				continue
-			}
-
-			// TEST-NET
-			rfc5737_testnet_1 := net.ParseIP("192.0.2.0")
-			rfc5737_testnet_2 := net.ParseIP("192.0.2.255")
-			if bytes.Compare(ip, rfc5737_testnet_1) >= 0 &&
-				bytes.Compare(ip, rfc5737_testnet_2) <= 0 {
-				continue
-			}
-
-			// 6to4 anycast relays
-			rfc3068_1 := net.ParseIP("192.88.99.0")
-			rfc3068_2 := net.ParseIP("192.88.99.255")
-			if bytes.Compare(ip, rfc3068_1) >= 0 &&
-				bytes.Compare(ip, rfc3068_2) <= 0 {
-				continue
-			}
-
-			// LAN class C
-			rfc1918_classc_1 := net.ParseIP("192.168.0.0")
-			rfc1918_classc_2 := net.ParseIP("192.168.255.255")
-			if bytes.Compare(ip, rfc1918_classc_1) >= 0 &&
-				bytes.Compare(ip, rfc1918_classc_2) <= 0 {
-				continue
-			}
-
-			// Inter-network communications testing
-			rfc2544_1 := net.ParseIP("198.18.0.0")
-			rfc2544_2 := net.ParseIP("198.19.255.255")
-			if bytes.Compare(ip, rfc2544_1) >= 0 &&
-				bytes.Compare(ip, rfc2544_2) <= 0 {
-				continue
-			}
-
-			// TEST-NET-2
-			rfc5737_testnet2_1 := net.ParseIP("198.51.100.0")
-			rfc5737_testnet2_2 := net.ParseIP("198.51.100.255")
-			if bytes.Compare(ip, rfc5737_testnet2_1) >= 0 &&
-				bytes.Compare(ip, rfc5737_testnet2_2) <= 0 {
-				continue
-			}
-
-			// TEST-NET-3
-			rfc5737_testnet3_1 := net.ParseIP("203.0.113.0")
-			rfc5737_testnet3_2 := net.ParseIP("203.0.113.255")
-			if bytes.Compare(ip, rfc5737_testnet3_1) >= 0 &&
-				bytes.Compare(ip, rfc5737_testnet3_2) <= 0 {
-				continue
-			}
-
-			// MULTICAST
-			rfc5771_1 := net.ParseIP("224.0.0.0")
-			rfc5771_2 := net.ParseIP("239.255.255.255")
-			if bytes.Compare(ip, rfc5771_1) >= 0 &&
-				bytes.Compare(ip, rfc5771_2) <= 0 {
-				continue
-			}
-
-			// Reserved
-			rfc6890_1 := net.ParseIP("240.0.0.0")
-			rfc6890_2 := net.ParseIP("255.255.255.255")
-			if bytes.Compare(ip, rfc6890_1) >= 0 &&
-				bytes.Compare(ip, rfc6890_2) <= 0 {
-				continue
+			if ip != nil {
+				for _, ipRange := range repo.invalidRange {
+					if ipRange.includes(ip) {
+						continue addrLoop
+					}
+				}
 			}
 
 			repo.log.Debug("[REPO] %v discovered", addr)
