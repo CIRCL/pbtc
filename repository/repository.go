@@ -99,12 +99,14 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 	return repo, nil
 }
 
+// SetLogger injects a logger to be used for logging.
 func SetLogger(log adaptor.Logger) func(*Repository) {
 	return func(repo *Repository) {
 		repo.log = log
 	}
 }
 
+// SetSeeds provides a list of DNS seeds to be used in case of bootstrapping.
 func SetSeeds(seeds ...string) func(*Repository) {
 	return func(repo *Repository) {
 		repo.seeds = make([]string, len(seeds))
@@ -115,24 +117,30 @@ func SetSeeds(seeds ...string) func(*Repository) {
 	}
 }
 
+// SetBackupPath sets the path for saving current address & node information.
 func SetBackupPath(path string) func(*Repository) {
 	return func(repo *Repository) {
 		repo.backupPath = path
 	}
 }
 
+// SetDefaultPort sets the default port to be used for addresses discovered
+// through DNS seeds.
 func SetDefaultPort(port int) func(*Repository) {
 	return func(repo *Repository) {
 		repo.defaultPort = port
 	}
 }
 
+// DisableRestore disables the restoration of previous address & node info
+// from file and will overwrite old information on start-up.
 func DisableRestore() func(*Repository) {
 	return func(repo *Repository) {
 		repo.restoreEnabled = false
 	}
 }
 
+// Stop will end all sub-routines and return on clean exit.
 func (repo *Repository) Stop() {
 	if atomic.SwapUint32(&repo.done, 1) == 1 {
 		return
@@ -148,22 +156,31 @@ func (repo *Repository) Stop() {
 	repo.log.Info("[REPO] Shutdown complete")
 }
 
+// Discovered will submit an address that has been discovered on the Bitcoin
+// network.
 func (repo *Repository) Discovered(addr *net.TCPAddr) {
 	repo.addrDiscovered <- addr
 }
 
+// Attempted will mark an address as having been attempted for connection.
 func (repo *Repository) Attempted(addr *net.TCPAddr) {
 	repo.addrAttempted <- addr
 }
 
+// Connected will mark an address as having been used successfully for a TCP
+// connection.
 func (repo *Repository) Connected(addr *net.TCPAddr) {
 	repo.addrConnected <- addr
 }
 
+// Succeeded will mark an address as having completed the Bitcoin protocol
+// handshake successfully.
 func (repo *Repository) Succeeded(addr *net.TCPAddr) {
 	repo.addrSucceeded <- addr
 }
 
+// Retrieve will send a good candidate address for connecting on the given
+// channel.
 func (repo *Repository) Retrieve(c chan<- *net.TCPAddr) {
 	repo.addrRetrieve <- c
 }

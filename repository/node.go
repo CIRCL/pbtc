@@ -16,7 +16,6 @@ type node struct {
 	lastSucceeded time.Time
 }
 
-// newNode creates a new node for the given address and source.
 func newNode(addr *net.TCPAddr) *node {
 	n := &node{
 		addr:    addr,
