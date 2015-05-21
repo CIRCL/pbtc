@@ -6,18 +6,27 @@ import (
 	"github.com/pierrec/lz4"
 )
 
+// CompressorLZ4 is a wrapper around the LZ4 compression library, allowing
+// run-time creation of readers and writers as interface values.
 type CompressorLZ4 struct{}
 
+// NewLZ4 creates a new wrapper around the LZ4 compression library.
 func NewLZ4() *CompressorLZ4 {
 	comp := &CompressorLZ4{}
 
 	return comp
 }
 
+// GetWriter wraps a new LZ4 writer around the provided writer and returns it
+// as an interface value. This allows us to have a common function signature
+// with other compression libraries.
 func (comp *CompressorLZ4) GetWriter(writer io.Writer) (io.Writer, error) {
 	return lz4.NewWriter(writer), nil
 }
 
+// GetReader wraps a new LZ4 reader around the provided reader and returns it
+// as an interface value. This allows us to have a common function signature
+// with other compression libraries.
 func (comp *CompressorLZ4) GetReader(reader io.Reader) (io.Reader, error) {
 	return lz4.NewReader(reader), nil
 }
