@@ -62,7 +62,8 @@ type Manager struct {
 	done uint32
 }
 
-// NewManager returns a new manager with all necessary variables initialized.
+// New returns a new default initialized manager with all options applied to it
+// subsequently.
 func New(options ...func(mgr *Manager)) (*Manager, error) {
 	mgr := &Manager{
 		wg: &sync.WaitGroup{},
@@ -109,54 +110,69 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 	return mgr, nil
 }
 
+// SetLogger injects a logger into the manager. It is required.
 func SetLogger(log adaptor.Logger) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.log = log
 	}
 }
 
+// SetRepository injects a node repository into the manager. It is required.
 func SetRepository(repo adaptor.Repository) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.repo = repo
 	}
 }
 
+// SetRecorder injects an event recorder into the manager. It is required.
 func SetRecorder(rec adaptor.Recorder) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.rec = rec
 	}
 }
 
+// SetNetwork sets the network on which the manager operatios. It can be the
+// Bitcoin main network or one of the test networks.
 func SetNetwork(network wire.BitcoinNet) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.network = network
 	}
 }
 
+// SetVersion sets the Bitcoin protocol version that the manager uses to
+// initialize its peers.
 func SetVersion(version uint32) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.version = version
 	}
 }
 
+// SetConnectionRate sets the maximum number of TCP connections the manager will
+// try to establish per second
 func SetConnectionRate(connRate time.Duration) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.connRate = connRate
 	}
 }
 
+// SetInformationRate sets the interval at which the manager will log an
+// information summary.
 func SetInformationRate(infoRate time.Duration) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.infoRate = infoRate
 	}
 }
 
+// SetPeerLimit sets the maximum number of peers to manage, which also puts a
+// limit on the maximum number of concurrent TCP connections.
 func SetPeerLimit(peerLimit int) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.peerLimit = peerLimit
 	}
 }
 
+// Stop will shut the manager down and wait for all components to exit cleanly
+// before returning.
 func (mgr *Manager) Stop() {
 	mgr.shutdown()
 	mgr.wg.Wait()
@@ -164,29 +180,39 @@ func (mgr *Manager) Stop() {
 	mgr.log.Info("[MGR] Shutdown complete")
 }
 
+// Connected signals to the manager that we have successfully established a
+// TCP connection to a peer.
 func (mgr *Manager) Connected(p adaptor.Peer) {
 	mgr.peerConnected <- p
 }
 
+// Ready signals to the manager that we have successfully completed the Bitcoin
+// protocol handshake with a peer.
 func (mgr *Manager) Ready(p adaptor.Peer) {
 	mgr.peerReady <- p
 }
 
+// Stopped signals to the manager that the connection to this peer has been
+// shut down.
 func (mgr *Manager) Stopped(p adaptor.Peer) {
 	mgr.peerStopped <- p
 }
 
+// Knows asks the manager if it knows about a certain item on the Bitcoin
+// network already. It is used to cut down on the number of redundant requests
+// and logging.
 func (mgr *Manager) Knows(hash wire.ShaHash) bool {
 	return mgr.invIndex.Has(hash)
 }
 
+// Mark lets the manager known that a certain item has been seen and does not
+// need to be requested or logged again.
 func (mgr *Manager) Mark(hash wire.ShaHash) {
 	mgr.invIndex.Insert(hash)
 }
 
-// Start starts the manager, with run-time options passed in as parameters.
-// us to stop and restart the manager with a different protocol version,
-// repository of nodes.
+// Start commences the execution of the manager sub-routines in a non-blocking
+// way.
 func (mgr *Manager) start() {
 	// listen on local IPs for incoming peers
 	mgr.createListeners()
@@ -200,9 +226,7 @@ func (mgr *Manager) start() {
 	mgr.log.Info("[MGR] Initialization complete")
 }
 
-// Stop cleanly shuts down the manager so it can be restarted later.
 func (mgr *Manager) shutdown() {
-	// we can only stop the manager if we are currently in running state
 	if atomic.SwapUint32(&mgr.done, 1) == 1 {
 		return
 	}
@@ -223,57 +247,43 @@ func (mgr *Manager) shutdown() {
 	mgr.wg.Wait()
 }
 
-// createListeners tries to start a listener on every local IP to accept
-// connections. It should be called as a go routine.
 func (mgr *Manager) createListeners() {
-	// get all IPs on local interfaces and iterate through them
 	ips, err := util.FindLocalIPs()
 	if err != nil {
 		return
 	}
 
 	for _, ip := range ips {
-		// if we can't convert into a TCP address, skip
 		addr := &net.TCPAddr{IP: ip, Port: mgr.defaultPort}
 
-		// if we are already listening on this address, skip
 		_, ok := mgr.listenIndex[addr.String()]
 		if ok {
 			continue
 		}
 
-		// if we can't create the listener, skip
 		listener, err := net.ListenTCP("tcp", addr)
 		if err != nil {
 			continue
 		}
 
-		// add the listener to our index and start an accepting handler
-		// we again need to add it to the waitgroup if we want to exit cleanly
 		mgr.listenIndex[addr.String()] = listener
 		mgr.wg.Add(1)
 		go mgr.goConnections(listener)
 	}
 }
 
-// handleConnections attempts to establish new connections at the configured
-// rate as long as we are not at the maximum number of connections.
 func (mgr *Manager) goAddresses() {
-	// let the waitgroup know when we are done
 	defer mgr.wg.Done()
 	mgr.log.Info("[MGR] Address routine started")
 
 AddressLoop:
 	for {
 		select {
-		// this is the signal to quit, so break the outer loop
 		case _, ok := <-mgr.addrSig:
 			if !ok {
 				break AddressLoop
 			}
 
-		// the ticker will signal each time we can attempt a new connection
-		// if we don't have too many peers yet, try to create a new one
 		case <-mgr.addrTicker.C:
 			if mgr.peerIndex.Count() >= mgr.peerLimit {
 				continue
@@ -286,21 +296,12 @@ AddressLoop:
 	mgr.log.Info("[MGR] Address routine stopped")
 }
 
-// processListener is a dedicated loop to be run for every local IP that we
-// want to listen on. It should be run as a go routine and will try accepting
-// new connections.
 func (mgr *Manager) goConnections(listener *net.TCPListener) {
-	// let the waitgroup know when we are done
 	defer mgr.wg.Done()
 	mgr.log.Info("[MGR] Connection routine started (%v)", listener.Addr())
 
 	for {
-		// try accepting a new connection
 		conn, err := listener.AcceptTCP()
-		// this is ugly, but the listener does not follow the convention of
-		// returning an io.EOF error, but rather an unexported one
-		// we need to treat it separately to keep the logs clean, as this
-		// is how we do a clean and voluntary shutdown of these handlers
 		if err != nil &&
 			strings.Contains(err.Error(), "use of closed network connection") {
 			break
@@ -328,11 +329,7 @@ func (mgr *Manager) goConnections(listener *net.TCPListener) {
 	mgr.log.Info("[MGR] Connection routine stopped (%v)", listener.Addr())
 }
 
-// handlePeers will execute householding operations on new peers and peers
-// that have expired. It should be used to keep track of peers and to convey
-// application state to the peers.
 func (mgr *Manager) goPeers() {
-	// let the waitgroup know when we are done
 	defer mgr.wg.Done()
 	mgr.log.Info("[MGR] Peer routine started")
 
@@ -447,7 +444,6 @@ PeerLoop:
 		}
 	}
 
-	// drain all channels until all peers have stopped
 	for mgr.peerIndex.Count() > 0 {
 		select {
 		case <-mgr.addrQ:
