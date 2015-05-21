@@ -56,8 +56,8 @@ func main() {
 	// recorder
 	rec, err := recorder.New(
 		recorder.SetLogger(log),
-		recorder.SetFileSize(0),
-		recorder.SetFileAge(time.Minute*5),
+		recorder.SetSizeLimit(0),
+		recorder.SetAgeLimit(time.Minute*5),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize recorder (%v)", err)

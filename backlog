@@ -1,11 +1,12 @@
-- pub zeromq adaptor (per line)
-- invalid/unreachable IP filter (repo)
+- clean-up invalid ip filter
+- clean-up compressor
 - full logging in all files (logger)
 - full comments in all files (meta)
 - fix manager freeze
 
 ----- VERSION 1 feature freeze -----
 
+- fix console decompression error at end
 - port range configuration option (manager)
 - document text & binary format (dox)
 - black/white lists (repo)

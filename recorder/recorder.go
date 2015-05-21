@@ -1,6 +1,7 @@
 package recorder
 
 import (
+	"io"
 	"net"
 	"os"
 	"sync"
@@ -10,6 +11,7 @@ import (
 	"github.com/btcsuite/btcd/wire"
 
 	"github.com/CIRCL/pbtc/adaptor"
+	"github.com/CIRCL/pbtc/compressor"
 	"github.com/CIRCL/pbtc/parmap"
 )
 
@@ -23,7 +25,8 @@ type Recorder struct {
 	txIndex    *parmap.ParMap
 	blockIndex *parmap.ParMap
 
-	log adaptor.Logger
+	log  adaptor.Logger
+	comp adaptor.Compressor
 
 	filePath string
 	fileName string
@@ -47,7 +50,7 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 		txIndex:    parmap.New(),
 		blockIndex: parmap.New(),
 
-		filePath: "records/",
+		filePath: "logs/",
 		fileName: time.Now().String(),
 		fileSize: 1 * 1024 * 1024,
 		fileAge:  1 * 60 * time.Minute,
@@ -57,6 +60,10 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 
 	for _, option := range options {
 		option(rec)
+	}
+
+	if rec.comp == nil {
+		rec.comp = compressor.NewCompressorLZ4()
 	}
 
 	if rec.resetLogging {
@@ -97,19 +104,25 @@ func SetTypes(cmds ...string) func(*Recorder) {
 	}
 }
 
+func SetCompressor(comp adaptor.Compressor) func(*Recorder) {
+	return func(rec *Recorder) {
+		rec.comp = comp
+	}
+}
+
 func SetFilePath(path string) func(*Recorder) {
 	return func(rec *Recorder) {
 		rec.filePath = path
 	}
 }
 
-func SetFileSize(size int64) func(*Recorder) {
+func SetSizeLimit(size int64) func(*Recorder) {
 	return func(rec *Recorder) {
 		rec.fileSize = size
 	}
 }
 
-func SetFileAge(age time.Duration) func(*Recorder) {
+func SetAgeLimit(age time.Duration) func(*Recorder) {
 	return func(rec *Recorder) {
 		rec.fileAge = age
 	}
@@ -273,20 +286,50 @@ func (rec *Recorder) checkSize() {
 }
 
 func (rec *Recorder) rotateLog() {
-	if rec.file != nil {
-		err := rec.file.Close()
-		if err != nil {
-			panic(err)
-		}
-	}
-
 	file, err := os.Create(rec.filePath +
 		time.Now().Format(time.RFC3339) + ".txt")
 	if err != nil {
-		panic(err)
+		return
 	}
 
-	file.WriteString("#" + Version + "\n")
+	_, err = file.WriteString("#" + Version + "\n")
+	if err != nil {
+		return
+	}
+
+	if rec.file != nil {
+		rec.compressLog()
+		err = rec.file.Close()
+		if err != nil {
+			rec.log.Warning("[REC] Could not close file on rotate (%v)", err)
+		}
+	}
 
 	rec.file = file
+}
+
+func (rec *Recorder) compressLog() {
+	_, err = rec.file.Seek(0, 0)
+	if err != nil {
+		rec.log.Warning("[REC] Failed to seek output file (%v)", err)
+		return
+	}
+
+	output, err := os.Create(rec.file.Name() + ".out")
+	if err != nil {
+		rec.log.Critical("[REC] Failed to create output file (%v)", err)
+		return
+	}
+
+	writer, err := rec.comp.GetWriter(output)
+	if err != nil {
+		rec.log.Error("[REC] Failed to create output writer (%v)", err)
+		return
+	}
+
+	_, err = io.Copy(writer, rec.file)
+	if err != nil {
+		rec.log.Error("[REC] Failed to compress log file (%v)", err)
+		return
+	}
 }
