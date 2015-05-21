@@ -6,6 +6,10 @@ import (
 	"github.com/op/go-logging"
 )
 
+// Logger implements our logging interface by returning an object from the
+// go-logging library which is compatible with our adaptor. It is a powerful
+// logging implementation that allows us to configure multiple front- and
+// back-ends.
 type Logger struct {
 	file        *os.File
 	fileEnabled bool
@@ -20,15 +24,19 @@ type Logger struct {
 	backends []logging.Backend
 }
 
+// New creates a new logger with the help of the go-logging library. It supports
+// a number of options to enable/disable file/console logging, set levels and
+// formats.
 func New(options ...func(*Logger)) (*logging.Logger, error) {
 
 	log := &Logger{
-		filePath:      "pbtc.log",
-		fileFormat:    "%{time} %{level} %{shortfile} %{message}",
-		fileLevel:     logging.INFO,
-		consoleFormat: "%{color}%{time} %{level} %{shortfile} %{message}%{color:reset}",
-		consoleLevel:  logging.INFO,
-		backends:      make([]logging.Backend, 0, 2),
+		filePath:   "pbtc.log",
+		fileFormat: "%{time} %{level} %{shortfile} %{message}",
+		fileLevel:  logging.INFO,
+		consoleFormat: "%{color}%{time} %{level} %{shortfile} %{message}" +
+			"%{color:reset}",
+		consoleLevel: logging.INFO,
+		backends:     make([]logging.Backend, 0, 2),
 	}
 
 	for _, option := range options {
@@ -75,42 +83,49 @@ func New(options ...func(*Logger)) (*logging.Logger, error) {
 
 }
 
+// EnableConsole enables logging to standard error.
 func EnableConsole() func(*Logger) {
 	return func(log *Logger) {
 		log.consoleEnabled = true
 	}
 }
 
+// SetConsoleFormat sets the format to be used for standard error logging.
 func SetConsoleFormat(format string) func(*Logger) {
 	return func(log *Logger) {
 		log.consoleFormat = format
 	}
 }
 
+// SetConsoleLevel sets the level for loggng to standard error.
 func SetConsoleLevel(level logging.Level) func(*Logger) {
 	return func(log *Logger) {
 		log.consoleLevel = level
 	}
 }
 
+// EnableFle enables logging to a log file.
 func EnableFile() func(*Logger) {
 	return func(log *Logger) {
 		log.fileEnabled = true
 	}
 }
 
+// SetFilePath sets the path and name for the logging file.
 func SetFilePath(path string) func(*Logger) {
 	return func(log *Logger) {
 		log.filePath = path
 	}
 }
 
+// SetFileFormat sets the format to be used for file logging.
 func SetFileFormat(format string) func(*Logger) {
 	return func(log *Logger) {
 		log.fileFormat = format
 	}
 }
 
+// SetFileLevel sets the level for logging to file.
 func SetFileLevel(level logging.Level) func(*Logger) {
 	return func(log *Logger) {
 		log.fileLevel = level
