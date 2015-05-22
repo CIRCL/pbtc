@@ -3,7 +3,7 @@ package compressor
 import (
 	"io"
 
-	"github.com/pierrec/lz4"
+	lz4 "github.com/pwaller/go-clz4"
 )
 
 // CompressorLZ4 is a wrapper around the LZ4 compression library, allowing
