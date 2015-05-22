@@ -21,7 +21,8 @@ import (
 func main() {
 	// catch signals
 	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, os.Interrupt)
+	signal.Notify(sigc, syscall.SIGINT)
+	signal.Notify(sigc, syscall.SIGHUP)
 
 	// use all cpu cores
 	runtime.GOMAXPROCS(runtime.NumCPU())
@@ -131,7 +132,7 @@ func main() {
 		manager.SetVersion(wire.RejectVersion),
 		manager.SetConnectionRate(time.Second/25),
 		manager.SetInformationRate(time.Second*10),
-		manager.SetPeerLimit(100),
+		manager.SetPeerLimit(1000),
 	)
 	if err != nil {
 		log.Critical("Unable to create manager (%v)", err)
@@ -148,6 +149,10 @@ SigLoop:
 		switch sig {
 		case syscall.SIGINT:
 			break SigLoop
+
+		case syscall.SIGHUP:
+			// reload config
+			continue
 		}
 	}
 

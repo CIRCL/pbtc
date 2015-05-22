@@ -1,8 +1,8 @@
-- redis/zeromq pubsub recorder
-- comments on public members in all packages
-- improve & complete logging fr all packages
-- extended comments in all packages
 - fix manager freeze
+- improve & complete logging for all packages
+- sensible comments in all packages
+- redis/zeromq pubsub recorder
+- move config options to file
 - fix lz4 compression compatibility
 
 ----- FEATURE FREEZE -----
