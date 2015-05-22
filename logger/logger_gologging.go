@@ -19,7 +19,7 @@ type GologgingLogger struct {
 	backends       []logging.Backend
 }
 
-func New(options ...func(log *GologgingLogger)) (*GologgingLogger, error) {
+func NewGologging(options ...func(log *GologgingLogger)) (*GologgingLogger, error) {
 	logr := &GologgingLogger{
 		consoleEnabled: false,
 		consoleFormat: "%{color}%{time} %{level} %{shortfile} %{message}" +

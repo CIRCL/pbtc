@@ -15,13 +15,14 @@ import (
 	"github.com/CIRCL/pbtc/parmap"
 )
 
-// Recorder is responsible for writing records to a file. It can filter events
+// FileRecorder is responsible for writing records to a file. It can filter events
 // to only show certain types, or limit them to certain IP/Bitcoin addresses.
 // It will periodically rotate the files and supports compression.
-type Recorder struct {
+type FileRecorder struct {
 	wg         *sync.WaitGroup
 	cmdConfig  map[string]bool
 	ipConfig   map[string]bool
+	addrConfig map[string]bool
 	fileTimer  *time.Timer
 	sigWriter  chan struct{}
 	txtQ       chan string
@@ -39,16 +40,16 @@ type Recorder struct {
 
 	file *os.File
 
-	done         uint32
-	resetLogging bool
+	done uint32
 }
 
 // New creates a new recorder with the given options.
-func New(options ...func(*Recorder)) (*Recorder, error) {
-	rec := &Recorder{
+func NewFileRecorder(options ...func(*FileRecorder)) (*FileRecorder, error) {
+	rec := &FileRecorder{
 		wg:         &sync.WaitGroup{},
 		cmdConfig:  make(map[string]bool),
 		ipConfig:   make(map[string]bool),
+		addrConfig: make(map[string]bool),
 		sigWriter:  make(chan struct{}),
 		txtQ:       make(chan string, 1),
 		txIndex:    parmap.New(),
@@ -58,8 +59,6 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 		fileName: time.Now().String(),
 		fileSize: 1 * 1024 * 1024,
 		fileAge:  1 * 60 * time.Minute,
-
-		resetLogging: false,
 	}
 
 	for _, option := range options {
@@ -68,13 +67,6 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 
 	if rec.comp == nil {
 		rec.comp = compressor.NewLZ4()
-	}
-
-	if rec.resetLogging {
-		err := os.RemoveAll(rec.filePath)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	_, err := os.Stat(rec.filePath)
@@ -95,59 +87,80 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 }
 
 // SetLogger injects the logger to be used for logging.
-func SetLog(log adaptor.Log) func(*Recorder) {
-	return func(rec *Recorder) {
+func SetLog(log adaptor.Log) func(*FileRecorder) {
+	return func(rec *FileRecorder) {
 		rec.log = log
 	}
 }
 
 // SetCompressor injects the compression wrapper to be used on rotation.
-func SetCompressor(comp adaptor.Compressor) func(*Recorder) {
-	return func(rec *Recorder) {
+func SetCompressor(comp adaptor.Compressor) func(*FileRecorder) {
+	return func(rec *FileRecorder) {
 		rec.comp = comp
 	}
 }
 
+// SetFilePath sets the directory path to the files into.
+func SetFilePath(path string) func(*FileRecorder) {
+	return func(rec *FileRecorder) {
+		rec.filePath = path
+	}
+}
+
+// SetSizeLimit sets the size limit upon which the logs will rotate.
+func SetSizeLimit(size int64) func(*FileRecorder) {
+	return func(rec *FileRecorder) {
+		rec.fileSize = size
+	}
+}
+
+// SetAgeLimit sets the file age upon which the logs will rotate.
+func SetAgeLimit(age time.Duration) func(*FileRecorder) {
+	return func(rec *FileRecorder) {
+		rec.fileAge = age
+	}
+}
+
 // SetTypes sets the type of events to write to file.
-func SetTypes(cmds ...string) func(*Recorder) {
-	return func(rec *Recorder) {
+func FilterTypes(cmds ...string) func(*FileRecorder) {
+	return func(rec *FileRecorder) {
 		for _, cmd := range cmds {
 			rec.cmdConfig[cmd] = true
 		}
 	}
 }
 
-// SetFilePath sets the directory path to the files into.
-func SetFilePath(path string) func(*Recorder) {
-	return func(rec *Recorder) {
-		rec.filePath = path
+func FilterIPs(ips ...string) func(*FileRecorder) {
+	return func(rec *FileRecorder) {
+		for _, ip := range ips {
+			rec.ipConfig[ip] = true
+		}
 	}
 }
 
-// SetSizeLimit sets the size limit upon which the logs will rotate.
-func SetSizeLimit(size int64) func(*Recorder) {
-	return func(rec *Recorder) {
-		rec.fileSize = size
-	}
-}
-
-// SetAgeLimit sets the file age upon which the logs will rotate.
-func SetAgeLimit(age time.Duration) func(*Recorder) {
-	return func(rec *Recorder) {
-		rec.fileAge = age
-	}
-}
-
-// EnableReset will make the logger delete all previous logs in the given path.
-func EnableReset() func(*Recorder) {
-	return func(rec *Recorder) {
-		rec.resetLogging = true
+func FilterAddresses(addrs ...string) func(*FileRecorder) {
+	return func(rec *FileRecorder) {
+		for _, addr := range addrs {
+			rec.addrConfig[addr] = true
+		}
 	}
 }
 
 // Message will process a given message and log it if it's elligible.
-func (rec *Recorder) Message(msg wire.Message, ra *net.TCPAddr,
+func (rec *FileRecorder) Message(msg wire.Message, ra *net.TCPAddr,
 	la *net.TCPAddr) {
+	if len(rec.cmdConfig) > 0 {
+		if !rec.cmdConfig[msg.Command()] {
+			return
+		}
+	}
+
+	if len(rec.ipConfig) > 0 {
+		if !rec.ipConfig[ra.IP.String()] {
+			return
+		}
+	}
+
 	var record Record
 
 	switch m := msg.(type) {
@@ -189,6 +202,26 @@ func (rec *Recorder) Message(msg wire.Message, ra *net.TCPAddr,
 		}
 
 		rec.txIndex.Insert(m.TxSha())
+		tx := NewTransactionRecord(m, ra, la)
+		ok := true
+
+		if len(rec.addrConfig) > 0 {
+			ok = false
+		Outer:
+			for _, out := range tx.details.outs {
+				for _, addr := range out.addrs {
+					if rec.addrConfig[addr.EncodeAddress()] {
+						ok = true
+						break Outer
+					}
+				}
+			}
+		}
+
+		if !ok {
+			return
+		}
+
 		record = NewTransactionRecord(m, ra, la)
 
 	case *wire.MsgFilterAdd:
@@ -230,7 +263,7 @@ func (rec *Recorder) Message(msg wire.Message, ra *net.TCPAddr,
 
 // Stop ends the execution of the recorder sub-routines and returns once
 // everything was stopped cleanly.
-func (rec *Recorder) Stop() {
+func (rec *FileRecorder) Stop() {
 	if atomic.SwapUint32(&rec.done, 1) == 1 {
 		return
 	}
@@ -240,12 +273,12 @@ func (rec *Recorder) Stop() {
 	rec.wg.Wait()
 }
 
-func (rec *Recorder) startup() {
+func (rec *FileRecorder) startup() {
 	rec.wg.Add(1)
 	go rec.goWriter()
 }
 
-func (rec *Recorder) goWriter() {
+func (rec *FileRecorder) goWriter() {
 	defer rec.wg.Done()
 
 WriteLoop:
@@ -272,7 +305,7 @@ WriteLoop:
 	rec.file.Close()
 }
 
-func (rec *Recorder) checkTime() {
+func (rec *FileRecorder) checkTime() {
 	if rec.fileAge == 0 {
 		return
 	}
@@ -282,7 +315,7 @@ func (rec *Recorder) checkTime() {
 	rec.fileTimer.Reset(rec.fileAge)
 }
 
-func (rec *Recorder) checkSize() {
+func (rec *FileRecorder) checkSize() {
 	if rec.fileSize == 0 {
 		return
 	}
@@ -299,7 +332,7 @@ func (rec *Recorder) checkSize() {
 	rec.rotateLog()
 }
 
-func (rec *Recorder) rotateLog() {
+func (rec *FileRecorder) rotateLog() {
 	file, err := os.Create(rec.filePath +
 		time.Now().Format(time.RFC3339) + ".txt")
 	if err != nil {
@@ -322,7 +355,7 @@ func (rec *Recorder) rotateLog() {
 	rec.file = file
 }
 
-func (rec *Recorder) compressLog() {
+func (rec *FileRecorder) compressLog() {
 	_, err := rec.file.Seek(0, 0)
 	if err != nil {
 		rec.log.Warning("[REC] Failed to seek output file (%v)", err)

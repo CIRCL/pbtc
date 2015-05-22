@@ -6,3 +6,8 @@ pbtc.log
 records
 pbtc2.log
 logs
+alerts
+dumps
+dumps_ip
+dumps_addr
+dumps_all

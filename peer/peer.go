@@ -38,7 +38,7 @@ type Peer struct {
 
 	log  adaptor.Log
 	mgr  adaptor.Manager
-	rec  adaptor.Recorder
+	recs []adaptor.Recorder
 	repo adaptor.Repository
 
 	network wire.BitcoinNet
@@ -113,9 +113,9 @@ func SetManager(mgr adaptor.Manager) func(*Peer) {
 }
 
 // SetRecorder injects the recorder to be used to log events on this connection.
-func SetRecorder(rec adaptor.Recorder) func(*Peer) {
+func SetRecorders(recs []adaptor.Recorder) func(*Peer) {
 	return func(p *Peer) {
-		p.rec = rec
+		p.recs = recs
 	}
 }
 
@@ -446,7 +446,9 @@ func (p *Peer) processMessage(msg wire.Message) {
 	ra, ok1 := p.conn.RemoteAddr().(*net.TCPAddr)
 	la, ok2 := p.conn.LocalAddr().(*net.TCPAddr)
 	if ok1 && ok2 {
-		p.rec.Message(msg, ra, la)
+		for _, rec := range p.recs {
+			rec.Message(msg, ra, la)
+		}
 	}
 
 	if atomic.LoadUint32(&p.rcvd) == 0 {

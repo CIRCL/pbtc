@@ -1,4 +1,4 @@
-- ip & address filter for recorder
+- redis/zeromq pubsub recorder
 - comments on public members in all packages
 - improve & complete logging fr all packages
 - extended comments in all packages
@@ -7,6 +7,7 @@
 
 ----- FEATURE FREEZE -----
 
+- do something about chaincfg config
 - port range configuration option (manager)
 - document text & binary format (dox)
 - black/white lists (repo)

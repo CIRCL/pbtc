@@ -30,7 +30,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	// initialize logging
-	logr, err := logger.New(
+	logr, err := logger.NewGologging(
 		logger.EnableConsole(),
 		logger.SetConsoleLevel(logging.INFO),
 		logger.EnableFile(),
@@ -62,15 +62,61 @@ func main() {
 		os.Exit(2)
 	}
 
-	// recorder
-	rec, err := recorder.New(
+	// recorder to dump everything
+	rec_all, err := recorder.NewFileRecorder(
 		recorder.SetLog(logr.GetLog("rec")),
 		recorder.SetSizeLimit(0),
 		recorder.SetAgeLimit(time.Minute*5),
 		recorder.SetCompressor(compressor.NewLZ4()),
+		recorder.SetFilePath("dumps_all/"),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize recorder (%v)", err)
+		os.Exit(3)
+	}
+
+	// recorder to monitor transactions to specific adresses
+	rec_addr, err := recorder.NewFileRecorder(
+		recorder.SetLog(logr.GetLog("rec")),
+		recorder.SetSizeLimit(1024*1024*16),
+		recorder.SetAgeLimit(0),
+		recorder.SetCompressor(compressor.NewDummy()),
+		recorder.SetFilePath("dumps_addr/"),
+		recorder.FilterTypes(wire.CmdTx),
+		recorder.FilterAddresses(
+			"1dice8EMZmqKvrGE4Qc9bUFf9PX3xaYDp",
+			"1dice97ECuByXAvqXpaYzSaQuPVvrtmz6",
+			"1dice9wcMu5hLF4g81u8nioL5mmSHTApw",
+			"1dice7fUkz5h4z2wPc1wLMPWgB5mDwKDx",
+			"1dice7W2AicHosf5EL3GFDUVga7TgtPFn",
+			"1dice6YgEVBf88erBFra9BHf6ZMoyvG88",
+			"1diceDCd27Cc22HV3qPNZKwGnZ8QwhLTc",
+			"1NxaBCFQwejSZbQfWcYNwgqML5wWoE3rK4",
+			"1LuckyR1fFHEsXYyx5QK4UFzv3PEAepPMK",
+			"1VayNert3x1KzbpzMGt2qdqrAThiRovi8",
+		),
+	)
+	if err != nil {
+		log.Critical("Unable to initialize address filter recorder (%v)", err)
+		os.Exit(3)
+	}
+
+	// recorder to monitor a set of ip addresses
+	rec_ip, err := recorder.NewFileRecorder(
+		recorder.SetLog(logr.GetLog("rec")),
+		recorder.SetSizeLimit(1024*1024*16),
+		recorder.SetAgeLimit(0),
+		recorder.SetCompressor(compressor.NewDummy()),
+		recorder.SetFilePath("dumps_ip/"),
+		recorder.FilterTypes(wire.CmdTx, wire.CmdInv),
+		recorder.FilterIPs(
+			"208.111.48.35",
+			"97.69.174.76",
+			"50.181.241.97",
+		),
+	)
+	if err != nil {
+		log.Critical("Unable to initialize ip filter recorder (%v)", err)
 		os.Exit(3)
 	}
 
@@ -79,12 +125,13 @@ func main() {
 		manager.SetLog(logr.GetLog("mgr")),
 		manager.SetPeerLog(logr.GetLog("peer")),
 		manager.SetRepository(repo),
-		manager.SetRecorder(rec),
+		manager.AddRecorder(rec_all),
+		manager.AddRecorder(rec_addr),
 		manager.SetNetwork(wire.MainNet),
 		manager.SetVersion(wire.RejectVersion),
 		manager.SetConnectionRate(time.Second/25),
 		manager.SetInformationRate(time.Second*10),
-		manager.SetPeerLimit(1000),
+		manager.SetPeerLimit(100),
 	)
 	if err != nil {
 		log.Critical("Unable to create manager (%v)", err)
@@ -109,7 +156,9 @@ SigLoop:
 	go func() {
 		mgr.Stop()
 		repo.Stop()
-		rec.Stop()
+		rec_all.Stop()
+		rec_addr.Stop()
+		rec_ip.Stop()
 		logr.Stop()
 		c <- struct{}{}
 	}()
