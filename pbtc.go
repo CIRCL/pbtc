@@ -29,22 +29,36 @@ func main() {
 	// seed the random generator
 	rand.Seed(time.Now().UnixNano())
 
-	// logging
-	log, err := logger.New(
-		logger.EnableConsole(),
+	// set logging levels
+	logging.SetLevel(logging.INFO, "main")
+	logging.SetLevel(logging.INFO, "repo")
+	logging.SetLevel(logging.INFO, "rec")
+	logging.SetLevel(logging.INFO, "mgr")
+	logging.SetLevel(logging.INFO, "peer")
+
+	// initialize console backend
+	console, err := logger.NewConsoleBackend(
 		logger.SetConsoleLevel(logging.INFO),
-		logger.EnableFile(),
-		logger.SetFileLevel(logging.DEBUG),
 	)
 	if err != nil {
 		os.Exit(1)
 	}
 
+	// initialize file backend
+	file, err := logger.NewFileBackend(
+		logger.SetFileLevel(logging.DEBUG),
+	)
+
+	// register backends with logging library
+	logging.SetBackend(console.Raw(), file.Raw())
+
+	// start logging
+	log := logging.MustGetLogger("main")
 	log.Info("[PBTC] Starting modules")
 
 	// repository
 	repo, err := repository.New(
-		repository.SetLogger(log),
+		repository.SetLogger(logging.MustGetLogger("repo")),
 		repository.SetSeeds("seed.bitcoin.sipa.be"),
 		repository.SetDefaultPort(8333),
 		repository.DisableRestore(),
@@ -56,7 +70,7 @@ func main() {
 
 	// recorder
 	rec, err := recorder.New(
-		recorder.SetLogger(log),
+		recorder.SetLogger(logging.MustGetLogger("rec")),
 		recorder.SetSizeLimit(0),
 		recorder.SetAgeLimit(time.Minute*5),
 		recorder.SetCompressor(compressor.NewLZ4()),
@@ -68,7 +82,8 @@ func main() {
 
 	// manager
 	mgr, err := manager.New(
-		manager.SetLogger(log),
+		manager.SetLogger(logging.MustGetLogger("mgr")),
+		manager.SetPeerLogger(logging.MustGetLogger("peer")),
 		manager.SetRepository(repo),
 		manager.SetRecorder(rec),
 		manager.SetNetwork(wire.MainNet),
@@ -115,6 +130,8 @@ SigLoop:
 		break
 	}
 
+	file.Cleanup()
+	console.Cleanup()
 	log.Info("[PBTC] All modules shutdown complete")
 
 	os.Exit(0)

@@ -47,9 +47,10 @@ type Manager struct {
 	addrTicker *time.Ticker
 	infoTicker *time.Ticker
 
-	log  adaptor.Logger
-	repo adaptor.Repository
-	rec  adaptor.Recorder
+	log     adaptor.Logger
+	peerLog adaptor.Logger
+	repo    adaptor.Repository
+	rec     adaptor.Recorder
 
 	network     wire.BitcoinNet
 	version     uint32
@@ -114,6 +115,12 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 func SetLogger(log adaptor.Logger) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.log = log
+	}
+}
+
+func SetPeerLogger(log adaptor.Logger) func(*Manager) {
+	return func(mgr *Manager) {
+		mgr.peerLog = log
 	}
 }
 
@@ -351,7 +358,7 @@ PeerLoop:
 			}
 
 			p, err := peer.New(
-				peer.SetLogger(mgr.log),
+				peer.SetLogger(mgr.peerLog),
 				peer.SetRepository(mgr.repo),
 				peer.SetManager(mgr),
 				peer.SetRecorder(mgr.rec),
@@ -385,7 +392,7 @@ PeerLoop:
 			}
 
 			p, err := peer.New(
-				peer.SetLogger(mgr.log),
+				peer.SetLogger(mgr.peerLog),
 				peer.SetRepository(mgr.repo),
 				peer.SetManager(mgr),
 				peer.SetRecorder(mgr.rec),

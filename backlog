@@ -1,12 +1,12 @@
+- ip & address filter for recorder
 - comments on public members in all packages
 - improve & complete logging fr all packages
 - extended comments in all packages
-- ip & address filter for recorder
 - fix manager freeze
+- fix lz4 compression compatibility
 
 ----- FEATURE FREEZE -----
 
-- fix decompression file end error (compressor)
 - port range configuration option (manager)
 - document text & binary format (dox)
 - black/white lists (repo)
