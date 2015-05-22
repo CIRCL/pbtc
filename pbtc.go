@@ -29,36 +29,30 @@ func main() {
 	// seed the random generator
 	rand.Seed(time.Now().UnixNano())
 
-	// set logging levels
-	logging.SetLevel(logging.INFO, "main")
-	logging.SetLevel(logging.INFO, "repo")
-	logging.SetLevel(logging.INFO, "rec")
-	logging.SetLevel(logging.INFO, "mgr")
-	logging.SetLevel(logging.INFO, "peer")
-
-	// initialize console backend
-	console, err := logger.NewConsoleBackend(
+	// initialize logging
+	logr, err := logger.New(
+		logger.EnableConsole(),
 		logger.SetConsoleLevel(logging.INFO),
+		logger.EnableFile(),
+		logger.SetFileLevel(logging.DEBUG),
+		logger.SetFilePath("pbtc.log"),
+		logger.SetLevel("main", logging.INFO),
+		logger.SetLevel("repo", logging.INFO),
+		logger.SetLevel("rec", logging.INFO),
+		logger.SetLevel("mgr", logging.INFO),
+		logger.SetLevel("peer", logging.INFO),
 	)
 	if err != nil {
 		os.Exit(1)
 	}
 
-	// initialize file backend
-	file, err := logger.NewFileBackend(
-		logger.SetFileLevel(logging.DEBUG),
-	)
-
-	// register backends with logging library
-	logging.SetBackend(console.Raw(), file.Raw())
-
 	// start logging
-	log := logging.MustGetLogger("main")
+	log := logr.GetLog("main")
 	log.Info("[PBTC] Starting modules")
 
 	// repository
 	repo, err := repository.New(
-		repository.SetLogger(logging.MustGetLogger("repo")),
+		repository.SetLog(logr.GetLog("repo")),
 		repository.SetSeeds("seed.bitcoin.sipa.be"),
 		repository.SetDefaultPort(8333),
 		repository.DisableRestore(),
@@ -70,7 +64,7 @@ func main() {
 
 	// recorder
 	rec, err := recorder.New(
-		recorder.SetLogger(logging.MustGetLogger("rec")),
+		recorder.SetLog(logr.GetLog("rec")),
 		recorder.SetSizeLimit(0),
 		recorder.SetAgeLimit(time.Minute*5),
 		recorder.SetCompressor(compressor.NewLZ4()),
@@ -82,8 +76,8 @@ func main() {
 
 	// manager
 	mgr, err := manager.New(
-		manager.SetLogger(logging.MustGetLogger("mgr")),
-		manager.SetPeerLogger(logging.MustGetLogger("peer")),
+		manager.SetLog(logr.GetLog("mgr")),
+		manager.SetPeerLog(logr.GetLog("peer")),
 		manager.SetRepository(repo),
 		manager.SetRecorder(rec),
 		manager.SetNetwork(wire.MainNet),
@@ -116,6 +110,7 @@ SigLoop:
 		mgr.Stop()
 		repo.Stop()
 		rec.Stop()
+		logr.Stop()
 		c <- struct{}{}
 	}()
 
@@ -130,8 +125,6 @@ SigLoop:
 		break
 	}
 
-	file.Cleanup()
-	console.Cleanup()
 	log.Info("[PBTC] All modules shutdown complete")
 
 	os.Exit(0)

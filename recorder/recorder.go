@@ -28,7 +28,7 @@ type Recorder struct {
 	txIndex    *parmap.ParMap
 	blockIndex *parmap.ParMap
 
-	log  adaptor.Logger
+	log  adaptor.Log
 	comp adaptor.Compressor
 
 	filePath string
@@ -95,7 +95,7 @@ func New(options ...func(*Recorder)) (*Recorder, error) {
 }
 
 // SetLogger injects the logger to be used for logging.
-func SetLogger(log adaptor.Logger) func(*Recorder) {
+func SetLog(log adaptor.Log) func(*Recorder) {
 	return func(rec *Recorder) {
 		rec.log = log
 	}

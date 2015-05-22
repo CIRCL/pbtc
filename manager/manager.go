@@ -47,8 +47,8 @@ type Manager struct {
 	addrTicker *time.Ticker
 	infoTicker *time.Ticker
 
-	log     adaptor.Logger
-	peerLog adaptor.Logger
+	log     adaptor.Log
+	peerLog adaptor.Log
 	repo    adaptor.Repository
 	rec     adaptor.Recorder
 
@@ -112,13 +112,13 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 }
 
 // SetLogger injects a logger into the manager. It is required.
-func SetLogger(log adaptor.Logger) func(*Manager) {
+func SetLog(log adaptor.Log) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.log = log
 	}
 }
 
-func SetPeerLogger(log adaptor.Logger) func(*Manager) {
+func SetPeerLog(log adaptor.Log) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.peerLog = log
 	}
@@ -358,7 +358,7 @@ PeerLoop:
 			}
 
 			p, err := peer.New(
-				peer.SetLogger(mgr.peerLog),
+				peer.SetLog(mgr.peerLog),
 				peer.SetRepository(mgr.repo),
 				peer.SetManager(mgr),
 				peer.SetRecorder(mgr.rec),
@@ -392,7 +392,7 @@ PeerLoop:
 			}
 
 			p, err := peer.New(
-				peer.SetLogger(mgr.peerLog),
+				peer.SetLog(mgr.peerLog),
 				peer.SetRepository(mgr.repo),
 				peer.SetManager(mgr),
 				peer.SetRecorder(mgr.rec),

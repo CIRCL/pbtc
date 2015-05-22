@@ -31,7 +31,7 @@ type Repository struct {
 	backupPath   string
 	invalidRange []*ipRange
 
-	log adaptor.Logger
+	log adaptor.Log
 
 	done             uint32
 	restoreEnabled   bool
@@ -100,7 +100,7 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 }
 
 // SetLogger injects a logger to be used for logging.
-func SetLogger(log adaptor.Logger) func(*Repository) {
+func SetLog(log adaptor.Log) func(*Repository) {
 	return func(repo *Repository) {
 		repo.log = log
 	}

@@ -36,7 +36,7 @@ type Peer struct {
 	sendQ      chan wire.Message
 	recvQ      chan wire.Message
 
-	log  adaptor.Logger
+	log  adaptor.Log
 	mgr  adaptor.Manager
 	rec  adaptor.Recorder
 	repo adaptor.Repository
@@ -99,7 +99,7 @@ func New(options ...func(*Peer)) (*Peer, error) {
 }
 
 // SetLogger injects the logger to be used for logging.
-func SetLogger(log adaptor.Logger) func(*Peer) {
+func SetLog(log adaptor.Log) func(*Peer) {
 	return func(p *Peer) {
 		p.log = log
 	}
