@@ -60,7 +60,8 @@ type Manager struct {
 	peerLimit   int
 	defaultPort int
 
-	done uint32
+	done   uint32
+	server bool
 }
 
 // New returns a new default initialized manager with all options applied to it
@@ -179,6 +180,12 @@ func SetPeerLimit(peerLimit int) func(*Manager) {
 	}
 }
 
+func EnableServer() func(*Manager) {
+	return func(mgr *Manager) {
+		mgr.server = true
+	}
+}
+
 // Stop will shut the manager down and wait for all components to exit cleanly
 // before returning.
 func (mgr *Manager) Stop() {
@@ -223,7 +230,9 @@ func (mgr *Manager) Mark(hash wire.ShaHash) {
 // way.
 func (mgr *Manager) start() {
 	// listen on local IPs for incoming peers
-	mgr.createListeners()
+	if mgr.server {
+		mgr.createListeners()
+	}
 
 	// here, we start all handlers that execute concurrently
 	// we add them to the waitgrop so that we can cleanly shutdown later

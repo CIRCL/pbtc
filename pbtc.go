@@ -108,7 +108,7 @@ func main() {
 		recorder.SetAgeLimit(0),
 		recorder.SetCompressor(compressor.NewDummy()),
 		recorder.SetFilePath("dumps_ip/"),
-		recorder.FilterTypes(wire.CmdTx, wire.CmdInv),
+		recorder.FilterTypes(wire.CmdInv, wire.CmdPing, wire.CmdVersion),
 		recorder.FilterIPs(
 			"208.111.48.35",
 			"97.69.174.76",
