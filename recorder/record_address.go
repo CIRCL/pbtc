@@ -37,6 +37,10 @@ func NewAddressRecord(msg *wire.MsgAddr, ra *net.TCPAddr,
 	return ar
 }
 
+func (ar *AddressRecord) Addr() *net.TCPAddr {
+	return ar.ra
+}
+
 func (ar *AddressRecord) String() string {
 	buf := new(bytes.Buffer)
 

@@ -1,12 +1,13 @@
+- zeromq pubsub recorder
 - fix manager freeze
-- improve & complete logging for all packages
-- sensible comments in all packages
-- redis/zeromq pubsub recorder
-- move config options to file
-- fix lz4 compression compatibility
 
 ----- FEATURE FREEZE -----
 
+- move config options to file
+- improve & complete logging for all packages
+- sensible comments in all packages
+- fix lz4 compression compatibility
+- redis pubsub writer
 - do something about chaincfg config
 - port range configuration option (manager)
 - document text & binary format (dox)

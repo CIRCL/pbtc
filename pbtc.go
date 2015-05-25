@@ -16,6 +16,7 @@ import (
 	"github.com/CIRCL/pbtc/manager"
 	"github.com/CIRCL/pbtc/recorder"
 	"github.com/CIRCL/pbtc/repository"
+	"github.com/CIRCL/pbtc/writer"
 )
 
 func main() {
@@ -63,26 +64,42 @@ func main() {
 		os.Exit(2)
 	}
 
-	// recorder to dump everything
-	rec_all, err := recorder.NewFileRecorder(
-		recorder.SetLog(logr.GetLog("rec")),
-		recorder.SetSizeLimit(0),
-		recorder.SetAgeLimit(time.Minute*5),
-		recorder.SetCompressor(compressor.NewLZ4()),
-		recorder.SetFilePath("dumps_all/"),
+	// writer to write everything to file
+	wfile, err := writer.NewFileWriter(
+		writer.SetLog(logr.GetLog("out")),
+		writer.SetSizeLimit(0),
+		writer.SetAgeLimit(time.Minute*5),
+		writer.SetCompressor(compressor.NewLZ4()),
+		writer.SetFilePath("dumps"),
 	)
 	if err != nil {
-		log.Critical("Unable to initialize recorder (%v)", err)
+		log.Critical("Unable to initialize file writer (%v)", err)
 		os.Exit(3)
 	}
 
-	// recorder to monitor transactions to specific adresses
-	rec_addr, err := recorder.NewFileRecorder(
+	// writer to publish stuff on zeromq
+	wzmq, err := writer.NewZeroMQWriter(
+		writer.SetLogZMQ(logr.GetLog("out")),
+		writer.SetPort(12345),
+	)
+	if err != nil {
+		log.Critical("Unable to initialize zeromq writer (%v)", err)
+		os.Exit(3)
+	}
+
+	// recorder that doesn't filter
+	rec_all, err := recorder.NewRecorder(
 		recorder.SetLog(logr.GetLog("rec")),
-		recorder.SetSizeLimit(1024*1024*16),
-		recorder.SetAgeLimit(0),
-		recorder.SetCompressor(compressor.NewDummy()),
-		recorder.SetFilePath("dumps_addr/"),
+		recorder.AddWriter(wfile),
+	)
+	if err != nil {
+		log.Critical("Unable to initialize full recorder (%v)", err)
+		os.Exit(4)
+	}
+
+	// recorder filtering only transactions to given addresses
+	rec_addr, err := recorder.NewRecorder(
+		recorder.SetLog(logr.GetLog("rec")),
 		recorder.FilterTypes(wire.CmdTx),
 		recorder.FilterAddresses(
 			"1dice8EMZmqKvrGE4Qc9bUFf9PX3xaYDp",
@@ -96,29 +113,27 @@ func main() {
 			"1LuckyR1fFHEsXYyx5QK4UFzv3PEAepPMK",
 			"1VayNert3x1KzbpzMGt2qdqrAThiRovi8",
 		),
+		recorder.AddWriter(wzmq),
 	)
 	if err != nil {
-		log.Critical("Unable to initialize address filter recorder (%v)", err)
-		os.Exit(3)
+		log.Critical("Unable to initialize address recorder (%v)", err)
+		os.Exit(4)
 	}
 
 	// recorder to monitor a set of ip addresses
-	rec_ip, err := recorder.NewFileRecorder(
+	rec_ip, err := recorder.NewRecorder(
 		recorder.SetLog(logr.GetLog("rec")),
-		recorder.SetSizeLimit(1024*1024*16),
-		recorder.SetAgeLimit(0),
-		recorder.SetCompressor(compressor.NewDummy()),
-		recorder.SetFilePath("dumps_ip/"),
 		recorder.FilterTypes(wire.CmdInv, wire.CmdPing, wire.CmdVersion),
 		recorder.FilterIPs(
 			"208.111.48.35",
 			"97.69.174.76",
 			"50.181.241.97",
 		),
+		recorder.AddWriter(wzmq),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize ip filter recorder (%v)", err)
-		os.Exit(3)
+		os.Exit(4)
 	}
 
 	// manager
@@ -128,6 +143,7 @@ func main() {
 		manager.SetRepository(repo),
 		manager.AddRecorder(rec_all),
 		manager.AddRecorder(rec_addr),
+		manager.AddRecorder(rec_ip),
 		manager.SetNetwork(wire.MainNet),
 		manager.SetVersion(wire.RejectVersion),
 		manager.SetConnectionRate(time.Second/25),
@@ -161,9 +177,7 @@ SigLoop:
 	go func() {
 		mgr.Stop()
 		repo.Stop()
-		rec_all.Stop()
-		rec_addr.Stop()
-		rec_ip.Stop()
+		wfile.Stop()
 		logr.Stop()
 		c <- struct{}{}
 	}()
