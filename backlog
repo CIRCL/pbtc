@@ -1,8 +1,3 @@
-- zeromq pubsub recorder
-- fix manager freeze
-
------ FEATURE FREEZE -----
-
 - move config options to file
 - improve & complete logging for all packages
 - sensible comments in all packages

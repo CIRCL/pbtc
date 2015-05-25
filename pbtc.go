@@ -70,7 +70,6 @@ func main() {
 		writer.SetSizeLimit(0),
 		writer.SetAgeLimit(time.Minute*5),
 		writer.SetCompressor(compressor.NewLZ4()),
-		writer.SetFilePath("dumps"),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize file writer (%v)", err)
