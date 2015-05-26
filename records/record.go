@@ -1,14 +1,9 @@
-package recorder
+package records
 
 import (
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 )
-
-type Record interface {
-	String() string
-	Bytes() []byte
-}
 
 const (
 	Version = "PBTC LOG VERSION 1.0"

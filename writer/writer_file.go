@@ -30,7 +30,7 @@ type FileWriter struct {
 	done uint32
 }
 
-func NewFileWriter(options ...func(*FileWriter)) (*FileWriter, error) {
+func NewFile(options ...func(*FileWriter)) (*FileWriter, error) {
 	w := &FileWriter{
 		filePath: "logs/",
 		fileSize: 1 * 1024 * 1024,
@@ -66,7 +66,7 @@ func NewFileWriter(options ...func(*FileWriter)) (*FileWriter, error) {
 	return w, nil
 }
 
-func SetLog(log adaptor.Log) func(*FileWriter) {
+func SetLogFile(log adaptor.Log) func(*FileWriter) {
 	return func(w *FileWriter) {
 		w.log = log
 	}
@@ -98,10 +98,6 @@ func SetAgeLimit(age time.Duration) func(*FileWriter) {
 	return func(w *FileWriter) {
 		w.fileAge = age
 	}
-}
-
-func (w *FileWriter) SetLog(log adaptor.Log) {
-	w.log = log
 }
 
 // Stop ends the execution of the recorder sub-routines and returns once

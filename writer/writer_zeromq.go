@@ -1,7 +1,8 @@
 package writer
 
 import (
-	"strconv"
+	"sync"
+	"sync/atomic"
 
 	zmq "github.com/pebbe/zmq4"
 
@@ -9,14 +10,21 @@ import (
 )
 
 type ZeroMQWriter struct {
-	port uint16
-	pub  *zmq.Socket
-	log  adaptor.Log
+	log   adaptor.Log
+	addr  string
+	pub   *zmq.Socket
+	lineQ chan string
+	wSig  chan struct{}
+	wg    *sync.WaitGroup
+	done  uint32
 }
 
-func NewZeroMQWriter(options ...func(*ZeroMQWriter)) (*ZeroMQWriter, error) {
+func NewZMQ(options ...func(*ZeroMQWriter)) (*ZeroMQWriter, error) {
 	w := &ZeroMQWriter{
-		port: 12345,
+		addr:  "127.0.0.1:12345",
+		lineQ: make(chan string, 1),
+		wSig:  make(chan struct{}),
+		wg:    &sync.WaitGroup{},
 	}
 
 	for _, option := range options {
@@ -28,7 +36,7 @@ func NewZeroMQWriter(options ...func(*ZeroMQWriter)) (*ZeroMQWriter, error) {
 		return nil, err
 	}
 
-	addr := "tcp://*:" + strconv.FormatUint(uint64(w.port), 10)
+	addr := "tcp://" + w.addr
 
 	err = pub.Bind(addr)
 	if err != nil {
@@ -37,13 +45,9 @@ func NewZeroMQWriter(options ...func(*ZeroMQWriter)) (*ZeroMQWriter, error) {
 
 	w.pub = pub
 
-	return w, nil
-}
+	w.startup()
 
-func SetPort(port uint16) func(*ZeroMQWriter) {
-	return func(w *ZeroMQWriter) {
-		w.port = port
-	}
+	return w, nil
 }
 
 func SetLogZMQ(log adaptor.Log) func(*ZeroMQWriter) {
@@ -52,6 +56,49 @@ func SetLogZMQ(log adaptor.Log) func(*ZeroMQWriter) {
 	}
 }
 
+func SetAddressZMQ(addr string) func(*ZeroMQWriter) {
+	return func(w *ZeroMQWriter) {
+		w.addr = addr
+	}
+}
+
+func (w *ZeroMQWriter) Stop() {
+	if atomic.SwapUint32(&w.done, 1) == 1 {
+		return
+	}
+
+	close(w.wSig)
+
+	w.wg.Wait()
+}
+
 func (w *ZeroMQWriter) Line(line string) {
-	w.pub.Send(line, 0)
+	w.lineQ <- line
+}
+
+func (w *ZeroMQWriter) startup() {
+	w.wg.Add(1)
+
+	go w.goLines()
+}
+
+func (w *ZeroMQWriter) goLines() {
+	defer w.wg.Done()
+
+LineLoop:
+	for {
+		select {
+		case _, ok := <-w.wSig:
+			if !ok {
+				break LineLoop
+			}
+
+		case line := <-w.lineQ:
+			_, err := w.pub.Send(line, 0)
+			if err != nil {
+				w.log.Error("Could not send line on zmq (%v)", err)
+				continue
+			}
+		}
+	}
 }

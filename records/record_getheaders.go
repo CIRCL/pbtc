@@ -1,4 +1,4 @@
-package recorder
+package records
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
-type GetBlocksRecord struct {
+type GetHeadersRecord struct {
 	stamp  time.Time
 	ra     *net.TCPAddr
 	la     *net.TCPAddr
@@ -20,9 +20,9 @@ type GetBlocksRecord struct {
 	hashes [][32]byte
 }
 
-func NewGetBlocksRecord(msg *wire.MsgGetBlocks, ra *net.TCPAddr,
-	la *net.TCPAddr) *GetBlocksRecord {
-	record := &GetBlocksRecord{
+func NewGetHeadersRecord(msg *wire.MsgGetHeaders, ra *net.TCPAddr,
+	la *net.TCPAddr) *GetHeadersRecord {
+	record := &GetHeadersRecord{
 		stamp:  time.Now(),
 		ra:     ra,
 		la:     la,
@@ -38,7 +38,7 @@ func NewGetBlocksRecord(msg *wire.MsgGetBlocks, ra *net.TCPAddr,
 	return record
 }
 
-func (gr *GetBlocksRecord) String() string {
+func (gr *GetHeadersRecord) String() string {
 	buf := new(bytes.Buffer)
 
 	buf.WriteString(gr.stamp.Format(time.RFC3339Nano))
@@ -61,7 +61,7 @@ func (gr *GetBlocksRecord) String() string {
 	return buf.String()
 }
 
-func (gr *GetBlocksRecord) Bytes() []byte {
+func (gr *GetHeadersRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, ParseCommand(gr.cmd))   //  1
 	binary.Write(buf, binary.LittleEndian, gr.stamp.UnixNano())    //  8

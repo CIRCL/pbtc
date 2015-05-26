@@ -1,4 +1,4 @@
-package recorder
+package records
 
 import (
 	"bytes"
@@ -9,16 +9,16 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
-type FilterLoadRecord struct {
+type FilterClearRecord struct {
 	stamp time.Time
 	ra    *net.TCPAddr
 	la    *net.TCPAddr
 	cmd   string
 }
 
-func NewFilterLoadRecord(msg *wire.MsgFilterLoad, ra *net.TCPAddr,
-	la *net.TCPAddr) *FilterLoadRecord {
-	record := &FilterLoadRecord{
+func NewFilterClearRecord(msg *wire.MsgFilterClear, ra *net.TCPAddr,
+	la *net.TCPAddr) *FilterClearRecord {
+	record := &FilterClearRecord{
 		stamp: time.Now(),
 		ra:    ra,
 		la:    la,
@@ -28,7 +28,7 @@ func NewFilterLoadRecord(msg *wire.MsgFilterLoad, ra *net.TCPAddr,
 	return record
 }
 
-func (fr *FilterLoadRecord) String() string {
+func (fr *FilterClearRecord) String() string {
 	buf := new(bytes.Buffer)
 
 	buf.WriteString(fr.stamp.Format(time.RFC3339Nano))
@@ -42,7 +42,7 @@ func (fr *FilterLoadRecord) String() string {
 	return buf.String()
 }
 
-func (fr *FilterLoadRecord) Bytes() []byte {
+func (fr *FilterClearRecord) Bytes() []byte {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, ParseCommand(fr.cmd)) //  1
 	binary.Write(buf, binary.LittleEndian, fr.stamp.UnixNano())  //  8

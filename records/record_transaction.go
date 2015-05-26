@@ -1,4 +1,4 @@
-package recorder
+package records
 
 import (
 	"bytes"
@@ -57,4 +57,16 @@ func (tr *TransactionRecord) Bytes() []byte {
 
 	// total: 45 + X
 	return buf.Bytes()
+}
+
+func (tr *TransactionRecord) HasAddress(addr string) bool {
+	for _, out := range tr.details.outs {
+		for _, a := range out.addrs {
+			if a.EncodeAddress() == addr {
+				return true
+			}
+		}
+	}
+
+	return false
 }
