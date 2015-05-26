@@ -179,11 +179,13 @@ func (w *FileWriter) rotateLog() {
 	file, err := os.Create(w.filePath +
 		time.Now().Format(time.RFC3339) + ".txt")
 	if err != nil {
+		w.log.Error("Could not create file (%v)", err)
 		return
 	}
 
 	_, err = file.WriteString("#" + Version + "\n")
 	if err != nil {
+		w.log.Error("Could not write to file (%v)", err)
 		return
 	}
 
