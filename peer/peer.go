@@ -38,7 +38,7 @@ type Peer struct {
 
 	log  adaptor.Log
 	mgr  adaptor.Manager
-	recs []adaptor.Recorder
+	recs []adaptor.Filter
 	repo adaptor.Repository
 
 	network wire.BitcoinNet
@@ -113,7 +113,7 @@ func SetManager(mgr adaptor.Manager) func(*Peer) {
 }
 
 // SetRecorder injects the recorder to be used to log events on this connection.
-func SetRecorders(recs []adaptor.Recorder) func(*Peer) {
+func SetRecorders(recs []adaptor.Filter) func(*Peer) {
 	return func(p *Peer) {
 		p.recs = recs
 	}

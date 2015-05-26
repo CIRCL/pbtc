@@ -50,7 +50,7 @@ type Manager struct {
 	log     adaptor.Log
 	peerLog adaptor.Log
 	repo    adaptor.Repository
-	recs    []adaptor.Recorder
+	recs    []adaptor.Filter
 
 	network     wire.BitcoinNet
 	version     uint32
@@ -81,7 +81,7 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		peerIndex:   parmap.New(),
 		invIndex:    parmap.New(),
 		listenIndex: make(map[string]*net.TCPListener),
-		recs:        make([]adaptor.Recorder, 0, 2),
+		recs:        make([]adaptor.Filter, 0, 2),
 
 		network:     wire.TestNet3,
 		version:     wire.RejectVersion,
@@ -134,7 +134,7 @@ func SetRepository(repo adaptor.Repository) func(*Manager) {
 }
 
 // SetRecorder injects an event recorder into the manager. It is required.
-func AddRecorder(rec adaptor.Recorder) func(*Manager) {
+func AddFilter(rec adaptor.Filter) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.recs = append(mgr.recs, rec)
 	}

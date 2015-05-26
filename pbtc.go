@@ -111,58 +111,12 @@ func main() {
 		os.Exit(4)
 	}
 
-	// filter filtering only transactions to given addresses
-	rec_addr, err := filter.New(
-		filter.SetLog(logr.GetLog("rec")),
-		filter.FilterTypes(wire.CmdTx),
-		filter.FilterAddresses(
-			"1dice8EMZmqKvrGE4Qc9bUFf9PX3xaYDp",
-			"1dice97ECuByXAvqXpaYzSaQuPVvrtmz6",
-			"1dice9wcMu5hLF4g81u8nioL5mmSHTApw",
-			"1dice7fUkz5h4z2wPc1wLMPWgB5mDwKDx",
-			"1dice7W2AicHosf5EL3GFDUVga7TgtPFn",
-			"1dice6YgEVBf88erBFra9BHf6ZMoyvG88",
-			"1diceDCd27Cc22HV3qPNZKwGnZ8QwhLTc",
-			"1NxaBCFQwejSZbQfWcYNwgqML5wWoE3rK4",
-			"1LuckyR1fFHEsXYyx5QK4UFzv3PEAepPMK",
-			"1VayNert3x1KzbpzMGt2qdqrAThiRovi8",
-		),
-		filter.AddWriter(wfile),
-	)
-	if err != nil {
-		log.Critical("Unable to initialize address filter (%v)", err)
-		os.Exit(4)
-	}
-
-	// filter to monitor a set of ip addresses
-	rec_ip, err := filter.New(
-		filter.SetLog(logr.GetLog("rec")),
-		filter.FilterTypes(wire.CmdInv, wire.CmdPing, wire.CmdVersion),
-		filter.FilterIPs(
-			"208.111.48.35",
-			"97.69.174.76",
-			"50.181.241.97",
-			"173.73.12.206",
-			"88.148.169.65",
-			"72.11.148.180",
-			"195.6.17.142",
-			"46.101.168.50",
-		),
-		filter.AddWriter(wfile),
-	)
-	if err != nil {
-		log.Critical("Unable to initialize ip filter recorder (%v)", err)
-		os.Exit(4)
-	}
-
 	// manager
 	mgr, err := manager.New(
 		manager.SetLog(logr.GetLog("mgr")),
 		manager.SetPeerLog(logr.GetLog("peer")),
 		manager.SetRepository(repo),
-		manager.AddRecorder(rec_all),
-		manager.AddRecorder(rec_addr),
-		manager.AddRecorder(rec_ip),
+		manager.AddFilter(rec_all),
 		manager.SetNetwork(wire.MainNet),
 		manager.SetVersion(wire.RejectVersion),
 		manager.SetConnectionRate(time.Second/25),
