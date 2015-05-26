@@ -70,6 +70,7 @@ func main() {
 		writer.SetSizeLimit(0),
 		writer.SetAgeLimit(time.Minute*5),
 		writer.SetCompressor(compressor.NewLZ4()),
+		writer.SetFilePath("logs/"),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize file writer (%v)", err)
@@ -102,6 +103,8 @@ func main() {
 	rec_all, err := filter.New(
 		filter.SetLog(logr.GetLog("rec")),
 		filter.AddWriter(wfile),
+		filter.AddWriter(wzmq),
+		filter.AddWriter(wredis),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize full filter (%v)", err)
@@ -124,7 +127,7 @@ func main() {
 			"1LuckyR1fFHEsXYyx5QK4UFzv3PEAepPMK",
 			"1VayNert3x1KzbpzMGt2qdqrAThiRovi8",
 		),
-		filter.AddWriter(wzmq),
+		filter.AddWriter(wfile),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize address filter (%v)", err)
@@ -145,7 +148,7 @@ func main() {
 			"195.6.17.142",
 			"46.101.168.50",
 		),
-		filter.AddWriter(wzmq),
+		filter.AddWriter(wfile),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize ip filter recorder (%v)", err)

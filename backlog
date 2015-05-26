@@ -2,7 +2,6 @@
 - improve & complete logging for all packages
 - sensible comments in all packages
 - fix lz4 compression compatibility
-- redis pubsub writer
 - do something about chaincfg config
 - port range configuration option (manager)
 - document text & binary format (dox)

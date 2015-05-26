@@ -305,11 +305,11 @@ addrLoop:
 
 		case <-repo.tickerBackup.C:
 			repo.log.Info("[REPO] Saving node index")
-			repo.save()
+			go repo.save()
 
 		case <-repo.tickerPoll.C:
 			repo.log.Info("[REPO] Polling DNS seeds")
-			repo.bootstrap()
+			go repo.bootstrap()
 
 		case addr := <-repo.addrDiscovered:
 			n, ok := repo.nodeIndex[addr.String()]
