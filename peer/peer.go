@@ -63,8 +63,8 @@ type Peer struct {
 	rcvd    uint32
 }
 
-// New creates a new Peer withthe given options. If required options are missing
-// it returns an error as second return value.
+// New creates a new Peer with the given options. Communication on state is done
+// directly with the injected modules and not always through the manager.
 func New(options ...func(*Peer)) (*Peer, error) {
 	p := &Peer{
 		wg:         &sync.WaitGroup{},
@@ -83,14 +83,18 @@ func New(options ...func(*Peer)) (*Peer, error) {
 		option(p)
 	}
 
+	// we need either an address to connect to or an established connection
 	if p.addr == nil && p.conn == nil {
 		return nil, errors.New("Must provide address or connection")
 	}
 
+	// if we have no connection, we don't need to parse anything
 	if p.conn == nil {
 		return p, nil
 	}
 
+	// if we have a connection, we will try to parse the address from it
+	// a peer always will have an address associated with it
 	addr, ok := p.conn.RemoteAddr().(*net.TCPAddr)
 	if !ok {
 		return nil, errors.New("Could not parse remote address from connection")
@@ -190,7 +194,7 @@ func (p *Peer) Connect() {
 
 // Start will try to start the peer sub-routines in a non-blocking manner.
 func (p *Peer) Start() {
-	go p.start()
+	go p.startup()
 }
 
 // Stop will try to initialize peer shutdown in a non-blocking manner.
@@ -209,6 +213,8 @@ func (p *Peer) Poll() {
 	go p.pushGetAddr()
 }
 
+// connect will try to connect to the address of the peer, if there is not
+// yet a connection that has been established
 func (p *Peer) connect() {
 	if atomic.LoadUint32(&p.done) != 0 {
 		p.log.Warning("[PEER] %v can't connect when done", p)
@@ -227,6 +233,7 @@ func (p *Peer) connect() {
 		return
 	}
 
+	// we only care about TCP connections, but this should never fail
 	conn, ok := connGen.(*net.TCPConn)
 	if !ok {
 		p.log.Warning("[PEER] %v connection type assert failed", p)
@@ -234,6 +241,7 @@ func (p *Peer) connect() {
 		return
 	}
 
+	// if the peer was stoppe while trying to connect, we can discard everything
 	if atomic.LoadUint32(&p.done) == 1 {
 		p.log.Warning("[PEER] %v connection late", p)
 		conn.Close()
@@ -254,7 +262,7 @@ func (p *Peer) connect() {
 	p.mgr.Connected(p)
 }
 
-func (p *Peer) start() {
+func (p *Peer) startup() {
 	if atomic.SwapUint32(&p.started, 1) == 1 {
 		return
 	}
@@ -283,6 +291,7 @@ func (p *Peer) shutdown() {
 	p.mgr.Stopped(p)
 }
 
+// try to parse the connection parameters and address from the connection
 func (p *Peer) parse() error {
 	if p.addr == nil {
 		return errors.New("can't parse nil address")
@@ -309,6 +318,7 @@ func (p *Peer) parse() error {
 	return nil
 }
 
+// sendMessage is used internally to send a message, blocking for timeout
 func (p *Peer) sendMessage(msg wire.Message) error {
 	p.conn.SetWriteDeadline(time.Now().Add(timeoutSend))
 	version := atomic.LoadUint32(&p.version)
@@ -317,6 +327,7 @@ func (p *Peer) sendMessage(msg wire.Message) error {
 	return err
 }
 
+// recvMessage is used internally to receive a message; it blocks for timeout
 func (p *Peer) recvMessage() (wire.Message, error) {
 	p.conn.SetReadDeadline(time.Now().Add(timeoutRecv))
 	version := atomic.LoadUint32(&p.version)
@@ -325,6 +336,8 @@ func (p *Peer) recvMessage() (wire.Message, error) {
 	return msg, err
 }
 
+// goSend takes care of reading the send queue and putting the messages on the
+// wire
 func (p *Peer) goSend() {
 	defer p.wg.Done()
 
@@ -340,13 +353,19 @@ SendLoop:
 				break SendLoop
 			}
 
+		// send ping if nothing was sent for a while
 		case <-idleTimer.C:
 			p.pushPing()
 
+		// if we have a message in the queue, send it
 		case msg := <-p.sendQ:
 			err := p.sendMessage(msg)
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				break SendLoop
+			}
+			if _, ok := err.(*wire.MessageError); ok {
+				p.log.Notice("[PEER] %v: send ignored (%v)", p, err)
+				continue
 			}
 			if err != nil && strings.Contains(err.Error(),
 				"use of closed network connection") {
@@ -365,6 +384,9 @@ SendLoop:
 
 	idleTimer.Reset(timeoutDrain)
 
+	// drain messages to be sent for a defined timespan
+	// this makes sure we don't get stuck somewhere because a sender is
+	// blocking and the peer has already quit
 DrainLoop:
 	for {
 		select {
@@ -379,6 +401,7 @@ DrainLoop:
 	p.log.Debug("[PEER] %v send routine stopped", p)
 }
 
+// goReceive handles incoming messages and queues them for processing
 func (p *Peer) goReceive() {
 	defer p.wg.Done()
 
@@ -394,9 +417,12 @@ ReceiveLoop:
 				break ReceiveLoop
 			}
 
+		// if we haven't received a message in a while, disconnect the peer
 		case <-idleTimer.C:
+			p.log.Notice("[PEER] %v: peer timed out")
 			break ReceiveLoop
 
+		// try to receive a message and put in on the receive queue
 		default:
 			msg, err := p.recvMessage()
 			if e, ok := err.(net.Error); ok && e.Timeout() {
@@ -425,6 +451,9 @@ ReceiveLoop:
 	p.log.Debug("[PEER] %v receive routine stopped", p)
 }
 
+// goProcess processes the messages in the receive queue
+// we had to separate it from the reception handler so that messages wouldn't
+// start queuing directly on the os socket
 func (p *Peer) goProcess() {
 	defer p.wg.Done()
 ProcessLoop:
@@ -435,6 +464,7 @@ ProcessLoop:
 				break ProcessLoop
 			}
 
+		// get messages from the receive queue and process them
 		case msg := <-p.recvQ:
 			p.processMessage(msg)
 		}
@@ -442,6 +472,8 @@ ProcessLoop:
 
 	timer := time.NewTimer(timeoutDrain)
 
+	// drain the receive queue for a set duration to make sure the receiving
+	// loop doesn't block
 DrainRecvLoop:
 	for {
 		select {
@@ -454,6 +486,8 @@ DrainRecvLoop:
 	}
 }
 
+// processMessage does basic processing of the message to be in conformity
+// with the bitcoin protocol and then forwards it to the respective filters
 func (p *Peer) processMessage(msg wire.Message) {
 	ra, ok1 := p.conn.RemoteAddr().(*net.TCPAddr)
 	la, ok2 := p.conn.LocalAddr().(*net.TCPAddr)
@@ -463,6 +497,8 @@ func (p *Peer) processMessage(msg wire.Message) {
 		}
 	}
 
+	// if we have not yet received a version message and we receive any other
+	// message, the peer is breaking the protocol and we disconnect
 	if atomic.LoadUint32(&p.rcvd) == 0 {
 		_, ok := msg.(*wire.MsgVersion)
 		if !ok {
@@ -474,7 +510,16 @@ func (p *Peer) processMessage(msg wire.Message) {
 
 	// we read a message from the queue, process it depending on type
 	switch m := msg.(type) {
+
+	// version message is valid if we have not received one yet
+	// we also try to avoid out-of-date protocol peers and connections to self
 	case *wire.MsgVersion:
+		if atomic.SwapUint32(&p.rcvd, 1) == 1 {
+			p.log.Warning("%v: out of order version message", p)
+			p.Stop()
+			return
+		}
+
 		if m.Nonce == p.nonce {
 			p.log.Warning("%v: detected connection to self", p)
 			p.Stop()
@@ -487,37 +532,47 @@ func (p *Peer) processMessage(msg wire.Message) {
 			return
 		}
 
-		if atomic.SwapUint32(&p.rcvd, 1) == 1 {
-			p.log.Warning("%v: out of order version message", p)
-			p.Stop()
-			return
-		}
-
+		// synchronize our protocol version to lowest supported one
 		version := atomic.LoadUint32(&p.version)
 		version = util.MinUint32(version, uint32(m.ProtocolVersion))
 		atomic.StoreUint32(&p.version, version)
 
-		p.pushVersion()
+		// send the verack message
 		p.pushVerAck()
 
+		// if we have not sent our version yet, do so
+		// if we have, the handshake is now complete
+		if atomic.SwapUint32(&p.sent, 1) != 1 {
+			p.pushVersion()
+		} else {
+			p.mgr.Ready(p)
+		}
+
+	// verack messages only matter if we are waiting to finish handshake
+	// if we have both received and sent version, it is complete
 	case *wire.MsgVerAck:
 		if atomic.LoadUint32(&p.sent) == 1 && atomic.LoadUint32(&p.rcvd) == 1 {
 			p.mgr.Ready(p)
 		}
 
+	// only send a pong message if the protocol version expects it
 	case *wire.MsgPing:
-		p.pushPong(m.Nonce)
+		if p.version >= wire.BIP0031Version {
+			p.pushPong(m.Nonce)
+		}
 
 	case *wire.MsgPong:
 
 	case *wire.MsgGetAddr:
 
+	// if we get an address message, add the addresses to the repository
 	case *wire.MsgAddr:
 		for _, na := range m.AddrList {
 			addr := util.ParseNetAddress(na)
 			p.repo.Discovered(addr)
 		}
 
+	// if we get an inventory message, ask for the inventory
 	case *wire.MsgInv:
 		p.pushGetData(m)
 
@@ -527,11 +582,13 @@ func (p *Peer) processMessage(msg wire.Message) {
 
 	case *wire.MsgGetBlocks:
 
+	// if we receive a block message, mark the block hash as known
 	case *wire.MsgBlock:
 		p.mgr.Mark(m.BlockSha())
 
 	case *wire.MsgGetData:
 
+	// if we receive a transaction message, mark the transaction hash as known
 	case *wire.MsgTx:
 		p.mgr.Mark(m.TxSha())
 

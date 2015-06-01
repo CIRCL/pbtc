@@ -3,7 +3,6 @@ package parmap
 import (
 	"fmt"
 	"hash/fnv"
-	"sync"
 )
 
 // ParMap implements a sharded & synchronized hash map for items that have a
@@ -122,20 +121,7 @@ func (pm *ParMap) Iter() <-chan fmt.Stringer {
 	return c
 }
 
-type shard struct {
-	index map[string]fmt.Stringer
-	mutex *sync.RWMutex
-}
-
-func newShard() *shard {
-	shard := &shard{
-		index: make(map[string]fmt.Stringer),
-		mutex: &sync.RWMutex{},
-	}
-
-	return shard
-}
-
+// getShard gets the shard responsible for the given key
 func (pm *ParMap) getShard(key string) *shard {
 	hasher := fnv.New32()
 	hasher.Write([]byte(key))

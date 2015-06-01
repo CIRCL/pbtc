@@ -282,6 +282,8 @@ AddressLoop:
 				break AddressLoop
 			}
 
+		// at the pace of addr ticker, we request addresses to connect to
+		// as long as we have not reached the peer limit
 		case <-mgr.addrTicker.C:
 			if mgr.peerIndex.Count() >= mgr.peerLimit {
 				continue
@@ -302,6 +304,8 @@ func (mgr *Manager) goConnections(listener *net.TCPListener) {
 
 	for {
 		conn, err := listener.AcceptTCP()
+		// unfortunately, listener does not follow the convention of returning
+		// an io.EOF on closed connection, so we need to find out like this
 		if err != nil &&
 			strings.Contains(err.Error(), "use of closed network connection") {
 			break
@@ -312,17 +316,20 @@ func (mgr *Manager) goConnections(listener *net.TCPListener) {
 			break
 		}
 
+		// we are only interested in TCP connections (should never fail)
 		addr, ok := conn.RemoteAddr().(*net.TCPAddr)
 		if !ok {
 			conn.Close()
 			break
 		}
 
+		// only accept connections to port 8333 for now (for easy counting)
 		if addr.Port != 8333 {
 			conn.Close()
 			break
 		}
 
+		// we submit the connetion for peer creation
 		mgr.connQ <- conn
 	}
 
@@ -338,9 +345,16 @@ func (mgr *Manager) goPeers() {
 PeerLoop:
 	for {
 		select {
+		case _, ok := <-mgr.peerSig:
+			if !ok {
+				break PeerLoop
+			}
+
+		// print manager information to the log
 		case <-mgr.infoTicker.C:
 			mgr.log.Info("[MGR] %v total peers managed", mgr.peerIndex.Count())
 
+		// create new outgoing peers for received addresses
 		case addr := <-mgr.addrQ:
 			if mgr.peerIndex.HasKey(addr.String()) {
 				mgr.log.Debug("[MGR] %v already created", addr)
@@ -372,6 +386,7 @@ PeerLoop:
 			mgr.repo.Attempted(p.Addr())
 			p.Connect()
 
+		// create new incoming peer for received connections
 		case conn := <-mgr.connQ:
 			addr := conn.RemoteAddr()
 			if mgr.peerIndex.HasKey(addr.String()) {
@@ -407,6 +422,7 @@ PeerLoop:
 			mgr.repo.Connected(p.Addr())
 			p.Start()
 
+		// manage peers that have successfully connected
 		case p := <-mgr.peerConnected:
 			if !mgr.peerIndex.Has(p) {
 				mgr.log.Warning("[MGR] %v connected unknown", p)
@@ -419,6 +435,7 @@ PeerLoop:
 			p.Start()
 			p.Greet()
 
+		// manage peers that have completed the handshake
 		case p := <-mgr.peerReady:
 			if !mgr.peerIndex.Has(p) {
 				mgr.log.Warning("[MGR] %v already ready", p)
@@ -430,6 +447,7 @@ PeerLoop:
 			mgr.repo.Succeeded(p.Addr())
 			p.Poll()
 
+		// manage peers that have dropped the connection
 		case p := <-mgr.peerStopped:
 			if !mgr.peerIndex.Has(p) {
 				mgr.log.Warning("[MGR] %v done unknown", p)
@@ -438,15 +456,10 @@ PeerLoop:
 
 			mgr.log.Debug("[MGR] %v: done", p)
 			mgr.peerIndex.Remove(p)
-
-		case _, ok := <-mgr.peerSig:
-			if !ok {
-				break PeerLoop
-			}
 		}
 	}
 
-	// wait for all peers to end and clean-up
+	// wait for all peers to stop and drain the channels
 	for mgr.peerIndex.Count() > 0 {
 		select {
 		case <-mgr.addrQ:
