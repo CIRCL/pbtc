@@ -126,7 +126,7 @@ func SetManager(mgr adaptor.Manager) func(*Peer) {
 }
 
 // SetRecorder injects the recorder to be used to log events on this connection.
-func SetRecorders(recs []adaptor.Processor) func(*Peer) {
+func SetProcessors(recs []adaptor.Processor) func(*Peer) {
 	return func(p *Peer) {
 		p.recs = recs
 	}
@@ -493,8 +493,9 @@ func (p *Peer) processMessage(msg wire.Message) {
 	ra, ok1 := p.conn.RemoteAddr().(*net.TCPAddr)
 	la, ok2 := p.conn.LocalAddr().(*net.TCPAddr)
 	if ok1 && ok2 {
+		record := convertor.Message(msg, ra, la)
 		for _, rec := range p.recs {
-			rec.Process(convertor.Message(msg, ra, la))
+			rec.Process(record)
 		}
 	}
 
