@@ -61,7 +61,8 @@ func NewFile(options ...func(*FileWriter)) (*FileWriter, error) {
 
 	w.fileTimer = time.NewTimer(w.fileAge)
 
-	w.startup()
+	w.wg.Add(1)
+	go w.goWriter()
 
 	return w, nil
 }
@@ -102,7 +103,7 @@ func SetAgeLimit(age time.Duration) func(*FileWriter) {
 
 // Stop ends the execution of the recorder sub-routines and returns once
 // everything was stopped cleanly.
-func (w *FileWriter) Stop() {
+func (w *FileWriter) Close() {
 	if atomic.SwapUint32(&w.done, 1) == 1 {
 		return
 	}
@@ -114,11 +115,6 @@ func (w *FileWriter) Stop() {
 
 func (w *FileWriter) Line(line string) {
 	w.txtQ <- line
-}
-
-func (w *FileWriter) startup() {
-	w.wg.Add(1)
-	go w.goWriter()
 }
 
 func (w *FileWriter) goWriter() {

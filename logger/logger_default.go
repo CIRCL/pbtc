@@ -5,18 +5,15 @@ import (
 )
 
 var logr adaptor.Logger
+var err error
 
 func init() {
-	golog, err := NewGologging(EnableConsole())
-	if err != nil {
-		panic("Could not initialize default logger")
-	}
-
-	logr = golog
+	gologr, goerr := NewGologging(EnableConsole())
+	logr, err = gologr, goerr
 }
 
 // New returns the default logger for the package. Use this to define default
 // settings and library.
-func New() adaptor.Logger {
-	return logr
+func New() (adaptor.Logger, error) {
+	return logr, err
 }

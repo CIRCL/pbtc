@@ -4,7 +4,6 @@ import (
 	"io"
 
 	"github.com/CIRCL/pbtc/adaptor"
-	"github.com/CIRCL/pbtc/logger"
 )
 
 // CompressorDummy is an empty compressor which fulfills the compressor
@@ -17,9 +16,7 @@ type CompressorDummy struct {
 // NewDummy creates a new dummy compressor which does not compress output or
 // decompress input.
 func NewDummy(options ...func(*CompressorDummy)) *CompressorDummy {
-	comp := &CompressorDummy{
-		log: logger.New().GetLog(""),
-	}
+	comp := &CompressorDummy{}
 
 	for _, option := range options {
 		option(comp)
