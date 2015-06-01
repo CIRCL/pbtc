@@ -26,6 +26,7 @@ type Repository struct {
 	tickerBackup   *time.Ticker
 	tickerPoll     *time.Ticker
 	nodeIndex      map[string]*node
+	nodeLimit      int
 
 	seeds        []string
 	backupPath   string
@@ -56,6 +57,7 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 		tickerPoll:     time.NewTicker(30 * time.Minute),
 		defaultPort:    18333,
 		invalidRange:   make([]*ipRange, 0, 16),
+		nodeLimit:      100000,
 
 		seeds:          []string{"testnet-seed.bitcoin.petertodd.org"},
 		backupPath:     "nodes.dat",
@@ -129,6 +131,12 @@ func SetBackupPath(path string) func(*Repository) {
 func SetDefaultPort(port int) func(*Repository) {
 	return func(repo *Repository) {
 		repo.defaultPort = port
+	}
+}
+
+func SetNodeLimit(limit int) func(*Repository) {
+	return func(repo *Repository) {
+		repo.nodeLimit = limit
 	}
 }
 
@@ -316,6 +324,10 @@ addrLoop:
 			if ok {
 				n.numSeen++
 				continue
+			}
+
+			if len(repo.nodeIndex) >= repo.nodeLimit {
+				return
 			}
 
 			ip := addr.IP.To4()

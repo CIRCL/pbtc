@@ -58,13 +58,14 @@ func main() {
 		repository.SetSeeds("seed.bitcoin.sipa.be"),
 		repository.SetDefaultPort(8333),
 		repository.DisableRestore(),
+		repository.SetNodeLimit(10000),
 	)
 	if err != nil {
 		log.Critical("Unable to create repository (%v)", err)
 		os.Exit(2)
 	}
 
-	// writer to write everything to file
+	// writer to publish to file
 	wfile, err := writer.NewFile(
 		writer.SetLogFile(logr.GetLog("out")),
 		writer.SetSizeLimit(0),

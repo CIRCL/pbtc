@@ -1,6 +1,6 @@
-- split filter into multiple files
 - improve & complete logging for all packages
 - split inventory tracking from manager
+- add queues to filters and writers
 - move config options to file
 - fix lz4 compression compatibility
 - do something about chaincfg config
