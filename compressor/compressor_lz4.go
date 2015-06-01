@@ -4,17 +4,33 @@ import (
 	"io"
 
 	lz4 "github.com/pwaller/go-clz4"
+
+	"github.com/CIRCL/pbtc/adaptor"
+	"github.com/CIRCL/pbtc/logger"
 )
 
-// CompressorLZ4 is a wrapper around the LZ4 compression library, allowing
-// run-time creation of readers and writers as interface values.
-type CompressorLZ4 struct{}
+// CompressorLZ4 is a wrapper around the LZ4 compression library fulfilling the
+// compressor interface. This allows us to create LZ4 readers and writers at
+// runtime.
+type CompressorLZ4 struct {
+	log adaptor.Log
+}
 
 // NewLZ4 creates a new wrapper around the LZ4 compression library.
-func NewLZ4() *CompressorLZ4 {
-	comp := &CompressorLZ4{}
+func NewLZ4(options ...func(*CompressorLZ4)) *CompressorLZ4 {
+	comp := &CompressorLZ4{
+		log: logger.New().GetLog(""),
+	}
+
+	for _, option := range options {
+		option(comp)
+	}
 
 	return comp
+}
+
+// Close shuts the compressor down.
+func (comp *CompressorLZ4) Close() {
 }
 
 // GetWriter wraps a new LZ4 writer around the provided writer and returns it

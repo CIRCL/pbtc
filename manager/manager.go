@@ -15,21 +15,15 @@ import (
 	"github.com/CIRCL/pbtc/util"
 )
 
-const (
-	stateIdle      = iota // initial state where module is ready to start
-	stateConnected        // peer state when it is connected
-	stateRunning          // module state after a module was started
-	stateBusy             // state used during state changes
-	stateShutdown         // irreversible shutdown of module
-)
-
-// Manager is the module responsible for managing the connections to peers and
-// keep them in line with application level state and requirements. It accepts
-// inbound connections, establishes the desired number of outgoing connections
-// and manages the creation and disposal of peers. It will use a provided
-// repository to get addresses to connect to and notifies it about changes
-// relevant to address selection.
+// Manager is the module responsible for peer management. It will initialize
+// new incoming & outgoing peers and take care of state transitions. As the
+// main control instance, it defines most of the behaviour of our peer.
 type Manager struct {
+	log     adaptor.Log
+	peerLog adaptor.Log
+	repo    adaptor.Repository
+	recs    []adaptor.Filter
+
 	wg *sync.WaitGroup
 
 	peerSig       chan struct{}
@@ -47,11 +41,6 @@ type Manager struct {
 	addrTicker *time.Ticker
 	infoTicker *time.Ticker
 
-	log     adaptor.Log
-	peerLog adaptor.Log
-	repo    adaptor.Repository
-	recs    []adaptor.Filter
-
 	network     wire.BitcoinNet
 	version     uint32
 	nonce       uint64
@@ -64,8 +53,7 @@ type Manager struct {
 	server bool
 }
 
-// New returns a new default initialized manager with all options applied to it
-// subsequently.
+// New returns a new manager initialized with the given options.
 func New(options ...func(mgr *Manager)) (*Manager, error) {
 	mgr := &Manager{
 		wg: &sync.WaitGroup{},
@@ -108,12 +96,19 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		mgr.defaultPort = 8333
 	}
 
-	mgr.start()
+	if mgr.server {
+		mgr.createListeners()
+	}
+
+	mgr.wg.Add(2)
+	go mgr.goPeers()
+	go mgr.goAddresses()
 
 	return mgr, nil
 }
 
-// SetLogger injects a logger into the manager. It is required.
+// SetLogger has to be passed as a parameter on manager creation. It injects a
+// the log to be used for logging.
 func SetLog(log adaptor.Log) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.log = log
@@ -186,13 +181,26 @@ func EnableServer() func(*Manager) {
 	}
 }
 
-// Stop will shut the manager down and wait for all components to exit cleanly
-// before returning.
-func (mgr *Manager) Stop() {
-	mgr.shutdown()
-	mgr.wg.Wait()
+// Close will clean-up before shutdown.
+func (mgr *Manager) Close() {
+	if atomic.SwapUint32(&mgr.done, 1) == 1 {
+		return
+	}
 
-	mgr.log.Info("[MGR] Shutdown complete")
+	close(mgr.addrSig)
+
+	for _, listener := range mgr.listenIndex {
+		listener.Close()
+	}
+
+	close(mgr.peerSig)
+
+	for s := range mgr.peerIndex.Iter() {
+		p := s.(adaptor.Peer)
+		p.Stop()
+	}
+
+	mgr.wg.Wait()
 }
 
 // Connected signals to the manager that we have successfully established a
@@ -224,44 +232,6 @@ func (mgr *Manager) Knows(hash wire.ShaHash) bool {
 // need to be requested or logged again.
 func (mgr *Manager) Mark(hash wire.ShaHash) {
 	mgr.invIndex.Insert(hash)
-}
-
-// Start commences the execution of the manager sub-routines in a non-blocking
-// way.
-func (mgr *Manager) start() {
-	// listen on local IPs for incoming peers
-	if mgr.server {
-		mgr.createListeners()
-	}
-
-	// here, we start all handlers that execute concurrently
-	// we add them to the waitgrop so that we can cleanly shutdown later
-	mgr.wg.Add(2)
-	go mgr.goPeers()
-	go mgr.goAddresses()
-
-	mgr.log.Info("[MGR] Initialization complete")
-}
-
-func (mgr *Manager) shutdown() {
-	if atomic.SwapUint32(&mgr.done, 1) == 1 {
-		return
-	}
-
-	close(mgr.addrSig)
-
-	for _, listener := range mgr.listenIndex {
-		listener.Close()
-	}
-
-	close(mgr.peerSig)
-
-	for s := range mgr.peerIndex.Iter() {
-		p := s.(adaptor.Peer)
-		p.Stop()
-	}
-
-	mgr.wg.Wait()
 }
 
 func (mgr *Manager) createListeners() {

@@ -148,12 +148,6 @@ SigLoop:
 	// we will initialize shutdown in a non-blocking way
 	c := make(chan struct{})
 	go func() {
-		mgr.Stop()
-		repo.Stop()
-		wredis.Stop()
-		wzmq.Stop()
-		wfile.Stop()
-		logr.Stop()
 		c <- struct{}{}
 	}()
 
@@ -165,6 +159,7 @@ SigLoop:
 		panic("SHUTDOWN FAILED")
 
 	case <-c:
+		mgr.Close()
 		break
 	}
 

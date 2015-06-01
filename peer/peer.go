@@ -15,6 +15,14 @@ import (
 )
 
 const (
+	stateIdle = iota
+	stateConnected
+	stateRunning
+	stateBusy
+	stateShutdown
+)
+
+const (
 	timeoutDial  = 1 * time.Second
 	timeoutSend  = 1 * time.Second
 	timeoutRecv  = 1 * time.Second

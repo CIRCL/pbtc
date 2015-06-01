@@ -12,10 +12,14 @@ import (
 	"github.com/CIRCL/pbtc/records"
 )
 
-// Filter is responsible for writing records to a file. It can filter events
-// to only show certain types, or limit them to certain IP/Bitcoin addresses.
-// It will periodically rotate the files and supports compression.
+// Filter is the standard implementation of the filter adaptor. It takes
+// messages from the Bitcoin network as input and filters them according to
+// certain criteria. After the filtering pipeline, it will forward the
+// remaining messages to the added writers.
 type Filter struct {
+	log  adaptor.Log
+	comp adaptor.Compressor
+
 	wg         *sync.WaitGroup
 	cmdConfig  map[string]bool
 	ipConfig   map[string]bool
@@ -24,9 +28,6 @@ type Filter struct {
 	blockIndex *parmap.ParMap
 	writers    []adaptor.Writer
 
-	log  adaptor.Log
-	comp adaptor.Compressor
-
 	filePath string
 	fileName string
 
@@ -34,9 +35,11 @@ type Filter struct {
 	fileAge  time.Duration
 }
 
-// New creates a new filter with the given options.
+// New creates a new filter with the given options. The options are provided
+// as a parameter list of package functions, allowing us to define the various
+// aspects of the filter.
 func New(options ...func(*Filter)) (*Filter, error) {
-	rec := &Filter{
+	filter := &Filter{
 		wg:         &sync.WaitGroup{},
 		cmdConfig:  make(map[string]bool),
 		ipConfig:   make(map[string]bool),
@@ -47,61 +50,81 @@ func New(options ...func(*Filter)) (*Filter, error) {
 	}
 
 	for _, option := range options {
-		option(rec)
+		option(filter)
 	}
 
-	return rec, nil
+	return filter, nil
 }
 
 // SetLogger injects the logger to be used for logging.
 func SetLog(log adaptor.Log) func(*Filter) {
-	return func(rec *Filter) {
-		rec.log = log
+	return func(filter *Filter) {
+		filter.log = log
 	}
 }
 
-// SetTypes sets the type of events to write to file.
+// FilterTypes defines a filter on the type of message. If defined, only
+// messages of the given types will be forwarded.
 func FilterTypes(cmds ...string) func(*Filter) {
-	return func(rec *Filter) {
+	return func(filter *Filter) {
 		for _, cmd := range cmds {
-			rec.cmdConfig[cmd] = true
+			filter.cmdConfig[cmd] = true
 		}
 	}
 }
 
+// FilterIPs defines a filter on the remote IP address of messages. If provided,
+// only messages from the given IPs will be forwarded.
 func FilterIPs(ips ...string) func(*Filter) {
-	return func(rec *Filter) {
+	return func(filter *Filter) {
 		for _, ip := range ips {
-			rec.ipConfig[ip] = true
+			filter.ipConfig[ip] = true
 		}
 	}
 }
 
+// FilterAddresses deines a filter on the Bitcoin address of messages. If
+// provided, only transactions that have any of the given Bitcoin addresses as
+// an output will be forwarded. All other messages will still be forwarded, so
+// be sure to use FilterTypes to filter only for transactions if this is the
+// desired behaviour.
 func FilterAddresses(addrs ...string) func(*Filter) {
-	return func(rec *Filter) {
+	return func(filter *Filter) {
 		for _, addr := range addrs {
-			rec.addrConfig[addr] = true
+			filter.addrConfig[addr] = true
 		}
 	}
 }
 
+// AddWriter adds an output channel for the filtered messages to the filter. The
+// messages will be forwarded to every writer added to the filter.
 func AddWriter(w adaptor.Writer) func(*Filter) {
-	return func(rec *Filter) {
-		rec.writers = append(rec.writers, w)
+	return func(filter *Filter) {
+		filter.writers = append(filter.writers, w)
 	}
 }
 
-// Message will process a given message and log it if it's elligible.
-func (rec *Filter) Message(msg wire.Message, ra *net.TCPAddr,
+// Init initializes the filter.
+func (filter *Filter) Init() {
+}
+
+// Close shuts the filter down.
+func (filter *Filter) Close() {
+}
+
+// Message submits a new message to the filter and will send it through the
+// filtering pipeline. After passing the filters, we convert the message to
+// a record which can be handled by the added writers.
+func (filter *Filter) Message(msg wire.Message, ra *net.TCPAddr,
 	la *net.TCPAddr) {
-	if len(rec.cmdConfig) > 0 {
-		if !rec.cmdConfig[msg.Command()] {
+	if len(filter.cmdConfig) > 0 {
+		if !filter.cmdConfig[msg.Command()] {
 			return
 		}
 	}
 
-	if len(rec.ipConfig) > 0 {
-		if !rec.ipConfig[ra.IP.String()] {
+	if len(filter.ipConfig) > 0 {
+		if !filter.ipConfig[ra.IP.String()] {
 			return
 		}
 	}
@@ -116,11 +139,11 @@ func (rec *Filter) Message(msg wire.Message, ra *net.TCPAddr,
 		record = records.NewAlertRecord(m, ra, la)
 
 	case *wire.MsgBlock:
-		if rec.blockIndex.Has(m.BlockSha()) {
+		if filter.blockIndex.Has(m.BlockSha()) {
 			return
 		}
 
-		rec.blockIndex.Insert(m.BlockSha())
+		filter.blockIndex.Insert(m.BlockSha())
 		record = records.NewBlockRecord(m, ra, la)
 
 	case *wire.MsgHeaders:
@@ -142,18 +165,18 @@ func (rec *Filter) Message(msg wire.Message, ra *net.TCPAddr,
 		record = records.NewVersionRecord(m, ra, la)
 
 	case *wire.MsgTx:
-		if rec.txIndex.Has(m.TxSha()) {
+		if filter.txIndex.Has(m.TxSha()) {
 			return
 		}
 
-		rec.txIndex.Insert(m.TxSha())
+		filter.txIndex.Insert(m.TxSha())
 		tx := records.NewTransactionRecord(m, ra, la)
 		ok := true
 
-		if len(rec.addrConfig) > 0 {
+		if len(filter.addrConfig) > 0 {
 			ok = false
 		Outer:
-			for addr := range rec.addrConfig {
+			for addr := range filter.addrConfig {
 				if tx.HasAddress(addr) {
 					ok = true
 					break Outer
@@ -201,7 +224,7 @@ func (rec *Filter) Message(msg wire.Message, ra *net.TCPAddr,
 		record = records.NewVerAckRecord(m, ra, la)
 	}
 
-	for _, writer := range rec.writers {
+	for _, writer := range filter.writers {
 		writer.Line(record.String())
 	}
 }

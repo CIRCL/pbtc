@@ -6,9 +6,9 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
-// Recorder defines a common interface for a recorder that can record events
-// and messages on the Bitcoin network. It can be used to store events in
-// different formats and on different media.
+// Filter defines an interface for filters to work on messages from the Bitcoin
+// network. It will filter the messages according to a number of criteria
+// before forwarding them to the added writers.
 type Filter interface {
 	Message(msg wire.Message, la *net.TCPAddr, ra *net.TCPAddr)
 }

@@ -1,6 +1,8 @@
-- move config options to file
-- improve & complete logging for all packages
 - sensible comments in all packages
+- improve & complete logging for all packages
+- split filter into multiple files
+- split inventory tracking from manager
+- move config options to file
 - fix lz4 compression compatibility
 - do something about chaincfg config
 - port range configuration option (manager)

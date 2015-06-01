@@ -4,8 +4,9 @@ import (
 	"github.com/btcsuite/btcd/wire"
 )
 
-// Manager defines a common interface for peer management. It can be used to
-// keep track of peer state and a global shared state.
+// Manager defines the interface used by peers to communicate with their
+// manager. It is notified of peer state, keeps track of shared state and
+// decides on actions depending on state.
 type Manager interface {
 	Connected(Peer)
 	Ready(Peer)
