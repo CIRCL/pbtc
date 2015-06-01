@@ -88,7 +88,7 @@ func main() {
 	}
 
 	// writer to publish stuff to redis
-	wredis, err := writer.NewRedis(
+	/*wredis, err := writer.NewRedis(
 		writer.SetLogRedis(logr.GetLog("out")),
 		writer.SetAddressRedis("127.0.0.1:23456"),
 		writer.SetPassword(""),
@@ -97,14 +97,14 @@ func main() {
 	if err != nil {
 		log.Critical("Unable to initialize redis writer (%v)", err)
 		os.Exit(3)
-	}
+	}*/
 
 	// recorder that doesn't filter
 	rec_all, err := filter.New(
 		filter.SetLog(logr.GetLog("rec")),
 		filter.AddWriter(wfile),
 		filter.AddWriter(wzmq),
-		filter.AddWriter(wredis),
+		//filter.AddWriter(wredis),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize full filter (%v)", err)

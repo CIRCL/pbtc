@@ -107,7 +107,7 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 	return mgr, nil
 }
 
-// SetLogger has to be passed as a parameter on manager creation. It injects a
+// SetLog has to be passed as a parameter on manager creation. It injects
 // the log to be used for logging.
 func SetLog(log adaptor.Log) func(*Manager) {
 	return func(mgr *Manager) {
@@ -115,69 +115,77 @@ func SetLog(log adaptor.Log) func(*Manager) {
 	}
 }
 
+// SetPeerLog has to be passed as a parameter on manager creation. It injects
+// the log to be used by created peers for logging.
 func SetPeerLog(log adaptor.Log) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.peerLog = log
 	}
 }
 
-// SetRepository injects a node repository into the manager. It is required.
+// SetRepository has to be passed as a parameter on manager creation. It injects
+// the repository to be used for node management.
 func SetRepository(repo adaptor.Repository) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.repo = repo
 	}
 }
 
-// SetRecorder injects an event recorder into the manager. It is required.
-func AddFilter(rec adaptor.Filter) func(*Manager) {
-	return func(mgr *Manager) {
-		mgr.recs = append(mgr.recs, rec)
-	}
-}
-
-// SetNetwork sets the network on which the manager operatios. It can be the
-// Bitcoin main network or one of the test networks.
+// SetNetwork has to be passed as a parameter on manager creation. It sets the
+// Bitcoin network to be used (main, test, regression, ...).
 func SetNetwork(network wire.BitcoinNet) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.network = network
 	}
 }
 
-// SetVersion sets the Bitcoin protocol version that the manager uses to
-// initialize its peers.
+// SetVersion has to be passed as a parameter on manager creation. It sets the
+// maximum protocol version to be used for peer communication.
 func SetVersion(version uint32) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.version = version
 	}
 }
 
-// SetConnectionRate sets the maximum number of TCP connections the manager will
-// try to establish per second
+// SetConnectionRate has to be passed as a parameter on manager creation. It
+// sets the maximum number of attempted TCP connections per second.
 func SetConnectionRate(connRate time.Duration) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.connRate = connRate
 	}
 }
 
-// SetInformationRate sets the interval at which the manager will log an
-// information summary.
+// SetInformationRate has to be passed as a parameter on manager creation. It
+// defines the rate at which manager information will be output to the log.
 func SetInformationRate(infoRate time.Duration) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.infoRate = infoRate
 	}
 }
 
-// SetPeerLimit sets the maximum number of peers to manage, which also puts a
-// limit on the maximum number of concurrent TCP connections.
+// SetPeerLimit has to be passed as a parameter on manager creation. It sets
+// the maximum number of concurrent TCP connections, thus limiting the total
+// number of connecting and connected peers.
 func SetPeerLimit(peerLimit int) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.peerLimit = peerLimit
 	}
 }
 
+// EnableServer has to be passed as a parameter on manager creation. It enables
+// listening on all connected TCP IP interfaces for incoming peers.
 func EnableServer() func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.server = true
+	}
+}
+
+// AddFilter has to be passed as a parameter on manager creation. It adds a
+// filter for incoming messages which receives all messages for filtering and
+// further forwarding.
+func AddFilter(rec adaptor.Filter) func(*Manager) {
+	return func(mgr *Manager) {
+		mgr.recs = append(mgr.recs, rec)
 	}
 }
 
@@ -234,6 +242,7 @@ func (mgr *Manager) Mark(hash wire.ShaHash) {
 	mgr.invIndex.Insert(hash)
 }
 
+// creates a listener for each local IP on each local interface
 func (mgr *Manager) createListeners() {
 	ips, err := util.FindLocalIPs()
 	if err != nil {
@@ -259,6 +268,8 @@ func (mgr *Manager) createListeners() {
 	}
 }
 
+// to be called from a go routine
+// will request and receive addresses for our connection attempts
 func (mgr *Manager) goAddresses() {
 	defer mgr.wg.Done()
 	mgr.log.Info("[MGR] Address routine started")
@@ -283,6 +294,8 @@ AddressLoop:
 	mgr.log.Info("[MGR] Address routine stopped")
 }
 
+// to be called from a go routine
+// will try to accept incoming peers on the given listener
 func (mgr *Manager) goConnections(listener *net.TCPListener) {
 	defer mgr.wg.Done()
 	mgr.log.Info("[MGR] Connection routine started (%v)", listener.Addr())
@@ -316,6 +329,8 @@ func (mgr *Manager) goConnections(listener *net.TCPListener) {
 	mgr.log.Info("[MGR] Connection routine stopped (%v)", listener.Addr())
 }
 
+// to be called from a go routine
+// will manage all peer connection/disconnection
 func (mgr *Manager) goPeers() {
 	defer mgr.wg.Done()
 	mgr.log.Info("[MGR] Peer routine started")
@@ -431,6 +446,7 @@ PeerLoop:
 		}
 	}
 
+	// wait for all peers to end and clean-up
 	for mgr.peerIndex.Count() > 0 {
 		select {
 		case <-mgr.addrQ:

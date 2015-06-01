@@ -402,6 +402,10 @@ ReceiveLoop:
 			if e, ok := err.(net.Error); ok && e.Timeout() {
 				continue
 			}
+			if _, ok := err.(*wire.MessageError); ok {
+				p.log.Notice("[PEER] %v: received ignored (%v)", p, err)
+				continue
+			}
 			if err != nil && strings.Contains(err.Error(),
 				"use of closed network connection") {
 				break ReceiveLoop
