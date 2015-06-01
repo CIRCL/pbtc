@@ -72,8 +72,8 @@ func (w *ZeroMQWriter) Stop() {
 	w.wg.Wait()
 }
 
-func (w *ZeroMQWriter) Line(line string) {
-	w.lineQ <- line
+func (w *ZeroMQWriter) Process(record adaptor.Record) {
+	w.lineQ <- record.String()
 }
 
 func (w *ZeroMQWriter) startup() {

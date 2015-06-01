@@ -87,8 +87,8 @@ func (w *RedisWriter) Stop() {
 	w.wg.Wait()
 }
 
-func (w *RedisWriter) Line(line string) {
-	w.lineQ <- line
+func (w *RedisWriter) Process(record adaptor.Record) {
+	w.lineQ <- record.String()
 }
 
 func (w *RedisWriter) startup() {

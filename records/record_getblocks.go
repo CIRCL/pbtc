@@ -2,7 +2,6 @@ package records
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/hex"
 	"net"
 	"strconv"
@@ -38,6 +37,14 @@ func NewGetBlocksRecord(msg *wire.MsgGetBlocks, ra *net.TCPAddr,
 	return record
 }
 
+func (gr *GetBlocksRecord) Address() *net.TCPAddr {
+	return gr.ra
+}
+
+func (gr *GetBlocksRecord) Cmd() string {
+	return gr.cmd
+}
+
 func (gr *GetBlocksRecord) String() string {
 	buf := new(bytes.Buffer)
 
@@ -59,23 +66,4 @@ func (gr *GetBlocksRecord) String() string {
 	}
 
 	return buf.String()
-}
-
-func (gr *GetBlocksRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ParseCommand(gr.cmd))   //  1
-	binary.Write(buf, binary.LittleEndian, gr.stamp.UnixNano())    //  8
-	binary.Write(buf, binary.LittleEndian, gr.ra.IP.To16())        // 16
-	binary.Write(buf, binary.LittleEndian, uint16(gr.ra.Port))     //  2
-	binary.Write(buf, binary.LittleEndian, gr.la.IP.To16())        // 16
-	binary.Write(buf, binary.LittleEndian, uint16(gr.la.Port))     //  2
-	binary.Write(buf, binary.LittleEndian, gr.stop)                // 32
-	binary.Write(buf, binary.LittleEndian, uint32(len(gr.hashes))) //  4
-
-	for _, hash := range gr.hashes { // N
-		binary.Write(buf, binary.LittleEndian, hash) // 32
-	}
-
-	// total: 81 + N*32
-	return buf.Bytes()
 }

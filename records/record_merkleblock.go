@@ -2,7 +2,6 @@ package records
 
 import (
 	"bytes"
-	"encoding/binary"
 	"net"
 	"time"
 
@@ -28,6 +27,14 @@ func NewMerkleBlockRecord(msg *wire.MsgMerkleBlock, ra *net.TCPAddr,
 	return record
 }
 
+func (mr *MerkleBlockRecord) Address() *net.TCPAddr {
+	return mr.ra
+}
+
+func (mr *MerkleBlockRecord) Cmd() string {
+	return mr.cmd
+}
+
 func (mr *MerkleBlockRecord) String() string {
 	buf := new(bytes.Buffer)
 	buf.WriteString(mr.stamp.Format(time.RFC3339Nano))
@@ -39,17 +46,4 @@ func (mr *MerkleBlockRecord) String() string {
 	buf.WriteString(mr.la.String())
 
 	return buf.String()
-}
-
-func (mr *MerkleBlockRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ParseCommand(mr.cmd)) //  1
-	binary.Write(buf, binary.LittleEndian, mr.stamp.UnixNano())  //  8
-	binary.Write(buf, binary.LittleEndian, mr.ra.IP.To16())      // 16
-	binary.Write(buf, binary.LittleEndian, uint16(mr.ra.Port))   //  2
-	binary.Write(buf, binary.LittleEndian, mr.la.IP.To16())      // 16
-	binary.Write(buf, binary.LittleEndian, uint16(mr.la.Port))   //  2
-
-	// total: 45
-	return buf.Bytes()
 }

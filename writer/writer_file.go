@@ -113,8 +113,8 @@ func (w *FileWriter) Close() {
 	w.wg.Wait()
 }
 
-func (w *FileWriter) Line(line string) {
-	w.txtQ <- line
+func (w *FileWriter) Process(record adaptor.Record) {
+	w.txtQ <- record.String()
 }
 
 func (w *FileWriter) goWriter() {

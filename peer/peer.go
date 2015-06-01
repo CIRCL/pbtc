@@ -11,6 +11,7 @@ import (
 	"github.com/btcsuite/btcd/wire"
 
 	"github.com/CIRCL/pbtc/adaptor"
+	"github.com/CIRCL/pbtc/convertor"
 	"github.com/CIRCL/pbtc/util"
 )
 
@@ -46,7 +47,7 @@ type Peer struct {
 
 	log  adaptor.Log
 	mgr  adaptor.Manager
-	recs []adaptor.Filter
+	recs []adaptor.Processor
 	repo adaptor.Repository
 
 	network wire.BitcoinNet
@@ -125,7 +126,7 @@ func SetManager(mgr adaptor.Manager) func(*Peer) {
 }
 
 // SetRecorder injects the recorder to be used to log events on this connection.
-func SetRecorders(recs []adaptor.Filter) func(*Peer) {
+func SetRecorders(recs []adaptor.Processor) func(*Peer) {
 	return func(p *Peer) {
 		p.recs = recs
 	}
@@ -493,7 +494,7 @@ func (p *Peer) processMessage(msg wire.Message) {
 	la, ok2 := p.conn.LocalAddr().(*net.TCPAddr)
 	if ok1 && ok2 {
 		for _, rec := range p.recs {
-			rec.Message(msg, ra, la)
+			rec.Process(convertor.Message(msg, ra, la))
 		}
 	}
 

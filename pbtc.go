@@ -88,7 +88,7 @@ func main() {
 	}
 
 	// writer to publish stuff to redis
-	/*wredis, err := writer.NewRedis(
+	wredis, err := writer.NewRedis(
 		writer.SetLogRedis(logr.GetLog("out")),
 		writer.SetAddressRedis("127.0.0.1:23456"),
 		writer.SetPassword(""),
@@ -97,17 +97,50 @@ func main() {
 	if err != nil {
 		log.Critical("Unable to initialize redis writer (%v)", err)
 		os.Exit(3)
-	}*/
+	}
 
-	// recorder that doesn't filter
-	rec_all, err := filter.New(
-		filter.SetLog(logr.GetLog("rec")),
-		filter.AddWriter(wfile),
-		filter.AddWriter(wzmq),
-		//filter.AddWriter(wredis),
+	// filter all transactions for zmq output
+	ftx, err := filter.NewCommand(
+		filter.SetCommands("tx"),
+		filter.SetNextCommand(wzmq),
 	)
 	if err != nil {
-		log.Critical("Unable to initialize full filter (%v)", err)
+		log.Critical("blabla")
+		os.Exit(4)
+	}
+
+	// filter some IPs for redis output
+	finv, err := filter.NewIP(
+		filter.SetIPs(
+			"208.111.48.35",
+			"97.69.174.76",
+			"50.181.241.97",
+			"173.73.12.206",
+			"88.148.169.65",
+			"72.11.148.180",
+			"195.6.17.142",
+			"46.101.168.50",
+		),
+		filter.SetNextIP(wredis),
+	)
+	if err != nil {
+		log.Critical("blabla")
+		os.Exit(4)
+	}
+
+	// filter some address transactions for redis output
+	fbase58, err := filter.NewBase58(
+		filter.SetBase58s(
+			"1dice8EMZmqKvrGE4Qc9bUFf9PX3xaYDp",
+			"1dice97ECuByXAvqXpaYzSaQuPVvrtmz6",
+			"1dice9wcMu5hLF4g81u8nioL5mmSHTApw",
+			"1LuckyR1fFHEsXYyx5QK4UFzv3PEAepPMK",
+			"1VayNert3x1KzbpzMGt2qdqrAThiRovi8",
+		),
+		filter.SetNextBase58(wredis),
+	)
+	if err != nil {
+		log.Critical("blabla")
 		os.Exit(4)
 	}
 
@@ -116,7 +149,7 @@ func main() {
 		manager.SetLog(logr.GetLog("mgr")),
 		manager.SetPeerLog(logr.GetLog("peer")),
 		manager.SetRepository(repo),
-		manager.AddFilter(rec_all),
+		manager.SetProcessors(wfile, finv, fbase58, ftx),
 		manager.SetNetwork(wire.MainNet),
 		manager.SetVersion(wire.RejectVersion),
 		manager.SetConnectionRate(time.Second/25),
@@ -160,6 +193,7 @@ SigLoop:
 
 	case <-c:
 		mgr.Close()
+		repo.Close()
 		break
 	}
 

@@ -2,7 +2,6 @@ package records
 
 import (
 	"bytes"
-	"encoding/binary"
 	"net"
 	"strconv"
 	"time"
@@ -35,6 +34,14 @@ func NewNotFoundRecord(msg *wire.MsgNotFound, ra *net.TCPAddr,
 	return record
 }
 
+func (nr *NotFoundRecord) Address() *net.TCPAddr {
+	return nr.ra
+}
+
+func (nr *NotFoundRecord) Cmd() string {
+	return nr.cmd
+}
+
 func (nr *NotFoundRecord) String() string {
 	buf := new(bytes.Buffer)
 	buf.WriteString(nr.stamp.Format(time.RFC3339Nano))
@@ -53,22 +60,4 @@ func (nr *NotFoundRecord) String() string {
 	}
 
 	return buf.String()
-}
-
-func (nr *NotFoundRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ParseCommand(nr.cmd)) //  1
-	binary.Write(buf, binary.LittleEndian, nr.stamp.UnixNano())  //  8
-	binary.Write(buf, binary.LittleEndian, nr.ra.IP.To16())      // 16
-	binary.Write(buf, binary.LittleEndian, uint16(nr.ra.Port))   //  2
-	binary.Write(buf, binary.LittleEndian, nr.la.IP.To16())      // 16
-	binary.Write(buf, binary.LittleEndian, uint16(nr.la.Port))   //  2
-	binary.Write(buf, binary.LittleEndian, uint16(len(nr.inv)))  //  2
-
-	for _, item := range nr.inv { // N
-		binary.Write(buf, binary.LittleEndian, item.Bytes()) // 33
-	}
-
-	// total: 47 + N*33
-	return buf.Bytes()
 }

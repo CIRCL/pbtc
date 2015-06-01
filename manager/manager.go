@@ -22,7 +22,7 @@ type Manager struct {
 	log     adaptor.Log
 	peerLog adaptor.Log
 	repo    adaptor.Repository
-	recs    []adaptor.Filter
+	recs    []adaptor.Processor
 
 	wg *sync.WaitGroup
 
@@ -69,7 +69,6 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		peerIndex:   parmap.New(),
 		invIndex:    parmap.New(),
 		listenIndex: make(map[string]*net.TCPListener),
-		recs:        make([]adaptor.Filter, 0, 2),
 
 		network:     wire.TestNet3,
 		version:     wire.RejectVersion,
@@ -183,9 +182,9 @@ func EnableServer() func(*Manager) {
 // AddFilter has to be passed as a parameter on manager creation. It adds a
 // filter for incoming messages which receives all messages for filtering and
 // further forwarding.
-func AddFilter(rec adaptor.Filter) func(*Manager) {
+func SetProcessors(processors ...adaptor.Processor) func(*Manager) {
 	return func(mgr *Manager) {
-		mgr.recs = append(mgr.recs, rec)
+		mgr.recs = processors
 	}
 }
 

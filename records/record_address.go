@@ -2,7 +2,6 @@ package records
 
 import (
 	"bytes"
-	"encoding/binary"
 	"net"
 	"strconv"
 	"time"
@@ -37,8 +36,12 @@ func NewAddressRecord(msg *wire.MsgAddr, ra *net.TCPAddr,
 	return ar
 }
 
-func (ar *AddressRecord) Addr() *net.TCPAddr {
+func (ar *AddressRecord) Address() *net.TCPAddr {
 	return ar.ra
+}
+
+func (ar *AddressRecord) Cmd() string {
+	return ar.cmd
 }
 
 func (ar *AddressRecord) String() string {
@@ -60,23 +63,4 @@ func (ar *AddressRecord) String() string {
 	}
 
 	return buf.String()
-}
-
-func (ar *AddressRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	// header
-	binary.Write(buf, binary.LittleEndian, ParseCommand(ar.cmd))  //  1
-	binary.Write(buf, binary.LittleEndian, ar.stamp.UnixNano())   //  8
-	binary.Write(buf, binary.LittleEndian, ar.ra.IP.To16())       // 16
-	binary.Write(buf, binary.LittleEndian, uint16(ar.ra.Port))    //  2
-	binary.Write(buf, binary.LittleEndian, ar.la.IP.To16())       // 16
-	binary.Write(buf, binary.LittleEndian, uint16(ar.la.Port))    //  2
-	binary.Write(buf, binary.LittleEndian, uint16(len(ar.addrs))) //  2
-
-	for _, addr := range ar.addrs {
-		binary.Write(buf, binary.LittleEndian, addr.Bytes()) // 30
-	}
-
-	// total: 47 + N*30
-	return buf.Bytes()
 }

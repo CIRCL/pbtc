@@ -2,14 +2,13 @@ package records
 
 import (
 	"bytes"
-	"encoding/binary"
 	"strconv"
+
+	"github.com/btcsuite/btcutil"
 
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
-	"github.com/btcsuite/btcutil/base58"
 )
 
 type OutputRecord struct {
@@ -48,20 +47,4 @@ func (or *OutputRecord) String() string {
 	}
 
 	return buf.String()
-}
-
-func (or *OutputRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, or.value)             // 8
-	binary.Write(buf, binary.LittleEndian, or.class)             // 1
-	binary.Write(buf, binary.LittleEndian, or.sigs)              // 1
-	binary.Write(buf, binary.LittleEndian, uint8(len(or.addrs))) // 1
-
-	for _, addr := range or.addrs { // N
-		bin_addr := base58.Decode(addr.EncodeAddress())
-		binary.Write(buf, binary.LittleEndian, bin_addr) // 25
-	}
-
-	// total: 11 + N*25
-	return buf.Bytes()
 }

@@ -2,7 +2,6 @@ package records
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/hex"
 	"strconv"
 
@@ -34,14 +33,4 @@ func (ir *InputRecord) String() string {
 	buf.WriteString(strconv.FormatUint(uint64(ir.sequence), 10))
 
 	return buf.String()
-}
-
-func (ir *InputRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ir.hash)     // 32
-	binary.Write(buf, binary.LittleEndian, ir.index)    //  4
-	binary.Write(buf, binary.LittleEndian, ir.sequence) //  4
-
-	// total: 40
-	return buf.Bytes()
 }

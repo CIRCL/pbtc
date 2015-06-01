@@ -3,7 +3,6 @@ package records
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/binary"
 	"net"
 	"strconv"
 	"time"
@@ -56,6 +55,14 @@ func NewAlertRecord(msg *wire.MsgAlert, ra *net.TCPAddr,
 	}
 
 	return record
+}
+
+func (ar *AlertRecord) Address() *net.TCPAddr {
+	return ar.ra
+}
+
+func (ar *AlertRecord) Cmd() string {
+	return ar.cmd
 }
 
 func (ar *AlertRecord) String() string {
@@ -117,43 +124,4 @@ func (ar *AlertRecord) String() string {
 	buf.WriteString(base64.StdEncoding.EncodeToString([]byte(ar.reserved)))
 
 	return buf.String()
-}
-
-func (ar *AlertRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ParseCommand(ar.cmd))      //  1
-	binary.Write(buf, binary.LittleEndian, ar.stamp.UnixNano())       //  8
-	binary.Write(buf, binary.LittleEndian, ar.ra.IP.To16())           // 16
-	binary.Write(buf, binary.LittleEndian, uint16(ar.ra.Port))        //  2
-	binary.Write(buf, binary.LittleEndian, ar.la.IP.To16())           // 16
-	binary.Write(buf, binary.LittleEndian, uint16(ar.la.Port))        //  2
-	binary.Write(buf, binary.LittleEndian, ar.version)                //  4
-	binary.Write(buf, binary.LittleEndian, ar.relayUntil)             //  8
-	binary.Write(buf, binary.LittleEndian, ar.expiration)             //  8
-	binary.Write(buf, binary.LittleEndian, ar.id)                     //  4
-	binary.Write(buf, binary.LittleEndian, ar.cancel)                 //  4
-	binary.Write(buf, binary.LittleEndian, ar.minVer)                 //  4
-	binary.Write(buf, binary.LittleEndian, ar.maxVer)                 //  4
-	binary.Write(buf, binary.LittleEndian, ar.priority)               //  4
-	binary.Write(buf, binary.LittleEndian, uint32(len(ar.comment)))   //  4
-	binary.Write(buf, binary.LittleEndian, uint32(len(ar.statusBar))) //  4
-	binary.Write(buf, binary.LittleEndian, uint32(len(ar.reserved)))  //  4
-	binary.Write(buf, binary.LittleEndian, uint32(len(ar.setCancel))) //  4
-	binary.Write(buf, binary.LittleEndian, uint32(len(ar.setSubVer))) //  4
-
-	binary.Write(buf, binary.LittleEndian, ar.comment)   //  X
-	binary.Write(buf, binary.LittleEndian, ar.statusBar) //  Y
-	binary.Write(buf, binary.LittleEndian, ar.reserved)  //  Z
-
-	for _, cancel := range ar.setCancel { // N
-		binary.Write(buf, binary.LittleEndian, cancel) // 4
-	}
-
-	for _, subver := range ar.setSubVer { // M
-		binary.Write(buf, binary.LittleEndian, uint32(len(subver))) // 4
-		binary.Write(buf, binary.LittleEndian, subver)              // V
-	}
-
-	// total: 105 + X + Y + Z + N*4 + M*(4+V)
-	return buf.Bytes()
 }

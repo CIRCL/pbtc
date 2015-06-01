@@ -2,14 +2,13 @@ package records
 
 import (
 	"bytes"
-	"encoding/binary"
 	"net"
 	"strconv"
 	"time"
 
-	"github.com/btcsuite/btcd/wire"
-
 	"github.com/CIRCL/pbtc/util"
+
+	"github.com/btcsuite/btcd/wire"
 )
 
 type VersionRecord struct {
@@ -49,6 +48,14 @@ func NewVersionRecord(msg *wire.MsgVersion, ra *net.TCPAddr,
 	return vr
 }
 
+func (vr *VersionRecord) Address() *net.TCPAddr {
+	return vr.ra
+}
+
+func (vr *VersionRecord) Cmd() string {
+	return vr.cmd
+}
+
 func (vr *VersionRecord) String() string {
 	buf := new(bytes.Buffer)
 	buf.WriteString(vr.stamp.Format(time.RFC3339Nano))
@@ -78,29 +85,4 @@ func (vr *VersionRecord) String() string {
 	buf.WriteString(vr.agent)
 
 	return buf.String()
-}
-
-func (vr *VersionRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ParseCommand(vr.cmd))  //  1
-	binary.Write(buf, binary.LittleEndian, vr.stamp.UnixNano())   //  8
-	binary.Write(buf, binary.LittleEndian, vr.ra.IP.To16())       // 16
-	binary.Write(buf, binary.LittleEndian, uint16(vr.ra.Port))    //  2
-	binary.Write(buf, binary.LittleEndian, vr.la.IP.To16())       // 16
-	binary.Write(buf, binary.LittleEndian, uint16(vr.la.Port))    //  2
-	binary.Write(buf, binary.LittleEndian, vr.version)            //  4
-	binary.Write(buf, binary.LittleEndian, vr.services)           //  8
-	binary.Write(buf, binary.LittleEndian, vr.sent.Unix())        //  8
-	binary.Write(buf, binary.LittleEndian, vr.raddr.IP.To16())    // 16
-	binary.Write(buf, binary.LittleEndian, uint16(vr.raddr.Port)) //  2
-	binary.Write(buf, binary.LittleEndian, vr.laddr.IP.To16())    // 16
-	binary.Write(buf, binary.LittleEndian, uint16(vr.laddr.Port)) //  2
-	binary.Write(buf, binary.LittleEndian, vr.block)              //  4
-	binary.Write(buf, binary.LittleEndian, vr.relay)              //  1
-	binary.Write(buf, binary.LittleEndian, vr.nonce)              //  8
-	binary.Write(buf, binary.LittleEndian, uint32(len(vr.agent))) //  4
-	binary.Write(buf, binary.LittleEndian, vr.agent)              //  X
-
-	// total: 114 + X
-	return buf.Bytes()
 }

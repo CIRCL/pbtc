@@ -2,7 +2,6 @@ package records
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/hex"
 	"strconv"
 
@@ -30,12 +29,4 @@ func (ir *ItemRecord) String() string {
 	buf.WriteString(hex.EncodeToString(ir.hash[:]))
 
 	return buf.String()
-}
-
-func (ir *ItemRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ir.category) //  1
-	binary.Write(buf, binary.LittleEndian, ir.hash)     // 32
-
-	return buf.Bytes()
 }

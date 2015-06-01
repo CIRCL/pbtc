@@ -2,7 +2,6 @@ package records
 
 import (
 	"bytes"
-	"encoding/binary"
 	"net"
 	"time"
 
@@ -30,6 +29,14 @@ func NewTransactionRecord(msg *wire.MsgTx, ra *net.TCPAddr,
 	return record
 }
 
+func (tr *TransactionRecord) Address() *net.TCPAddr {
+	return tr.ra
+}
+
+func (tr *TransactionRecord) Cmd() string {
+	return tr.cmd
+}
+
 func (tr *TransactionRecord) String() string {
 	buf := new(bytes.Buffer)
 	buf.WriteString(tr.stamp.Format(time.RFC3339Nano))
@@ -43,20 +50,6 @@ func (tr *TransactionRecord) String() string {
 	buf.WriteString(tr.details.String())
 
 	return buf.String()
-}
-
-func (tr *TransactionRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ParseCommand(tr.cmd)) //  1
-	binary.Write(buf, binary.LittleEndian, tr.stamp.UnixNano())  //  8
-	binary.Write(buf, binary.LittleEndian, tr.ra.IP.To16())      // 16
-	binary.Write(buf, binary.LittleEndian, uint16(tr.ra.Port))   //  2
-	binary.Write(buf, binary.LittleEndian, tr.la.IP.To16())      // 16
-	binary.Write(buf, binary.LittleEndian, uint16(tr.la.Port))   //  2
-	binary.Write(buf, binary.LittleEndian, tr.details.Bytes())   //  X
-
-	// total: 45 + X
-	return buf.Bytes()
 }
 
 func (tr *TransactionRecord) HasAddress(addr string) bool {

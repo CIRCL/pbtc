@@ -2,7 +2,6 @@ package records
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/hex"
 	"net"
 	"strconv"
@@ -38,6 +37,14 @@ func NewRejectRecord(msg *wire.MsgReject, ra *net.TCPAddr,
 	return record
 }
 
+func (rr *RejectRecord) Address() *net.TCPAddr {
+	return rr.ra
+}
+
+func (rr *RejectRecord) Cmd() string {
+	return rr.cmd
+}
+
 func (rr *RejectRecord) String() string {
 	buf := new(bytes.Buffer)
 	buf.WriteString(rr.stamp.Format(time.RFC3339Nano))
@@ -57,22 +64,4 @@ func (rr *RejectRecord) String() string {
 	buf.WriteString(rr.reason)
 
 	return buf.String()
-}
-
-func (rr *RejectRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ParseCommand(rr.cmd))    //  1
-	binary.Write(buf, binary.LittleEndian, rr.stamp.UnixNano())     //  8
-	binary.Write(buf, binary.LittleEndian, rr.ra.IP.To16())         // 16
-	binary.Write(buf, binary.LittleEndian, uint16(rr.ra.Port))      //  2
-	binary.Write(buf, binary.LittleEndian, rr.la.IP.To16())         // 16
-	binary.Write(buf, binary.LittleEndian, uint16(rr.la.Port))      //  2
-	binary.Write(buf, binary.LittleEndian, rr.code)                 //  1
-	binary.Write(buf, binary.LittleEndian, ParseCommand(rr.reject)) //  1
-	binary.Write(buf, binary.LittleEndian, rr.hash)                 // 32
-	binary.Write(buf, binary.LittleEndian, uint32(len(rr.reason)))  //  4
-	binary.Write(buf, binary.LittleEndian, rr.reason)               //  X
-
-	// total: 83 + X
-	return buf.Bytes()
 }

@@ -2,7 +2,6 @@ package records
 
 import (
 	"bytes"
-	"encoding/binary"
 	"net"
 	"time"
 
@@ -28,6 +27,14 @@ func NewGetAddrRecord(msg *wire.MsgGetAddr, ra *net.TCPAddr,
 	return record
 }
 
+func (gr *GetAddrRecord) Address() *net.TCPAddr {
+	return gr.ra
+}
+
+func (gr *GetAddrRecord) Cmd() string {
+	return gr.cmd
+}
+
 func (gr *GetAddrRecord) String() string {
 	buf := new(bytes.Buffer)
 
@@ -40,16 +47,4 @@ func (gr *GetAddrRecord) String() string {
 	buf.WriteString(gr.la.String())
 
 	return buf.String()
-}
-
-func (hr *GetAddrRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ParseCommand(hr.cmd)) //  1
-	binary.Write(buf, binary.LittleEndian, hr.stamp.UnixNano())  //  8
-	binary.Write(buf, binary.LittleEndian, hr.ra.IP.To16())      // 16
-	binary.Write(buf, binary.LittleEndian, uint16(hr.ra.Port))   //  2
-	binary.Write(buf, binary.LittleEndian, hr.la.IP.To16())      // 16
-	binary.Write(buf, binary.LittleEndian, uint16(hr.la.Port))   //  2
-
-	return buf.Bytes()
 }

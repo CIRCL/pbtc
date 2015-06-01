@@ -2,7 +2,6 @@ package records
 
 import (
 	"bytes"
-	"encoding/binary"
 	"net"
 	"time"
 
@@ -28,6 +27,14 @@ func NewMemPoolRecord(msg *wire.MsgMemPool, ra *net.TCPAddr,
 	return record
 }
 
+func (mr *MemPoolRecord) Address() *net.TCPAddr {
+	return mr.ra
+}
+
+func (mr *MemPoolRecord) Cmd() string {
+	return mr.cmd
+}
+
 func (mr *MemPoolRecord) String() string {
 	buf := new(bytes.Buffer)
 	buf.WriteString(mr.stamp.Format(time.RFC3339Nano))
@@ -39,17 +46,4 @@ func (mr *MemPoolRecord) String() string {
 	buf.WriteString(mr.la.String())
 
 	return buf.String()
-}
-
-func (mr *MemPoolRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ParseCommand(mr.cmd)) //  1
-	binary.Write(buf, binary.LittleEndian, mr.stamp.UnixNano())  //  8
-	binary.Write(buf, binary.LittleEndian, mr.ra.IP.To16())      // 16
-	binary.Write(buf, binary.LittleEndian, uint16(mr.ra.Port))   //  2
-	binary.Write(buf, binary.LittleEndian, mr.la.IP.To16())      // 16
-	binary.Write(buf, binary.LittleEndian, uint16(mr.la.Port))   //  2
-
-	// total: 45
-	return buf.Bytes()
 }

@@ -1,6 +1,5 @@
-- sensible comments in all packages
-- improve & complete logging for all packages
 - split filter into multiple files
+- improve & complete logging for all packages
 - split inventory tracking from manager
 - move config options to file
 - fix lz4 compression compatibility

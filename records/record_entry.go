@@ -2,7 +2,6 @@ package records
 
 import (
 	"bytes"
-	"encoding/binary"
 	"net"
 	"strconv"
 	"time"
@@ -28,25 +27,14 @@ func NewEntryRecord(na *wire.NetAddress) *EntryRecord {
 	return record
 }
 
-func (ar *EntryRecord) String() string {
+func (er *EntryRecord) String() string {
 	buf := new(bytes.Buffer)
 
-	buf.WriteString(strconv.FormatInt(ar.stamp.Unix(), 10))
+	buf.WriteString(strconv.FormatInt(er.stamp.Unix(), 10))
 	buf.WriteString(Delimiter3)
-	buf.WriteString(strconv.FormatUint(ar.services, 10))
+	buf.WriteString(strconv.FormatUint(er.services, 10))
 	buf.WriteString(Delimiter3)
-	buf.WriteString(ar.addr.String())
+	buf.WriteString(er.addr.String())
 
 	return buf.String()
-}
-
-func (ar *EntryRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, uint32(ar.stamp.Unix())) //  4
-	binary.Write(buf, binary.LittleEndian, ar.services)             //  8
-	binary.Write(buf, binary.LittleEndian, ar.addr.IP.To16())       // 16
-	binary.Write(buf, binary.LittleEndian, uint16(ar.addr.Port))    //  2
-
-	// total: 30 bytes
-	return buf.Bytes()
 }

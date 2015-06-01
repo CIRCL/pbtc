@@ -2,7 +2,6 @@ package records
 
 import (
 	"bytes"
-	"encoding/binary"
 	"net"
 	"strconv"
 	"time"
@@ -31,6 +30,14 @@ func NewPingRecord(msg *wire.MsgPing, ra *net.TCPAddr,
 	return record
 }
 
+func (pr *PingRecord) Address() *net.TCPAddr {
+	return pr.ra
+}
+
+func (pr *PingRecord) Cmd() string {
+	return pr.cmd
+}
+
 func (pr *PingRecord) String() string {
 	buf := new(bytes.Buffer)
 	buf.WriteString(pr.stamp.Format(time.RFC3339Nano))
@@ -44,18 +51,4 @@ func (pr *PingRecord) String() string {
 	buf.WriteString(strconv.FormatUint(pr.nonce, 10))
 
 	return buf.String()
-}
-
-func (pr *PingRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ParseCommand(pr.cmd)) // 1
-	binary.Write(buf, binary.LittleEndian, pr.stamp.UnixNano())  // 8
-	binary.Write(buf, binary.LittleEndian, pr.ra.IP.To16())      // 16
-	binary.Write(buf, binary.LittleEndian, uint16(pr.ra.Port))   // 2
-	binary.Write(buf, binary.LittleEndian, pr.la.IP.To16())      // 16
-	binary.Write(buf, binary.LittleEndian, uint16(pr.la.Port))   // 2
-	binary.Write(buf, binary.LittleEndian, pr.nonce)             // 8
-
-	// total: 53
-	return buf.Bytes()
 }

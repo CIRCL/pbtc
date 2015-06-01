@@ -141,7 +141,7 @@ func DisableRestore() func(*Repository) {
 }
 
 // Stop will end all sub-routines and return on clean exit.
-func (repo *Repository) Stop() {
+func (repo *Repository) Close() {
 	if atomic.SwapUint32(&repo.done, 1) == 1 {
 		return
 	}

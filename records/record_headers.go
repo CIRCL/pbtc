@@ -2,7 +2,6 @@ package records
 
 import (
 	"bytes"
-	"encoding/binary"
 	"net"
 	"strconv"
 	"time"
@@ -35,6 +34,14 @@ func NewHeadersRecord(msg *wire.MsgHeaders, ra *net.TCPAddr,
 	return record
 }
 
+func (hr *HeadersRecord) Address() *net.TCPAddr {
+	return hr.ra
+}
+
+func (hr *HeadersRecord) Cmd() string {
+	return hr.cmd
+}
+
 func (hr *HeadersRecord) String() string {
 	buf := new(bytes.Buffer)
 	buf.WriteString(hr.stamp.Format(time.RFC3339Nano))
@@ -53,22 +60,4 @@ func (hr *HeadersRecord) String() string {
 	}
 
 	return buf.String()
-}
-
-func (hr *HeadersRecord) Bytes() []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, ParseCommand(hr.cmd)) //  1
-	binary.Write(buf, binary.LittleEndian, hr.stamp.UnixNano())  //  8
-	binary.Write(buf, binary.LittleEndian, hr.ra.IP.To16())      // 16
-	binary.Write(buf, binary.LittleEndian, uint16(hr.ra.Port))   //  2
-	binary.Write(buf, binary.LittleEndian, hr.la.IP.To16())      // 16
-	binary.Write(buf, binary.LittleEndian, uint16(hr.la.Port))   //  2
-	binary.Write(buf, binary.LittleEndian, uint32(len(hr.hdrs))) //  4
-
-	for _, hdr := range hr.hdrs { // N
-		binary.Write(buf, binary.LittleEndian, hdr.Bytes()) // 113
-	}
-
-	// total: 39 + N*113
-	return buf.Bytes()
 }
