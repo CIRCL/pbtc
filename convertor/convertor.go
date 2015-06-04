@@ -9,6 +9,9 @@ import (
 	"github.com/CIRCL/pbtc/records"
 )
 
+// Message is used by the convertor package to convert one message of the
+// Bitcoin network into our own record format. As long as convertor has no
+// configuration options, we don't need a struct to hold data.
 func Message(msg wire.Message, r *net.TCPAddr, l *net.TCPAddr) adaptor.Record {
 	switch m := msg.(type) {
 	case *wire.MsgAddr:

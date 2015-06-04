@@ -10,3 +10,5 @@ dumps
 dumps_ip
 dumps_addr
 dumps_all
+records/*.txt
+records/*.bin

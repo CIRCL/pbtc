@@ -6,7 +6,7 @@ import (
 	"github.com/CIRCL/pbtc/adaptor"
 )
 
-// CompressorDummy is an empty compressor which fulfills the compressor
+// CompressorDummy is an empty compressor implementing the compressor
 // interface. It can be used in place of other compressors to provide
 // uncompressed input and output.
 type CompressorDummy struct {
@@ -14,7 +14,7 @@ type CompressorDummy struct {
 }
 
 // NewDummy creates a new dummy compressor which does not compress output or
-// decompress input.
+// decompress input. It can serve as a placeholder or for debugging.
 func NewDummy(options ...func(*CompressorDummy)) *CompressorDummy {
 	comp := &CompressorDummy{}
 
@@ -25,12 +25,12 @@ func NewDummy(options ...func(*CompressorDummy)) *CompressorDummy {
 	return comp
 }
 
-// SetLog sets the log to be used for logging in this compressor.
-func (comp *CompressorDummy) SetLog(adaptor.Log) {
-}
-
-// Close is used to clean up after usage.
-func (comp *CompressorDummy) Close() {
+// SetLogDummy can be passed as a parameter to NewDummy to set the log to be
+// used for output.
+func SetLogDummy(log adaptor.Log) func(*CompressorDummy) {
+	return func(comp *CompressorDummy) {
+		comp.log = log
+	}
 }
 
 // GetWriter simply returns the original writer to the caller, so as not to

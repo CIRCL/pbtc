@@ -1,6 +1,8 @@
 package adaptor
 
-// Log defines a common interface to inject logging into most of our modules.
+// Log defines a common interface used to inject logging into other structures.
+// It makes them agnostic of the logging library, while providing signatures
+// that are standard for most logs.
 type Log interface {
 	Debug(format string, args ...interface{})
 	Info(format string, args ...interface{})
