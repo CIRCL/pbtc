@@ -1,6 +1,6 @@
-- isolate peer manager into seperate file from supervisor
 - look at struct composition to reduce redundancy
-- move config options to file
+- isolate peer manager into seperate file from supervisor
+- load configuration into supervisor and dynamically initialize
 - add logging for all packages
 - fix lz4 compression compatibility
 - do something about chaincfg config

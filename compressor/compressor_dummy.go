@@ -15,7 +15,7 @@ type CompressorDummy struct {
 
 // NewDummy creates a new dummy compressor which does not compress output or
 // decompress input. It can serve as a placeholder or for debugging.
-func NewDummy(options ...func(*CompressorDummy)) *CompressorDummy {
+func NewDummy(options ...func(adaptor.Compressor)) *CompressorDummy {
 	comp := &CompressorDummy{}
 
 	for _, option := range options {
@@ -25,12 +25,8 @@ func NewDummy(options ...func(*CompressorDummy)) *CompressorDummy {
 	return comp
 }
 
-// SetLogDummy can be passed as a parameter to NewDummy to set the log to be
-// used for output.
-func SetLogDummy(log adaptor.Log) func(*CompressorDummy) {
-	return func(comp *CompressorDummy) {
-		comp.log = log
-	}
+func (comp *CompressorDummy) SetLog(log adaptor.Log) {
+	comp.log = log
 }
 
 // GetWriter simply returns the original writer to the caller, so as not to

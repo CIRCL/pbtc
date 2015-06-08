@@ -26,12 +26,8 @@ func NewLZ4(options ...func(*CompressorLZ4)) *CompressorLZ4 {
 	return comp
 }
 
-// SetLogLZ4 can be passed as parameter to NewLZ4 to set the log to be used
-// for output.
-func SetLogLZ4(log adaptor.Log) func(*CompressorLZ4) {
-	return func(comp *CompressorLZ4) {
-		comp.log = log
-	}
+func (comp *CompressorLZ4) SetLog(log adaptor.Log) {
+	comp.log = log
 }
 
 // GetWriter wraps a new LZ4 writer around the provided writer.

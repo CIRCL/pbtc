@@ -1,4 +1,4 @@
-package filter
+package processor
 
 import (
 	"sync"
@@ -22,7 +22,7 @@ type Base58Filter struct {
 // contain one output ot one of the given Bitcoin addresses. The list of
 // Bitcoin addresses and the processors to forward the transactions to are
 // passed as parameters on construction.
-func NewBase58(options ...func(*Base58Filter)) (*Base58Filter, error) {
+func NewBase58Filter(options ...func(adaptor.Processor)) (*Base58Filter, error) {
 	filter := &Base58Filter{
 		wg:      &sync.WaitGroup{},
 		sig:     make(chan struct{}),
@@ -39,30 +39,26 @@ func NewBase58(options ...func(*Base58Filter)) (*Base58Filter, error) {
 	return filter, nil
 }
 
-// SetLogBase58 can be passed as a parameter to NewBase58 in order to set the
-// log for output.
-func SetLogBase58(log adaptor.Log) func(*Base58Filter) {
-	return func(filter *Base58Filter) {
-		filter.log = log
-	}
-}
-
 // SetBase58s can be passed as parameter to NewBase58 in order to define the
 // list of Bitcoin addresses we want to filter transactions for. If this
 // parameter is not passed, no records will be forwarded.
-func SetBase58s(base58s ...string) func(*Base58Filter) {
-	return func(filter *Base58Filter) {
+func SetBase58s(base58s ...string) func(adaptor.Processor) {
+	return func(pro adaptor.Processor) {
+		filter, ok := pro.(*Base58Filter)
+		if !ok {
+			return
+		}
+
 		filter.config = base58s
 	}
 }
 
-// SetNextBase58 can be passed as parameter to NewBase58 in order to provide
-// the list of processors that we will forward the messages to. If this
-// parameter is not passed, records won't be forwarded anywhere.
-func SetNextBase58(processors ...adaptor.Processor) func(*Base58Filter) {
-	return func(filter *Base58Filter) {
-		filter.next = processors
-	}
+func (filter *Base58Filter) SetLog(log adaptor.Log) {
+	filter.log = log
+}
+
+func (filter *Base58Filter) SetNext(next ...adaptor.Processor) {
+	filter.next = next
 }
 
 // Process adds one messages to the filter for processing and forwarding.

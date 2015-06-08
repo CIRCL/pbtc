@@ -9,6 +9,7 @@ import (
 // interface allows us to wrap around all kinds of compressors, including those
 // that need to write headers or trailers.
 type Compressor interface {
+	SetLog(Log)
 	GetWriter(io.Writer) (io.Writer, error)
 	GetReader(io.Reader) (io.Reader, error)
 }

@@ -1,4 +1,4 @@
-package filter
+package processor
 
 import (
 	"sync"
@@ -20,7 +20,7 @@ type CommandFilter struct {
 // NewCommand returs a new filter that will filter all messages for a list
 // of defined commands. The list of commands and the processors to forward
 // the records to are passed as parameters.
-func NewCommand(options ...func(*CommandFilter)) (*CommandFilter, error) {
+func NewCommandFilter(options ...func(adaptor.Processor)) (*CommandFilter, error) {
 	filter := &CommandFilter{
 		wg:      &sync.WaitGroup{},
 		sig:     make(chan struct{}),
@@ -38,32 +38,28 @@ func NewCommand(options ...func(*CommandFilter)) (*CommandFilter, error) {
 	return filter, nil
 }
 
-// SetLogCommand can be passed as a parameter to NewCommand in order to set the
-// log for output.
-func SetLogCommand(log adaptor.Log) func(*CommandFilter) {
-	return func(filter *CommandFilter) {
-		filter.log = log
-	}
-}
-
 // SetCommands can be passed as a parameter to NewCommand to set the list of
 // commands that we want to let through our filter. If no list is provided,
 // all messages will be filtered out.
-func SetCommands(cmds ...string) func(*CommandFilter) {
-	return func(filter *CommandFilter) {
+func SetCommands(cmds ...string) func(adaptor.Processor) {
+	return func(pro adaptor.Processor) {
+		filter, ok := pro.(*CommandFilter)
+		if !ok {
+			return
+		}
+
 		for _, cmd := range cmds {
 			filter.config[cmd] = true
 		}
 	}
 }
 
-// SetNextCommand can be passed as a parameter to NewCommand to set the list
-// of processors that we will forward messages to. If no list is provided,
-// we won't forward the messages to anyone.
-func SetNextCommand(processors ...adaptor.Processor) func(*CommandFilter) {
-	return func(filter *CommandFilter) {
-		filter.next = processors
-	}
+func (filter *CommandFilter) SetLog(log adaptor.Log) {
+	filter.log = log
+}
+
+func (filter *CommandFilter) SetNext(next ...adaptor.Processor) {
+	filter.next = next
 }
 
 // Process adds one messages to the filter for processing and forwarding.

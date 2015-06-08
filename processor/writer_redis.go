@@ -1,4 +1,4 @@
-package writer
+package processor
 
 import (
 	"sync"
@@ -21,7 +21,7 @@ type RedisWriter struct {
 	done   uint32
 }
 
-func NewRedis(options ...func(*RedisWriter)) (*RedisWriter, error) {
+func NewRedisWriter(options ...func(adaptor.Processor)) (*RedisWriter, error) {
 	w := &RedisWriter{
 		lineQ: make(chan string, 1),
 		wSig:  make(chan struct{}),
@@ -54,28 +54,44 @@ func NewRedis(options ...func(*RedisWriter)) (*RedisWriter, error) {
 	return w, nil
 }
 
-func SetLogRedis(log adaptor.Log) func(*RedisWriter) {
-	return func(w *RedisWriter) {
-		w.log = log
-	}
-}
+func SetServerAddress(addr string) func(adaptor.Processor) {
+	return func(pro adaptor.Processor) {
+		w, ok := pro.(*RedisWriter)
+		if !ok {
+			return
+		}
 
-func SetAddressRedis(addr string) func(*RedisWriter) {
-	return func(w *RedisWriter) {
 		w.addr = addr
 	}
 }
 
-func SetPassword(pw string) func(*RedisWriter) {
-	return func(w *RedisWriter) {
+func SetPassword(pw string) func(adaptor.Processor) {
+	return func(pro adaptor.Processor) {
+		w, ok := pro.(*RedisWriter)
+		if !ok {
+			return
+		}
+
 		w.pw = pw
 	}
 }
 
-func SetDatabase(db int64) func(*RedisWriter) {
-	return func(w *RedisWriter) {
+func SetDatabase(db int64) func(adaptor.Processor) {
+	return func(pro adaptor.Processor) {
+		w, ok := pro.(*RedisWriter)
+		if !ok {
+			return
+		}
+
 		w.db = db
 	}
+}
+
+func (w *RedisWriter) SetLog(log adaptor.Log) {
+	w.log = log
+}
+
+func (w *RedisWriter) SetNext(next ...adaptor.Processor) {
 }
 
 func (w *RedisWriter) Stop() {

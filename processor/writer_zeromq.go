@@ -1,4 +1,4 @@
-package writer
+package processor
 
 import (
 	"sync"
@@ -19,7 +19,7 @@ type ZeroMQWriter struct {
 	done  uint32
 }
 
-func NewZMQ(options ...func(*ZeroMQWriter)) (*ZeroMQWriter, error) {
+func NewZMQWriter(options ...func(adaptor.Processor)) (*ZeroMQWriter, error) {
 	w := &ZeroMQWriter{
 		addr:  "127.0.0.1:12345",
 		lineQ: make(chan string, 1),
@@ -51,16 +51,22 @@ func NewZMQ(options ...func(*ZeroMQWriter)) (*ZeroMQWriter, error) {
 	return w, nil
 }
 
-func SetLogZMQ(log adaptor.Log) func(*ZeroMQWriter) {
-	return func(w *ZeroMQWriter) {
-		w.log = log
+func SetSocketAddress(addr string) func(adaptor.Processor) {
+	return func(pro adaptor.Processor) {
+		w, ok := pro.(*ZeroMQWriter)
+		if !ok {
+			return
+		}
+
+		w.addr = addr
 	}
 }
 
-func SetAddressZMQ(addr string) func(*ZeroMQWriter) {
-	return func(w *ZeroMQWriter) {
-		w.addr = addr
-	}
+func (w *ZeroMQWriter) SetLog(log adaptor.Log) {
+	w.log = log
+}
+
+func (w *ZeroMQWriter) SetNext(next ...adaptor.Processor) {
 }
 
 func (w *ZeroMQWriter) Stop() {

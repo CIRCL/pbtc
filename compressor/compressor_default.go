@@ -9,3 +9,9 @@ import (
 func New() adaptor.Compressor {
 	return NewDummy()
 }
+
+func SetLog(log adaptor.Log) func(adaptor.Compressor) {
+	return func(comp adaptor.Compressor) {
+		comp.SetLog(log)
+	}
+}

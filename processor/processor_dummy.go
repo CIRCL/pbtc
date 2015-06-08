@@ -1,4 +1,4 @@
-package filter
+package processor
 
 import (
 	"sync"
@@ -16,7 +16,7 @@ type DummyFilter struct {
 }
 
 // NewDummy creates a new DummyFilter that will forward all messages.
-func NewDummy(options ...func(*DummyFilter)) (*DummyFilter, error) {
+func NewDummy(options ...func(adaptor.Processor)) (*DummyFilter, error) {
 	filter := &DummyFilter{
 		wg:      &sync.WaitGroup{},
 		sig:     make(chan struct{}),
@@ -33,20 +33,12 @@ func NewDummy(options ...func(*DummyFilter)) (*DummyFilter, error) {
 	return filter, nil
 }
 
-// SetLogDummy can be passed as a parameter to NewDummy to set the log for
-// output.
-func SetLogDummy(log adaptor.Log) func(*DummyFilter) {
-	return func(filter *DummyFilter) {
-		filter.log = log
-	}
+func (filter *DummyFilter) SetLog(log adaptor.Log) {
+	filter.log = log
 }
 
-// SetNextDummy can be passed as a parameter to NewDummy to set the list of
-// processors that we will forward the messages to.
-func SetNextDummy(processors ...adaptor.Processor) func(*DummyFilter) {
-	return func(filter *DummyFilter) {
-		filter.next = processors
-	}
+func (filter *DummyFilter) SetNext(next ...adaptor.Processor) {
+	filter.next = next
 }
 
 // Process will add a new record to the queue of the dummy filter, which will

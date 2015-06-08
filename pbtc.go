@@ -12,14 +12,13 @@ import (
 	"github.com/op/go-logging"
 
 	"github.com/CIRCL/pbtc/compressor"
-	"github.com/CIRCL/pbtc/filter"
 	"github.com/CIRCL/pbtc/logger"
 	"github.com/CIRCL/pbtc/manager"
+	"github.com/CIRCL/pbtc/processor"
 	"github.com/CIRCL/pbtc/repository"
 	"github.com/CIRCL/pbtc/server"
 	"github.com/CIRCL/pbtc/supervisor"
 	"github.com/CIRCL/pbtc/tracker"
-	"github.com/CIRCL/pbtc/writer"
 )
 
 func main() {
@@ -71,12 +70,12 @@ func main() {
 	}
 
 	// writer to publish to file
-	wfile, err := writer.NewFile(
-		writer.SetLogFile(logr.GetLog("out")),
-		writer.SetSizeLimit(0),
-		writer.SetAgeLimit(time.Minute*5),
-		writer.SetCompressor(compressor.NewLZ4()),
-		writer.SetFilePath("logs/"),
+	wfile, err := processor.NewFileWriter(
+		processor.SetLog(logr.GetLog("out")),
+		processor.SetSizeLimit(0),
+		processor.SetAgeLimit(time.Minute*5),
+		processor.SetCompressor(compressor.NewLZ4()),
+		processor.SetFilePath("logs/"),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize file writer (%v)", err)
@@ -84,9 +83,9 @@ func main() {
 	}
 
 	// writer to publish stuff on zeromq
-	wzmq, err := writer.NewZMQ(
-		writer.SetLogZMQ(logr.GetLog("out")),
-		writer.SetAddressZMQ("127.0.0.1:12345"),
+	wzmq, err := processor.NewZMQWriter(
+		processor.SetLog(logr.GetLog("out")),
+		processor.SetSocketAddress("127.0.0.1:12345"),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize zeromq writer (%v)", err)
@@ -94,11 +93,11 @@ func main() {
 	}
 
 	// writer to publish stuff to redis
-	wredis, err := writer.NewRedis(
-		writer.SetLogRedis(logr.GetLog("out")),
-		writer.SetAddressRedis("127.0.0.1:23456"),
-		writer.SetPassword(""),
-		writer.SetDatabase(0),
+	wredis, err := processor.NewRedisWriter(
+		processor.SetLog(logr.GetLog("out")),
+		processor.SetServerAddress("127.0.0.1:23456"),
+		processor.SetPassword(""),
+		processor.SetDatabase(0),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize redis writer (%v)", err)
@@ -106,9 +105,9 @@ func main() {
 	}
 
 	// filter all transactions for zmq output
-	ftx, err := filter.NewCommand(
-		filter.SetCommands("tx"),
-		filter.SetNextCommand(wzmq),
+	ftx, err := processor.NewCommandFilter(
+		processor.SetNext(wzmq),
+		processor.SetCommands("tx"),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize command filter (%v)", err)
@@ -116,8 +115,9 @@ func main() {
 	}
 
 	// filter some IPs for redis output
-	finv, err := filter.NewIP(
-		filter.SetIPs(
+	finv, err := processor.NewIPFilter(
+		processor.SetNext(wredis),
+		processor.SetIPs(
 			"208.111.48.35",
 			"97.69.174.76",
 			"50.181.241.97",
@@ -127,7 +127,6 @@ func main() {
 			"195.6.17.142",
 			"46.101.168.50",
 		),
-		filter.SetNextIP(wredis),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize IP filter (%v)", err)
@@ -135,23 +134,23 @@ func main() {
 	}
 
 	// filter some address transactions for redis output
-	fbase58, err := filter.NewBase58(
-		filter.SetBase58s(
+	fbase58, err := processor.NewBase58Filter(
+		processor.SetNext(wredis),
+		processor.SetBase58s(
 			"1dice8EMZmqKvrGE4Qc9bUFf9PX3xaYDp",
 			"1dice97ECuByXAvqXpaYzSaQuPVvrtmz6",
 			"1dice9wcMu5hLF4g81u8nioL5mmSHTApw",
 			"1LuckyR1fFHEsXYyx5QK4UFzv3PEAepPMK",
 			"1VayNert3x1KzbpzMGt2qdqrAThiRovi8",
 		),
-		filter.SetNextBase58(wredis),
 	)
 	if err != nil {
 		log.Critical("Unable to initialize base58 filter (%v)", err)
 		os.Exit(1)
 	}
 
-	vent, err := filter.NewDummy(
-		filter.SetNextDummy(fbase58, finv, ftx, wfile),
+	vent, err := processor.NewDummy(
+		processor.SetNext(fbase58, finv, ftx, wfile),
 	)
 
 	// manager

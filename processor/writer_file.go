@@ -1,4 +1,4 @@
-package writer
+package processor
 
 import (
 	"io"
@@ -30,7 +30,7 @@ type FileWriter struct {
 	done uint32
 }
 
-func NewFile(options ...func(*FileWriter)) (*FileWriter, error) {
+func NewFileWriter(options ...func(adaptor.Processor)) (*FileWriter, error) {
 	w := &FileWriter{
 		filePath: "logs/",
 		fileSize: 1 * 1024 * 1024,
@@ -67,38 +67,59 @@ func NewFile(options ...func(*FileWriter)) (*FileWriter, error) {
 	return w, nil
 }
 
-func SetLogFile(log adaptor.Log) func(*FileWriter) {
-	return func(w *FileWriter) {
-		w.log = log
-	}
-}
-
 // SetCompressor injects the compression wrapper to be used on rotation.
-func SetCompressor(comp adaptor.Compressor) func(*FileWriter) {
-	return func(w *FileWriter) {
+func SetCompressor(comp adaptor.Compressor) func(adaptor.Processor) {
+	return func(pro adaptor.Processor) {
+		w, ok := pro.(*FileWriter)
+		if !ok {
+			return
+		}
+
 		w.comp = comp
 	}
 }
 
 // SetFilePath sets the directory path to the files into.
-func SetFilePath(path string) func(*FileWriter) {
-	return func(w *FileWriter) {
+func SetFilePath(path string) func(adaptor.Processor) {
+	return func(pro adaptor.Processor) {
+		w, ok := pro.(*FileWriter)
+		if !ok {
+			return
+		}
+
 		w.filePath = path
 	}
 }
 
 // SetSizeLimit sets the size limit upon which the logs will rotate.
-func SetSizeLimit(size int64) func(*FileWriter) {
-	return func(w *FileWriter) {
+func SetSizeLimit(size int64) func(adaptor.Processor) {
+	return func(pro adaptor.Processor) {
+		w, ok := pro.(*FileWriter)
+		if !ok {
+			return
+		}
+
 		w.fileSize = size
 	}
 }
 
 // SetAgeLimit sets the file age upon which the logs will rotate.
-func SetAgeLimit(age time.Duration) func(*FileWriter) {
-	return func(w *FileWriter) {
+func SetAgeLimit(age time.Duration) func(adaptor.Processor) {
+	return func(pro adaptor.Processor) {
+		w, ok := pro.(*FileWriter)
+		if !ok {
+			return
+		}
+
 		w.fileAge = age
 	}
+}
+
+func (w *FileWriter) SetLog(log adaptor.Log) {
+	w.log = log
+}
+
+func (w *FileWriter) SetNext(next ...adaptor.Processor) {
 }
 
 // Stop ends the execution of the recorder sub-routines and returns once

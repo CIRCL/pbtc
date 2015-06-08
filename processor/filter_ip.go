@@ -1,4 +1,4 @@
-package filter
+package processor
 
 import (
 	"sync"
@@ -19,7 +19,7 @@ type IPFilter struct {
 
 // NewIP creates a new IP filter that will only forward messages coming from
 // a given set of IP addresses.
-func NewIP(options ...func(*IPFilter)) (*IPFilter, error) {
+func NewIPFilter(options ...func(adaptor.Processor)) (*IPFilter, error) {
 	filter := &IPFilter{
 		wg:      &sync.WaitGroup{},
 		sig:     make(chan struct{}),
@@ -27,32 +27,34 @@ func NewIP(options ...func(*IPFilter)) (*IPFilter, error) {
 		config:  make(map[string]bool),
 	}
 
-	return filter, nil
-}
-
-// SetLogIP can be passed as a parameter to NewIP to set the log for output.
-func SetLogIP(log adaptor.Log) func(*IPFilter) {
-	return func(filter *IPFilter) {
-		filter.log = log
+	for _, option := range options {
+		option(filter)
 	}
+
+	return filter, nil
 }
 
 // SetIPs can be passed as a parameter to NewIP to set the list of IP addresses
 // to filter for. If no list is provided, all messages are filtered out.
-func SetIPs(ips ...string) func(*IPFilter) {
-	return func(filter *IPFilter) {
+func SetIPs(ips ...string) func(adaptor.Processor) {
+	return func(pro adaptor.Processor) {
+		filter, ok := pro.(*IPFilter)
+		if !ok {
+			return
+		}
+
 		for _, ip := range ips {
 			filter.config[ip] = true
 		}
 	}
 }
 
-// SetNextIP can be passed as a parameter to NewIP to set the list of processors
-// that we forward messages to. If no list is given, no messages are forwarded.
-func SetNextIP(processors ...adaptor.Processor) func(*IPFilter) {
-	return func(filter *IPFilter) {
-		filter.next = processors
-	}
+func (filter *IPFilter) SetLog(log adaptor.Log) {
+	filter.log = log
+}
+
+func (filter *IPFilter) SetNext(next ...adaptor.Processor) {
+	filter.next = next
 }
 
 // Process will add a record to the queue of records to be processed.

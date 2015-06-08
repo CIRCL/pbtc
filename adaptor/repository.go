@@ -8,9 +8,9 @@ import (
 // of all addresses seen on the Bitcoin network and their characteristics. It
 // provides clients with a stream of addresses ordered by favourability.
 type Repository interface {
-	Discovered(addr *net.TCPAddr)
-	Attempted(addr *net.TCPAddr)
-	Connected(addr *net.TCPAddr)
-	Succeeded(addr *net.TCPAddr)
+	Discovered(*net.TCPAddr)
+	Attempted(*net.TCPAddr)
+	Connected(*net.TCPAddr)
+	Succeeded(*net.TCPAddr)
 	Retrieve(chan<- *net.TCPAddr)
 }
