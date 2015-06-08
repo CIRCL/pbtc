@@ -12,7 +12,6 @@ import (
 	"github.com/CIRCL/pbtc/adaptor"
 	"github.com/CIRCL/pbtc/parmap"
 	"github.com/CIRCL/pbtc/peer"
-	"github.com/CIRCL/pbtc/util"
 )
 
 // Manager is the module responsible for peer management. It will initialize
@@ -24,6 +23,7 @@ type Manager struct {
 	repo    adaptor.Repository
 	recs    []adaptor.Processor
 	tracker *Tracker
+	server  *Server
 
 	wg *sync.WaitGroup
 
@@ -49,8 +49,7 @@ type Manager struct {
 	peerLimit   int
 	defaultPort int
 
-	done   uint32
-	server bool
+	done uint32
 }
 
 // New returns a new manager initialized with the given options.
@@ -67,7 +66,6 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		peerStopped:   make(chan adaptor.Peer, 1),
 
 		peerIndex:   parmap.New(),
-		tracker:     NewTracker(),
 		listenIndex: make(map[string]*net.TCPListener),
 
 		network:     wire.TestNet3,
@@ -93,10 +91,6 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 
 	case wire.MainNet:
 		mgr.defaultPort = 8333
-	}
-
-	if mgr.server {
-		mgr.createListeners()
 	}
 
 	mgr.wg.Add(2)
@@ -173,9 +167,9 @@ func SetPeerLimit(peerLimit int) func(*Manager) {
 
 // EnableServer has to be passed as a parameter on manager creation. It enables
 // listening on all connected TCP IP interfaces for incoming peers.
-func EnableServer() func(*Manager) {
+func SetServer(server *Server) func(*Manager) {
 	return func(mgr *Manager) {
-		mgr.server = true
+		mgr.server = server
 	}
 }
 
@@ -188,6 +182,12 @@ func SetProcessors(processors ...adaptor.Processor) func(*Manager) {
 	}
 }
 
+func SetTracker(tracker *Tracker) func(*Manager) {
+	return func(mgr *Manager) {
+		mgr.tracker = tracker
+	}
+}
+
 // Close will clean-up before shutdown.
 func (mgr *Manager) Close() {
 	if atomic.SwapUint32(&mgr.done, 1) == 1 {
@@ -195,11 +195,6 @@ func (mgr *Manager) Close() {
 	}
 
 	close(mgr.addrSig)
-
-	for _, listener := range mgr.listenIndex {
-		listener.Close()
-	}
-
 	close(mgr.peerSig)
 
 	for s := range mgr.peerIndex.Iter() {
@@ -226,32 +221,6 @@ func (mgr *Manager) Ready(p adaptor.Peer) {
 // shut down.
 func (mgr *Manager) Stopped(p adaptor.Peer) {
 	mgr.peerStopped <- p
-}
-
-// creates a listener for each local IP on each local interface
-func (mgr *Manager) createListeners() {
-	ips, err := util.FindLocalIPs()
-	if err != nil {
-		return
-	}
-
-	for _, ip := range ips {
-		addr := &net.TCPAddr{IP: ip, Port: mgr.defaultPort}
-
-		_, ok := mgr.listenIndex[addr.String()]
-		if ok {
-			continue
-		}
-
-		listener, err := net.ListenTCP("tcp", addr)
-		if err != nil {
-			continue
-		}
-
-		mgr.listenIndex[addr.String()] = listener
-		mgr.wg.Add(1)
-		go mgr.goConnections(listener)
-	}
 }
 
 // to be called from a go routine

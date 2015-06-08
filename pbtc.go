@@ -145,6 +145,12 @@ func main() {
 		os.Exit(4)
 	}
 
+	// listener
+	server, err := manager.NewServer()
+
+	// tracker
+	tracker, err := manager.NewTracker()
+
 	// manager
 	mgr, err := manager.New(
 		manager.SetLog(logr.GetLog("mgr")),
@@ -156,6 +162,8 @@ func main() {
 		manager.SetConnectionRate(time.Second/25),
 		manager.SetInformationRate(time.Second*10),
 		manager.SetPeerLimit(1000),
+		manager.SetServer(server),
+		manager.SetTracker(tracker),
 	)
 	if err != nil {
 		log.Critical("Unable to create manager (%v)", err)

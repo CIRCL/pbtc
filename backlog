@@ -1,9 +1,9 @@
-- improve & complete logging for all packages
 - move config options to file
+- add logging for all packages
 - fix lz4 compression compatibility
 - do something about chaincfg config
 - port range configuration option (manager)
-- document text & binary format (dox)
+- document log format
 - black/white lists (repo)
 - add decoding for all records (recorder)
 - add encode & decode tests for all records (recorder)

@@ -11,13 +11,13 @@ type Tracker struct {
 	txs    *parmap.ParMap
 }
 
-func NewTracker(options ...func(*Tracker)) *Tracker {
+func NewTracker(options ...func(*Tracker)) (*Tracker, error) {
 	tracker := &Tracker{
 		blocks: parmap.New(),
 		txs:    parmap.New(),
 	}
 
-	return tracker
+	return tracker, nil
 }
 
 func (tracker *Tracker) AddTx(hash wire.ShaHash) {
