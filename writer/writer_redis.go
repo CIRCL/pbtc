@@ -48,7 +48,8 @@ func NewRedis(options ...func(*RedisWriter)) (*RedisWriter, error) {
 
 	w.client = client
 
-	w.startup()
+	w.wg.Add(1)
+	go w.goLines()
 
 	return w, nil
 }
@@ -89,12 +90,6 @@ func (w *RedisWriter) Stop() {
 
 func (w *RedisWriter) Process(record adaptor.Record) {
 	w.lineQ <- record.String()
-}
-
-func (w *RedisWriter) startup() {
-	w.wg.Add(1)
-
-	go w.goLines()
 }
 
 func (w *RedisWriter) goLines() {

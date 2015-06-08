@@ -45,7 +45,8 @@ func NewZMQ(options ...func(*ZeroMQWriter)) (*ZeroMQWriter, error) {
 
 	w.pub = pub
 
-	w.startup()
+	w.wg.Add(1)
+	go w.goLines()
 
 	return w, nil
 }
@@ -74,12 +75,6 @@ func (w *ZeroMQWriter) Stop() {
 
 func (w *ZeroMQWriter) Process(record adaptor.Record) {
 	w.lineQ <- record.String()
-}
-
-func (w *ZeroMQWriter) startup() {
-	w.wg.Add(1)
-
-	go w.goLines()
 }
 
 func (w *ZeroMQWriter) goLines() {
