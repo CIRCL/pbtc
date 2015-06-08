@@ -23,6 +23,7 @@ type Manager struct {
 	peerLog adaptor.Log
 	repo    adaptor.Repository
 	recs    []adaptor.Processor
+	tracker *Tracker
 
 	wg *sync.WaitGroup
 
@@ -35,7 +36,6 @@ type Manager struct {
 	peerStopped   chan adaptor.Peer
 
 	peerIndex   *parmap.ParMap
-	invIndex    *parmap.ParMap
 	listenIndex map[string]*net.TCPListener
 
 	addrTicker *time.Ticker
@@ -67,7 +67,7 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		peerStopped:   make(chan adaptor.Peer, 1),
 
 		peerIndex:   parmap.New(),
-		invIndex:    parmap.New(),
+		tracker:     NewTracker(),
 		listenIndex: make(map[string]*net.TCPListener),
 
 		network:     wire.TestNet3,
@@ -228,19 +228,6 @@ func (mgr *Manager) Stopped(p adaptor.Peer) {
 	mgr.peerStopped <- p
 }
 
-// Knows asks the manager if it knows about a certain item on the Bitcoin
-// network already. It is used to cut down on the number of redundant requests
-// and logging.
-func (mgr *Manager) Knows(hash wire.ShaHash) bool {
-	return mgr.invIndex.Has(hash)
-}
-
-// Mark lets the manager known that a certain item has been seen and does not
-// need to be requested or logged again.
-func (mgr *Manager) Mark(hash wire.ShaHash) {
-	mgr.invIndex.Insert(hash)
-}
-
 // creates a listener for each local IP on each local interface
 func (mgr *Manager) createListeners() {
 	ips, err := util.FindLocalIPs()
@@ -374,6 +361,7 @@ PeerLoop:
 				peer.SetVersion(mgr.version),
 				peer.SetNonce(mgr.nonce),
 				peer.SetAddress(addr),
+				peer.SetTracker(mgr.tracker),
 			)
 			if err != nil {
 				mgr.log.Error("[MGR] %v failed outbound (%v)", addr, err)
@@ -409,6 +397,7 @@ PeerLoop:
 				peer.SetVersion(mgr.version),
 				peer.SetNonce(mgr.nonce),
 				peer.SetConnection(conn),
+				peer.SetTracker(mgr.tracker),
 			)
 			if err != nil {
 				mgr.log.Error("[MGR] %v failed inbound (%v)", addr, err)

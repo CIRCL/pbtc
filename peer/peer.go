@@ -45,10 +45,11 @@ type Peer struct {
 	sendQ      chan wire.Message
 	recvQ      chan wire.Message
 
-	log  adaptor.Log
-	mgr  adaptor.Manager
-	recs []adaptor.Processor
-	repo adaptor.Repository
+	log     adaptor.Log
+	mgr     adaptor.Manager
+	recs    []adaptor.Processor
+	repo    adaptor.Repository
+	tracker adaptor.Tracker
 
 	network wire.BitcoinNet
 	version uint32
@@ -175,6 +176,14 @@ func SetAddress(addr *net.TCPAddr) func(*Peer) {
 func SetConnection(conn *net.TCPConn) func(*Peer) {
 	return func(p *Peer) {
 		p.conn = conn
+	}
+}
+
+// SetTracker sets the tracker responsible for tracking inventory items
+// like transactions and blocks.
+func SetTracker(tracker adaptor.Tracker) func(*Peer) {
+	return func(p *Peer) {
+		p.tracker = tracker
 	}
 }
 
@@ -586,13 +595,13 @@ func (p *Peer) processMessage(msg wire.Message) {
 
 	// if we receive a block message, mark the block hash as known
 	case *wire.MsgBlock:
-		p.mgr.Mark(m.BlockSha())
+		p.tracker.AddBlock(m.BlockSha())
 
 	case *wire.MsgGetData:
 
 	// if we receive a transaction message, mark the transaction hash as known
 	case *wire.MsgTx:
-		p.mgr.Mark(m.TxSha())
+		p.tracker.AddTx(m.TxSha())
 
 	case *wire.MsgAlert:
 
@@ -645,7 +654,11 @@ func (p *Peer) pushGetData(m *wire.MsgInv) {
 	msg := wire.NewMsgGetData()
 
 	for _, inv := range m.InvList {
-		if p.mgr.Knows(inv.Hash) {
+		if inv.Type == 0 && p.tracker.KnowsBlock(inv.Hash) {
+			continue
+		}
+
+		if inv.Type == 1 && p.tracker.KnowsTx(inv.Hash) {
 			continue
 		}
 
