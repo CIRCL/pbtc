@@ -1,23 +1,31 @@
-package manager
+package tracker
 
 import (
 	"github.com/btcsuite/btcd/wire"
 
+	"github.com/CIRCL/pbtc/adaptor"
 	"github.com/CIRCL/pbtc/parmap"
 )
 
 type Tracker struct {
 	blocks *parmap.ParMap
 	txs    *parmap.ParMap
+	log    adaptor.Log
 }
 
-func NewTracker(options ...func(*Tracker)) (*Tracker, error) {
+func New(options ...func(*Tracker)) (*Tracker, error) {
 	tracker := &Tracker{
 		blocks: parmap.New(),
 		txs:    parmap.New(),
 	}
 
 	return tracker, nil
+}
+
+func SetLog(log adaptor.Log) func(*Tracker) {
+	return func(tracker *Tracker) {
+		tracker.log = log
+	}
 }
 
 func (tracker *Tracker) AddTx(hash wire.ShaHash) {

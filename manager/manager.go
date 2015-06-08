@@ -19,11 +19,10 @@ import (
 // main control instance, it defines most of the behaviour of our peer.
 type Manager struct {
 	log     adaptor.Log
-	peerLog adaptor.Log
 	repo    adaptor.Repository
-	recs    []adaptor.Processor
-	tracker *Tracker
-	server  *Server
+	tracker adaptor.Tracker
+	server  adaptor.Server
+	creator adaptor.Creator
 
 	wg *sync.WaitGroup
 
@@ -108,19 +107,23 @@ func SetLog(log adaptor.Log) func(*Manager) {
 	}
 }
 
-// SetPeerLog has to be passed as a parameter on manager creation. It injects
-// the log to be used by created peers for logging.
-func SetPeerLog(log adaptor.Log) func(*Manager) {
-	return func(mgr *Manager) {
-		mgr.peerLog = log
-	}
-}
-
 // SetRepository has to be passed as a parameter on manager creation. It injects
 // the repository to be used for node management.
 func SetRepository(repo adaptor.Repository) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.repo = repo
+	}
+}
+
+func SetTracker(tracker adaptor.Tracker) func(*Manager) {
+	return func(mgr *Manager) {
+		mgr.tracker = tracker
+	}
+}
+
+func SetServer(server adaptor.Server) func(*Manager) {
+	return func(mgr *Manager) {
+		mgr.server = server
 	}
 }
 
@@ -162,29 +165,6 @@ func SetInformationRate(infoRate time.Duration) func(*Manager) {
 func SetPeerLimit(peerLimit int) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.peerLimit = peerLimit
-	}
-}
-
-// EnableServer has to be passed as a parameter on manager creation. It enables
-// listening on all connected TCP IP interfaces for incoming peers.
-func SetServer(server *Server) func(*Manager) {
-	return func(mgr *Manager) {
-		mgr.server = server
-	}
-}
-
-// AddFilter has to be passed as a parameter on manager creation. It adds a
-// filter for incoming messages which receives all messages for filtering and
-// further forwarding.
-func SetProcessors(processors ...adaptor.Processor) func(*Manager) {
-	return func(mgr *Manager) {
-		mgr.recs = processors
-	}
-}
-
-func SetTracker(tracker *Tracker) func(*Manager) {
-	return func(mgr *Manager) {
-		mgr.tracker = tracker
 	}
 }
 
@@ -322,10 +302,9 @@ PeerLoop:
 			}
 
 			p, err := peer.New(
-				peer.SetLog(mgr.peerLog),
+				peer.SetLog(mgr.log),
 				peer.SetRepository(mgr.repo),
 				peer.SetManager(mgr),
-				peer.SetProcessors(mgr.recs),
 				peer.SetNetwork(mgr.network),
 				peer.SetVersion(mgr.version),
 				peer.SetNonce(mgr.nonce),
@@ -358,10 +337,9 @@ PeerLoop:
 			}
 
 			p, err := peer.New(
-				peer.SetLog(mgr.peerLog),
+				peer.SetLog(mgr.log),
 				peer.SetRepository(mgr.repo),
 				peer.SetManager(mgr),
-				peer.SetProcessors(mgr.recs),
 				peer.SetNetwork(mgr.network),
 				peer.SetVersion(mgr.version),
 				peer.SetNonce(mgr.nonce),

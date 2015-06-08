@@ -1,4 +1,4 @@
-package manager
+package server
 
 import (
 	"net"
@@ -13,10 +13,9 @@ type Server struct {
 	wg    *sync.WaitGroup
 	hosts []string
 	log   adaptor.Log
-	mgr   *Manager
 }
 
-func NewServer(options ...func(*Server)) (*Server, error) {
+func New(options ...func(*Server)) (*Server, error) {
 	server := &Server{
 		wg: &sync.WaitGroup{},
 	}
@@ -30,13 +29,7 @@ func SetHosts(hosts ...string) func(*Server) {
 	}
 }
 
-func SetManager(mgr *Manager) func(*Server) {
-	return func(server *Server) {
-		server.mgr = mgr
-	}
-}
-
-func SetLogServer(log adaptor.Log) func(*Server) {
+func SetLog(log adaptor.Log) func(*Server) {
 	return func(server *Server) {
 		server.log = log
 	}
@@ -94,6 +87,6 @@ func (server *Server) goListen(host string) {
 		}
 
 		// we submit the connetion for peer creation
-		server.mgr.connQ <- conn
+		//connQ <- conn
 	}
 }

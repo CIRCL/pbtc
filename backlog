@@ -1,3 +1,5 @@
+- isolate peer manager into seperate file from supervisor
+- look at struct composition to reduce redundancy
 - move config options to file
 - add logging for all packages
 - fix lz4 compression compatibility

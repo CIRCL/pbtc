@@ -16,6 +16,9 @@ import (
 	"github.com/CIRCL/pbtc/logger"
 	"github.com/CIRCL/pbtc/manager"
 	"github.com/CIRCL/pbtc/repository"
+	"github.com/CIRCL/pbtc/server"
+	"github.com/CIRCL/pbtc/supervisor"
+	"github.com/CIRCL/pbtc/tracker"
 	"github.com/CIRCL/pbtc/writer"
 )
 
@@ -40,9 +43,11 @@ func main() {
 		logger.SetFilePath("pbtc.log"),
 		logger.SetLevel("main", logging.INFO),
 		logger.SetLevel("repo", logging.INFO),
+		logger.SetLevel("svr", logging.INFO),
+		logger.SetLevel("tkr", logging.INFO),
 		logger.SetLevel("rec", logging.INFO),
 		logger.SetLevel("mgr", logging.INFO),
-		logger.SetLevel("peer", logging.INFO),
+		logger.SetLevel("out", logging.INFO),
 	)
 	if err != nil {
 		os.Exit(1)
@@ -61,8 +66,8 @@ func main() {
 		repository.SetNodeLimit(10000),
 	)
 	if err != nil {
-		log.Critical("Unable to create repository (%v)", err)
-		os.Exit(2)
+		log.Critical("Unable to initialize repository (%v)", err)
+		os.Exit(1)
 	}
 
 	// writer to publish to file
@@ -75,7 +80,7 @@ func main() {
 	)
 	if err != nil {
 		log.Critical("Unable to initialize file writer (%v)", err)
-		os.Exit(3)
+		os.Exit(1)
 	}
 
 	// writer to publish stuff on zeromq
@@ -85,7 +90,7 @@ func main() {
 	)
 	if err != nil {
 		log.Critical("Unable to initialize zeromq writer (%v)", err)
-		os.Exit(3)
+		os.Exit(1)
 	}
 
 	// writer to publish stuff to redis
@@ -97,7 +102,7 @@ func main() {
 	)
 	if err != nil {
 		log.Critical("Unable to initialize redis writer (%v)", err)
-		os.Exit(3)
+		os.Exit(1)
 	}
 
 	// filter all transactions for zmq output
@@ -106,8 +111,8 @@ func main() {
 		filter.SetNextCommand(wzmq),
 	)
 	if err != nil {
-		log.Critical("blabla")
-		os.Exit(4)
+		log.Critical("Unable to initialize command filter (%v)", err)
+		os.Exit(1)
 	}
 
 	// filter some IPs for redis output
@@ -125,8 +130,8 @@ func main() {
 		filter.SetNextIP(wredis),
 	)
 	if err != nil {
-		log.Critical("blabla")
-		os.Exit(4)
+		log.Critical("Unable to initialize IP filter (%v)", err)
+		os.Exit(1)
 	}
 
 	// filter some address transactions for redis output
@@ -141,34 +146,62 @@ func main() {
 		filter.SetNextBase58(wredis),
 	)
 	if err != nil {
-		log.Critical("blabla")
-		os.Exit(4)
+		log.Critical("Unable to initialize base58 filter (%v)", err)
+		os.Exit(1)
 	}
 
-	// listener
-	server, err := manager.NewServer()
-
-	// tracker
-	tracker, err := manager.NewTracker()
+	vent, err := filter.NewDummy(
+		filter.SetNextDummy(fbase58, finv, ftx, wfile),
+	)
 
 	// manager
 	mgr, err := manager.New(
 		manager.SetLog(logr.GetLog("mgr")),
-		manager.SetPeerLog(logr.GetLog("peer")),
 		manager.SetRepository(repo),
-		manager.SetProcessors(wfile, finv, fbase58, ftx),
 		manager.SetNetwork(wire.MainNet),
 		manager.SetVersion(wire.RejectVersion),
 		manager.SetConnectionRate(time.Second/25),
 		manager.SetInformationRate(time.Second*10),
 		manager.SetPeerLimit(1000),
-		manager.SetServer(server),
-		manager.SetTracker(tracker),
 	)
 	if err != nil {
-		log.Critical("Unable to create manager (%v)", err)
-		os.Exit(4)
+		log.Critical("Unable to initialize manager (%v)", err)
+		os.Exit(1)
 	}
+
+	// server
+	svr, err := server.New(
+		server.SetLog(logr.GetLog("svr")),
+	)
+	if err != nil {
+		log.Critical("Unable to initialize server (%v)", err)
+		os.Exit(1)
+	}
+
+	// tracker
+	tkr, err := tracker.New(
+		tracker.SetLog(logr.GetLog("tkr")),
+	)
+	if err != nil {
+		log.Critical("Unable to initialize tracker (%v)", err)
+		os.Exit(1)
+	}
+
+	// supervisor
+	supervisor, err := supervisor.New(
+		supervisor.SetLogger(logr),
+		supervisor.SetRepository(repo),
+		supervisor.SetManager(mgr),
+		supervisor.SetServer(svr),
+		supervisor.SetTracker(tkr),
+		supervisor.SetProcessor(vent),
+	)
+	if err != nil {
+		log.Critical("Unable to initialize supervisor (%v)", err)
+		os.Exit(1)
+	}
+
+	_ = supervisor
 
 	log.Info("[PBTC] All modules initialization complete")
 
@@ -208,5 +241,5 @@ SigLoop:
 
 	log.Info("[PBTC] All modules shutdown complete")
 
-	os.Exit(0)
+	os.Exit(1)
 }
