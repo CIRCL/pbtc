@@ -12,7 +12,7 @@ import (
 	"github.com/op/go-logging"
 
 	"github.com/CIRCL/pbtc/compressor"
-	"github.com/CIRCL/pbtc/logger"
+	"github.com/CIRCL/pbtc/loglib"
 	"github.com/CIRCL/pbtc/manager"
 	"github.com/CIRCL/pbtc/processor"
 	"github.com/CIRCL/pbtc/repository"
@@ -34,19 +34,19 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	// initialize logging
-	logr, err := logger.NewGologging(
-		logger.EnableConsole(),
-		logger.SetConsoleLevel(logging.INFO),
-		logger.EnableFile(),
-		logger.SetFileLevel(logging.DEBUG),
-		logger.SetFilePath("pbtc.log"),
-		logger.SetLevel("main", logging.INFO),
-		logger.SetLevel("repo", logging.INFO),
-		logger.SetLevel("svr", logging.INFO),
-		logger.SetLevel("tkr", logging.INFO),
-		logger.SetLevel("rec", logging.INFO),
-		logger.SetLevel("mgr", logging.INFO),
-		logger.SetLevel("out", logging.INFO),
+	logr, err := loglib.NewGologging(
+		loglib.EnableConsole(),
+		loglib.SetConsoleLevel(logging.INFO),
+		loglib.EnableFile(),
+		loglib.SetFileLevel(logging.DEBUG),
+		loglib.SetFilePath("pbtc.log"),
+		loglib.SetLevel("main", logging.INFO),
+		loglib.SetLevel("repo", logging.INFO),
+		loglib.SetLevel("svr", logging.INFO),
+		loglib.SetLevel("tkr", logging.INFO),
+		loglib.SetLevel("rec", logging.INFO),
+		loglib.SetLevel("mgr", logging.INFO),
+		loglib.SetLevel("out", logging.INFO),
 	)
 	if err != nil {
 		os.Exit(1)

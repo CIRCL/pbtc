@@ -9,12 +9,12 @@ import (
 // CommandFilter represents a filter that will only forward messages that fall
 // under the list of defined commands.
 type CommandFilter struct {
+	Processor
+
 	wg      *sync.WaitGroup
 	sig     chan struct{}
 	recordQ chan adaptor.Record
-	log     adaptor.Log
 	config  map[string]bool
-	next    []adaptor.Processor
 }
 
 // NewCommand returs a new filter that will filter all messages for a list
@@ -52,14 +52,6 @@ func SetCommands(cmds ...string) func(adaptor.Processor) {
 			filter.config[cmd] = true
 		}
 	}
-}
-
-func (filter *CommandFilter) SetLog(log adaptor.Log) {
-	filter.log = log
-}
-
-func (filter *CommandFilter) SetNext(next ...adaptor.Processor) {
-	filter.next = next
 }
 
 // Process adds one messages to the filter for processing and forwarding.

@@ -6,7 +6,7 @@ import (
 
 type Supervisor struct {
 	log    adaptor.Log
-	logger adaptor.Logger
+	loglib adaptor.Loglib
 	repo   adaptor.Repository
 	tkr    adaptor.Tracker
 	svr    adaptor.Server
@@ -21,14 +21,14 @@ func New(options ...func(*Supervisor)) (*Supervisor, error) {
 		option(supervisor)
 	}
 
-	supervisor.log = supervisor.logger.GetLog("main")
+	supervisor.log = supervisor.loglib.GetLog("main")
 
 	return supervisor, nil
 }
 
-func SetLogger(logger adaptor.Logger) func(*Supervisor) {
+func SetLogger(loglib adaptor.Loglib) func(*Supervisor) {
 	return func(supervisor *Supervisor) {
-		supervisor.logger = logger
+		supervisor.loglib = loglib
 	}
 }
 

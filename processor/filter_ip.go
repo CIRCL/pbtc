@@ -9,12 +9,12 @@ import (
 // IPFilter is a filter to forward only messages that come from a peer whose
 // remote address is in the given list of IP addresses.
 type IPFilter struct {
+	Processor
+
 	wg      *sync.WaitGroup
 	sig     chan struct{}
 	recordQ chan adaptor.Record
-	log     adaptor.Log
 	config  map[string]bool
-	next    []adaptor.Processor
 }
 
 // NewIP creates a new IP filter that will only forward messages coming from
@@ -47,14 +47,6 @@ func SetIPs(ips ...string) func(adaptor.Processor) {
 			filter.config[ip] = true
 		}
 	}
-}
-
-func (filter *IPFilter) SetLog(log adaptor.Log) {
-	filter.log = log
-}
-
-func (filter *IPFilter) SetNext(next ...adaptor.Processor) {
-	filter.next = next
 }
 
 // Process will add a record to the queue of records to be processed.

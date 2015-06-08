@@ -10,7 +10,8 @@ import (
 )
 
 type ZeroMQWriter struct {
-	log   adaptor.Log
+	Processor
+
 	addr  string
 	pub   *zmq.Socket
 	lineQ chan string
@@ -62,14 +63,7 @@ func SetSocketAddress(addr string) func(adaptor.Processor) {
 	}
 }
 
-func (w *ZeroMQWriter) SetLog(log adaptor.Log) {
-	w.log = log
-}
-
-func (w *ZeroMQWriter) SetNext(next ...adaptor.Processor) {
-}
-
-func (w *ZeroMQWriter) Stop() {
+func (w *ZeroMQWriter) Close() {
 	if atomic.SwapUint32(&w.done, 1) == 1 {
 		return
 	}

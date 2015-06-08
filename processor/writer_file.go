@@ -14,20 +14,18 @@ import (
 const Version = "PBTC Log Version 1"
 
 type FileWriter struct {
-	comp adaptor.Compressor
-	log  adaptor.Log
+	Processor
 
+	comp      adaptor.Compressor
 	filePath  string
 	fileSize  int64
 	fileAge   time.Duration
 	fileTimer *time.Timer
 	file      *os.File
-
 	sigWriter chan struct{}
 	wg        *sync.WaitGroup
 	txtQ      chan string
-
-	done uint32
+	done      uint32
 }
 
 func NewFileWriter(options ...func(adaptor.Processor)) (*FileWriter, error) {
@@ -113,13 +111,6 @@ func SetAgeLimit(age time.Duration) func(adaptor.Processor) {
 
 		w.fileAge = age
 	}
-}
-
-func (w *FileWriter) SetLog(log adaptor.Log) {
-	w.log = log
-}
-
-func (w *FileWriter) SetNext(next ...adaptor.Processor) {
 }
 
 // Stop ends the execution of the recorder sub-routines and returns once

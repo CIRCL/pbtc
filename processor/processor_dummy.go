@@ -8,11 +8,11 @@ import (
 
 // DummyFilter is a placeholder filter that forwards all messages.
 type DummyFilter struct {
+	Processor
+
 	wg      *sync.WaitGroup
 	sig     chan struct{}
 	recordQ chan adaptor.Record
-	log     adaptor.Log
-	next    []adaptor.Processor
 }
 
 // NewDummy creates a new DummyFilter that will forward all messages.
@@ -31,14 +31,6 @@ func NewDummy(options ...func(adaptor.Processor)) (*DummyFilter, error) {
 	go filter.goProcess()
 
 	return filter, nil
-}
-
-func (filter *DummyFilter) SetLog(log adaptor.Log) {
-	filter.log = log
-}
-
-func (filter *DummyFilter) SetNext(next ...adaptor.Processor) {
-	filter.next = next
 }
 
 // Process will add a new record to the queue of the dummy filter, which will

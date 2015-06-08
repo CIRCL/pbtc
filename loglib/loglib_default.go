@@ -1,10 +1,10 @@
-package logger
+package loglib
 
 import (
 	"github.com/CIRCL/pbtc/adaptor"
 )
 
-var logr adaptor.Logger
+var logr adaptor.Loglib
 var err error
 
 func init() {
@@ -14,6 +14,6 @@ func init() {
 
 // New returns the default logger for the package. Use this to define default
 // settings and library.
-func New() (adaptor.Logger, error) {
+func New() (adaptor.Loglib, error) {
 	return logr, err
 }

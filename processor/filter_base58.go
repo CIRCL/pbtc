@@ -10,12 +10,13 @@ import (
 // Base58Filter is a filter which only forwards transactions if they contain
 // an output to one of the given Bitcoin addresses.
 type Base58Filter struct {
+	Processor
+
 	wg      *sync.WaitGroup
 	sig     chan struct{}
 	recordQ chan adaptor.Record
 	log     adaptor.Log
 	config  []string
-	next    []adaptor.Processor
 }
 
 // NewBase58 creates a new filter that only forwards transactions if they
@@ -51,14 +52,6 @@ func SetBase58s(base58s ...string) func(adaptor.Processor) {
 
 		filter.config = base58s
 	}
-}
-
-func (filter *Base58Filter) SetLog(log adaptor.Log) {
-	filter.log = log
-}
-
-func (filter *Base58Filter) SetNext(next ...adaptor.Processor) {
-	filter.next = next
 }
 
 // Process adds one messages to the filter for processing and forwarding.
