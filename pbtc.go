@@ -210,8 +210,17 @@ SigLoop:
 	c := make(chan struct{})
 	go func() {
 		mgr.Close()
+		vent.Close()
+		fbase58.Close()
+		finv.Close()
+		ftx.Close()
 		tkr.Close()
 		svr.Close()
+		wredis.Close()
+		wzmq.Close()
+		wfile.Close()
+		repo.Close()
+		logr.Close()
 		c <- struct{}{}
 	}()
 
