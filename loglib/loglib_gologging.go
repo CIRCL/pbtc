@@ -155,10 +155,6 @@ func SetFileLevel(level logging.Level) func(*GologgingLogger) {
 	}
 }
 
-// Init is used to initialize the gologging library.
-func (logr *GologgingLogger) Init() {
-}
-
 // Close is used to clean up after usage.
 func (logr *GologgingLogger) Close() {
 	_ = logr.file.Close()

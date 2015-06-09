@@ -61,3 +61,6 @@ func SetProcessor(pro adaptor.Processor) func(*Supervisor) {
 		supervisor.pro = pro
 	}
 }
+
+func (s *Supervisor) Close() {
+}

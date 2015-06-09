@@ -17,7 +17,6 @@ import (
 	"github.com/CIRCL/pbtc/processor"
 	"github.com/CIRCL/pbtc/repository"
 	"github.com/CIRCL/pbtc/server"
-	"github.com/CIRCL/pbtc/supervisor"
 	"github.com/CIRCL/pbtc/tracker"
 )
 
@@ -155,21 +154,6 @@ func main() {
 		processor.SetNext(fbase58, finv, ftx, wfile),
 	)
 
-	// manager
-	mgr, err := manager.New(
-		manager.SetLog(logr.GetLog("mgr")),
-		manager.SetRepository(repo),
-		manager.SetNetwork(wire.MainNet),
-		manager.SetVersion(wire.RejectVersion),
-		manager.SetConnectionRate(time.Second/25),
-		manager.SetInformationRate(time.Second*10),
-		manager.SetPeerLimit(1000),
-	)
-	if err != nil {
-		log.Critical("Unable to initialize manager (%v)", err)
-		os.Exit(1)
-	}
-
 	// server
 	svr, err := server.New(
 		server.SetLog(logr.GetLog("svr")),
@@ -188,21 +172,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	// supervisor
-	supervisor, err := supervisor.New(
-		supervisor.SetLogger(logr),
-		supervisor.SetRepository(repo),
-		supervisor.SetManager(mgr),
-		supervisor.SetServer(svr),
-		supervisor.SetTracker(tkr),
-		supervisor.SetProcessor(vent),
+	// manager
+	mgr, err := manager.New(
+		manager.SetLog(logr.GetLog("mgr")),
+		manager.SetRepository(repo),
+		manager.SetTracker(tkr),
+		manager.SetProcessor(vent),
+		manager.SetNetwork(wire.MainNet),
+		manager.SetVersion(wire.RejectVersion),
+		manager.SetConnectionRate(time.Second/25),
+		manager.SetInformationRate(time.Second*10),
+		manager.SetPeerLimit(1000),
 	)
 	if err != nil {
-		log.Critical("Unable to initialize supervisor (%v)", err)
+		log.Critical("Unable to initialize manager (%v)", err)
 		os.Exit(1)
 	}
-
-	_ = supervisor
 
 	log.Info("[PBTC] All modules initialization complete")
 
@@ -224,6 +209,9 @@ SigLoop:
 	// we will initialize shutdown in a non-blocking way
 	c := make(chan struct{})
 	go func() {
+		mgr.Close()
+		tkr.Close()
+		svr.Close()
 		c <- struct{}{}
 	}()
 
@@ -235,12 +223,10 @@ SigLoop:
 		panic("SHUTDOWN FAILED")
 
 	case <-c:
-		mgr.Close()
-		repo.Close()
 		break
 	}
 
 	log.Info("[PBTC] All modules shutdown complete")
 
-	os.Exit(1)
+	os.Exit(0)
 }

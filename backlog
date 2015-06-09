@@ -1,5 +1,3 @@
-- look at struct composition to reduce redundancy
-- isolate peer manager into seperate file from supervisor
 - load configuration into supervisor and dynamically initialize
 - add logging for all packages
 - fix lz4 compression compatibility

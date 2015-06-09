@@ -18,11 +18,10 @@ import (
 // new incoming & outgoing peers and take care of state transitions. As the
 // main control instance, it defines most of the behaviour of our peer.
 type Manager struct {
-	log     adaptor.Log
-	repo    adaptor.Repository
-	tracker adaptor.Tracker
-	server  adaptor.Server
-	creator adaptor.Creator
+	log  adaptor.Log
+	repo adaptor.Repository
+	tkr  adaptor.Tracker
+	pro  adaptor.Processor
 
 	wg *sync.WaitGroup
 
@@ -115,15 +114,15 @@ func SetRepository(repo adaptor.Repository) func(*Manager) {
 	}
 }
 
-func SetTracker(tracker adaptor.Tracker) func(*Manager) {
+func SetTracker(tkr adaptor.Tracker) func(*Manager) {
 	return func(mgr *Manager) {
-		mgr.tracker = tracker
+		mgr.tkr = tkr
 	}
 }
 
-func SetServer(server adaptor.Server) func(*Manager) {
+func SetProcessor(pro adaptor.Processor) func(*Manager) {
 	return func(mgr *Manager) {
-		mgr.server = server
+		mgr.pro = pro
 	}
 }
 
@@ -309,7 +308,7 @@ PeerLoop:
 				peer.SetVersion(mgr.version),
 				peer.SetNonce(mgr.nonce),
 				peer.SetAddress(addr),
-				peer.SetTracker(mgr.tracker),
+				peer.SetTracker(mgr.tkr),
 			)
 			if err != nil {
 				mgr.log.Error("[MGR] %v failed outbound (%v)", addr, err)
@@ -344,7 +343,7 @@ PeerLoop:
 				peer.SetVersion(mgr.version),
 				peer.SetNonce(mgr.nonce),
 				peer.SetConnection(conn),
-				peer.SetTracker(mgr.tracker),
+				peer.SetTracker(mgr.tkr),
 			)
 			if err != nil {
 				mgr.log.Error("[MGR] %v failed inbound (%v)", addr, err)

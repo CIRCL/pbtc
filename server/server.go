@@ -35,6 +35,9 @@ func SetLog(log adaptor.Log) func(*Server) {
 	}
 }
 
+func (server *Server) Close() {
+}
+
 func (server *Server) goListen(host string) {
 	defer server.wg.Done()
 

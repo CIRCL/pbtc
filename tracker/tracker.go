@@ -28,6 +28,9 @@ func SetLog(log adaptor.Log) func(*Tracker) {
 	}
 }
 
+func (tracker *Tracker) Close() {
+}
+
 func (tracker *Tracker) AddTx(hash wire.ShaHash) {
 	tracker.txs.Insert(hash)
 }
