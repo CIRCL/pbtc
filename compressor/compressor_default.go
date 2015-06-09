@@ -15,3 +15,11 @@ func SetLog(log adaptor.Log) func(adaptor.Compressor) {
 		comp.SetLog(log)
 	}
 }
+
+type Compressor struct {
+	log adaptor.Log
+}
+
+func (c *Compressor) SetLog(log adaptor.Log) {
+	c.log = log
+}

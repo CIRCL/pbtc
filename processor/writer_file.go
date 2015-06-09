@@ -16,6 +16,7 @@ const Version = "PBTC Log Version 1"
 type FileWriter struct {
 	Processor
 
+	wg        *sync.WaitGroup
 	comp      adaptor.Compressor
 	filePath  string
 	fileSize  int64
@@ -23,7 +24,6 @@ type FileWriter struct {
 	fileTimer *time.Timer
 	file      *os.File
 	sigWriter chan struct{}
-	wg        *sync.WaitGroup
 	txtQ      chan string
 	done      uint32
 }

@@ -12,11 +12,11 @@ import (
 // the compressor interface. This allows us to create LZ4 readers and writers at
 // runtime.
 type CompressorLZ4 struct {
-	log adaptor.Log
+	Compressor
 }
 
 // NewLZ4 creates a new wrapper around the LZ4 compression library.
-func NewLZ4(options ...func(*CompressorLZ4)) *CompressorLZ4 {
+func NewLZ4(options ...func(adaptor.Compressor)) *CompressorLZ4 {
 	comp := &CompressorLZ4{}
 
 	for _, option := range options {
@@ -24,10 +24,6 @@ func NewLZ4(options ...func(*CompressorLZ4)) *CompressorLZ4 {
 	}
 
 	return comp
-}
-
-func (comp *CompressorLZ4) SetLog(log adaptor.Log) {
-	comp.log = log
 }
 
 // GetWriter wraps a new LZ4 writer around the provided writer.

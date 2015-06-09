@@ -74,7 +74,9 @@ func main() {
 		processor.SetLog(logr.GetLog("out")),
 		processor.SetSizeLimit(0),
 		processor.SetAgeLimit(time.Minute*5),
-		processor.SetCompressor(compressor.NewLZ4()),
+		processor.SetCompressor(compressor.NewLZ4(
+			compressor.SetLog(logr.GetLog("comp")),
+		)),
 		processor.SetFilePath("logs/"),
 	)
 	if err != nil {

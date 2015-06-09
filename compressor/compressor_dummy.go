@@ -10,7 +10,7 @@ import (
 // interface. It can be used in place of other compressors to provide
 // uncompressed input and output.
 type CompressorDummy struct {
-	log adaptor.Log
+	Compressor
 }
 
 // NewDummy creates a new dummy compressor which does not compress output or
@@ -23,10 +23,6 @@ func NewDummy(options ...func(adaptor.Compressor)) *CompressorDummy {
 	}
 
 	return comp
-}
-
-func (comp *CompressorDummy) SetLog(log adaptor.Log) {
-	comp.log = log
 }
 
 // GetWriter simply returns the original writer to the caller, so as not to

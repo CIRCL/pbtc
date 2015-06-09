@@ -15,7 +15,6 @@ type Base58Filter struct {
 	wg      *sync.WaitGroup
 	sig     chan struct{}
 	recordQ chan adaptor.Record
-	log     adaptor.Log
 	config  []string
 }
 
