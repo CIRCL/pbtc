@@ -9,30 +9,21 @@ import (
 )
 
 type FilterLoadRecord struct {
-	stamp time.Time
-	ra    *net.TCPAddr
-	la    *net.TCPAddr
-	cmd   string
+	Record
 }
 
 func NewFilterLoadRecord(msg *wire.MsgFilterLoad, ra *net.TCPAddr,
 	la *net.TCPAddr) *FilterLoadRecord {
 	record := &FilterLoadRecord{
-		stamp: time.Now(),
-		ra:    ra,
-		la:    la,
-		cmd:   msg.Command(),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
 	}
 
 	return record
-}
-
-func (fr *FilterLoadRecord) Address() *net.TCPAddr {
-	return fr.ra
-}
-
-func (fr *FilterLoadRecord) Cmd() string {
-	return fr.cmd
 }
 
 func (fr *FilterLoadRecord) String() string {

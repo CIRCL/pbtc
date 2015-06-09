@@ -11,10 +11,8 @@ import (
 )
 
 type GetBlocksRecord struct {
-	stamp  time.Time
-	ra     *net.TCPAddr
-	la     *net.TCPAddr
-	cmd    string
+	Record
+
 	stop   [32]byte
 	hashes [][32]byte
 }
@@ -22,10 +20,13 @@ type GetBlocksRecord struct {
 func NewGetBlocksRecord(msg *wire.MsgGetBlocks, ra *net.TCPAddr,
 	la *net.TCPAddr) *GetBlocksRecord {
 	record := &GetBlocksRecord{
-		stamp:  time.Now(),
-		ra:     ra,
-		la:     la,
-		cmd:    msg.Command(),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
+
 		stop:   msg.HashStop,
 		hashes: make([][32]byte, len(msg.BlockLocatorHashes)),
 	}
@@ -35,14 +36,6 @@ func NewGetBlocksRecord(msg *wire.MsgGetBlocks, ra *net.TCPAddr,
 	}
 
 	return record
-}
-
-func (gr *GetBlocksRecord) Address() *net.TCPAddr {
-	return gr.ra
-}
-
-func (gr *GetBlocksRecord) Cmd() string {
-	return gr.cmd
 }
 
 func (gr *GetBlocksRecord) String() string {

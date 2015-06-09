@@ -10,20 +10,21 @@ import (
 )
 
 type GetDataRecord struct {
-	stamp time.Time
-	ra    *net.TCPAddr
-	la    *net.TCPAddr
-	cmd   string
+	Record
+
 	items []*ItemRecord
 }
 
 func NewGetDataRecord(msg *wire.MsgGetData, ra *net.TCPAddr,
 	la *net.TCPAddr) *GetDataRecord {
 	record := &GetDataRecord{
-		stamp: time.Now(),
-		ra:    ra,
-		la:    la,
-		cmd:   msg.Command(),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
+
 		items: make([]*ItemRecord, len(msg.InvList)),
 	}
 
@@ -32,14 +33,6 @@ func NewGetDataRecord(msg *wire.MsgGetData, ra *net.TCPAddr,
 	}
 
 	return record
-}
-
-func (gr *GetDataRecord) Address() *net.TCPAddr {
-	return gr.ra
-}
-
-func (gr *GetDataRecord) Cmd() string {
-	return gr.cmd
 }
 
 func (gr *GetDataRecord) String() string {

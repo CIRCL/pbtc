@@ -1,6 +1,9 @@
 package records
 
 import (
+	"net"
+	"time"
+
 	"github.com/btcsuite/btcd/txscript"
 )
 
@@ -39,4 +42,27 @@ func ParseClass(class uint8) string {
 	default:
 		return "invalid"
 	}
+}
+
+type Record struct {
+	stamp time.Time
+	la    *net.TCPAddr
+	ra    *net.TCPAddr
+	cmd   string
+}
+
+func (r *Record) Timestamp() time.Time {
+	return r.stamp
+}
+
+func (r *Record) RemoteAddress() *net.TCPAddr {
+	return r.ra
+}
+
+func (r *Record) LocalAddress() *net.TCPAddr {
+	return r.la
+}
+
+func (r *Record) Command() string {
+	return r.cmd
 }

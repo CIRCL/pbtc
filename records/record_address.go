@@ -10,10 +10,7 @@ import (
 )
 
 type AddressRecord struct {
-	stamp time.Time
-	la    *net.TCPAddr
-	ra    *net.TCPAddr
-	cmd   string
+	Record
 
 	addrs []*EntryRecord
 }
@@ -21,10 +18,12 @@ type AddressRecord struct {
 func NewAddressRecord(msg *wire.MsgAddr, ra *net.TCPAddr,
 	la *net.TCPAddr) *AddressRecord {
 	ar := &AddressRecord{
-		stamp: time.Now(),
-		ra:    ra,
-		la:    la,
-		cmd:   msg.Command(),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
 
 		addrs: make([]*EntryRecord, len(msg.AddrList)),
 	}
@@ -34,14 +33,6 @@ func NewAddressRecord(msg *wire.MsgAddr, ra *net.TCPAddr,
 	}
 
 	return ar
-}
-
-func (ar *AddressRecord) Address() *net.TCPAddr {
-	return ar.ra
-}
-
-func (ar *AddressRecord) Cmd() string {
-	return ar.cmd
 }
 
 func (ar *AddressRecord) String() string {

@@ -10,32 +10,25 @@ import (
 )
 
 type PongRecord struct {
-	stamp time.Time
-	ra    *net.TCPAddr
-	la    *net.TCPAddr
-	cmd   string
+	Record
+
 	nonce uint64
 }
 
 func NewPongRecord(msg *wire.MsgPong, ra *net.TCPAddr,
 	la *net.TCPAddr) *PongRecord {
 	record := &PongRecord{
-		stamp: time.Now(),
-		ra:    ra,
-		la:    la,
-		cmd:   msg.Command(),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
+
 		nonce: msg.Nonce,
 	}
 
 	return record
-}
-
-func (pr *PongRecord) Address() *net.TCPAddr {
-	return pr.ra
-}
-
-func (pr *PongRecord) Cmd() string {
-	return pr.cmd
 }
 
 func (pr *PongRecord) String() string {

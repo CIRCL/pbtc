@@ -9,30 +9,21 @@ import (
 )
 
 type VerAckRecord struct {
-	stamp time.Time
-	ra    *net.TCPAddr
-	la    *net.TCPAddr
-	cmd   string
+	Record
 }
 
 func NewVerAckRecord(msg *wire.MsgVerAck, ra *net.TCPAddr,
 	la *net.TCPAddr) *VerAckRecord {
 	record := &VerAckRecord{
-		stamp: time.Now(),
-		ra:    ra,
-		la:    la,
-		cmd:   msg.Command(),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
 	}
 
 	return record
-}
-
-func (vr *VerAckRecord) Address() *net.TCPAddr {
-	return vr.ra
-}
-
-func (vr *VerAckRecord) Cmd() string {
-	return vr.cmd
 }
 
 func (vr *VerAckRecord) String() string {

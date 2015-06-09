@@ -9,30 +9,21 @@ import (
 )
 
 type MemPoolRecord struct {
-	stamp time.Time
-	ra    *net.TCPAddr
-	la    *net.TCPAddr
-	cmd   string
+	Record
 }
 
 func NewMemPoolRecord(msg *wire.MsgMemPool, ra *net.TCPAddr,
 	la *net.TCPAddr) *MemPoolRecord {
 	record := &MemPoolRecord{
-		stamp: time.Now(),
-		ra:    ra,
-		la:    la,
-		cmd:   msg.Command(),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
 	}
 
 	return record
-}
-
-func (mr *MemPoolRecord) Address() *net.TCPAddr {
-	return mr.ra
-}
-
-func (mr *MemPoolRecord) Cmd() string {
-	return mr.cmd
 }
 
 func (mr *MemPoolRecord) String() string {

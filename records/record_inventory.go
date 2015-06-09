@@ -10,21 +10,22 @@ import (
 )
 
 type InventoryRecord struct {
-	stamp time.Time
-	ra    *net.TCPAddr
-	la    *net.TCPAddr
-	cmd   string
-	inv   []*ItemRecord
+	Record
+
+	inv []*ItemRecord
 }
 
 func NewInventoryRecord(msg *wire.MsgInv, ra *net.TCPAddr,
 	la *net.TCPAddr) *InventoryRecord {
 	ir := &InventoryRecord{
-		stamp: time.Now(),
-		ra:    ra,
-		la:    la,
-		cmd:   msg.Command(),
-		inv:   make([]*ItemRecord, len(msg.InvList)),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
+
+		inv: make([]*ItemRecord, len(msg.InvList)),
 	}
 
 	for i, item := range msg.InvList {
@@ -32,14 +33,6 @@ func NewInventoryRecord(msg *wire.MsgInv, ra *net.TCPAddr,
 	}
 
 	return ir
-}
-
-func (ir *InventoryRecord) Address() *net.TCPAddr {
-	return ir.ra
-}
-
-func (ir *InventoryRecord) Cmd() string {
-	return ir.cmd
 }
 
 func (ir *InventoryRecord) String() string {

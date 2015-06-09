@@ -9,30 +9,21 @@ import (
 )
 
 type GetAddrRecord struct {
-	stamp time.Time
-	ra    *net.TCPAddr
-	la    *net.TCPAddr
-	cmd   string
+	Record
 }
 
 func NewGetAddrRecord(msg *wire.MsgGetAddr, ra *net.TCPAddr,
 	la *net.TCPAddr) *GetAddrRecord {
 	record := &GetAddrRecord{
-		stamp: time.Now(),
-		ra:    ra,
-		la:    la,
-		cmd:   msg.Command(),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
 	}
 
 	return record
-}
-
-func (gr *GetAddrRecord) Address() *net.TCPAddr {
-	return gr.ra
-}
-
-func (gr *GetAddrRecord) Cmd() string {
-	return gr.cmd
 }
 
 func (gr *GetAddrRecord) String() string {

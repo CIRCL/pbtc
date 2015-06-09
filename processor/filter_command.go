@@ -81,7 +81,7 @@ ProcessLoop:
 
 // valid checks whether a record fulfills the criteria for forwarding.
 func (filter *CommandFilter) valid(record adaptor.Record) bool {
-	return filter.config[record.Cmd()]
+	return filter.config[record.Command()]
 }
 
 // forward will send the message to all processors following this filter.

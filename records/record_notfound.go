@@ -10,21 +10,22 @@ import (
 )
 
 type NotFoundRecord struct {
-	stamp time.Time
-	ra    *net.TCPAddr
-	la    *net.TCPAddr
-	cmd   string
-	inv   []*ItemRecord
+	Record
+
+	inv []*ItemRecord
 }
 
 func NewNotFoundRecord(msg *wire.MsgNotFound, ra *net.TCPAddr,
 	la *net.TCPAddr) *NotFoundRecord {
 	record := &NotFoundRecord{
-		stamp: time.Now(),
-		ra:    ra,
-		la:    la,
-		cmd:   msg.Command(),
-		inv:   make([]*ItemRecord, len(msg.InvList)),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
+
+		inv: make([]*ItemRecord, len(msg.InvList)),
 	}
 
 	for i, item := range msg.InvList {
@@ -32,14 +33,6 @@ func NewNotFoundRecord(msg *wire.MsgNotFound, ra *net.TCPAddr,
 	}
 
 	return record
-}
-
-func (nr *NotFoundRecord) Address() *net.TCPAddr {
-	return nr.ra
-}
-
-func (nr *NotFoundRecord) Cmd() string {
-	return nr.cmd
 }
 
 func (nr *NotFoundRecord) String() string {

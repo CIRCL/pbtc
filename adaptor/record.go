@@ -2,6 +2,7 @@ package adaptor
 
 import (
 	"net"
+	"time"
 )
 
 // Record defines a common interface for records that describe an event on the
@@ -9,11 +10,9 @@ import (
 // address and message command that it relates to, while a sub-record only
 // provides a string representation of the data.
 type Record interface {
-	SubRecord
-	Address() *net.TCPAddr
-	Cmd() string
-}
-
-type SubRecord interface {
+	Timestamp() time.Time
+	RemoteAddress() *net.TCPAddr
+	LocalAddress() *net.TCPAddr
+	Command() string
 	String() string
 }

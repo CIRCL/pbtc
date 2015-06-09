@@ -12,10 +12,8 @@ import (
 )
 
 type VersionRecord struct {
-	ra       *net.TCPAddr
-	la       *net.TCPAddr
-	stamp    time.Time
-	cmd      string
+	Record
+
 	version  int32
 	services uint64
 	sent     time.Time
@@ -30,10 +28,13 @@ type VersionRecord struct {
 func NewVersionRecord(msg *wire.MsgVersion, ra *net.TCPAddr,
 	la *net.TCPAddr) *VersionRecord {
 	vr := &VersionRecord{
-		stamp:    time.Now(),
-		ra:       ra,
-		la:       la,
-		cmd:      msg.Command(),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
+
 		version:  msg.ProtocolVersion,
 		services: uint64(msg.Services),
 		sent:     msg.Timestamp,
@@ -46,14 +47,6 @@ func NewVersionRecord(msg *wire.MsgVersion, ra *net.TCPAddr,
 	}
 
 	return vr
-}
-
-func (vr *VersionRecord) Address() *net.TCPAddr {
-	return vr.ra
-}
-
-func (vr *VersionRecord) Cmd() string {
-	return vr.cmd
 }
 
 func (vr *VersionRecord) String() string {

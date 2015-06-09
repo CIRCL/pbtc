@@ -9,32 +9,25 @@ import (
 )
 
 type TransactionRecord struct {
-	stamp   time.Time
-	ra      *net.TCPAddr
-	la      *net.TCPAddr
-	cmd     string
+	Record
+
 	details *DetailsRecord
 }
 
 func NewTransactionRecord(msg *wire.MsgTx, ra *net.TCPAddr,
 	la *net.TCPAddr) *TransactionRecord {
 	record := &TransactionRecord{
-		stamp:   time.Now(),
-		ra:      ra,
-		la:      la,
-		cmd:     msg.Command(),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
+
 		details: NewDetailsRecord(msg),
 	}
 
 	return record
-}
-
-func (tr *TransactionRecord) Address() *net.TCPAddr {
-	return tr.ra
-}
-
-func (tr *TransactionRecord) Cmd() string {
-	return tr.cmd
 }
 
 func (tr *TransactionRecord) String() string {

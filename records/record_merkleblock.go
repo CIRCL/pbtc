@@ -9,30 +9,21 @@ import (
 )
 
 type MerkleBlockRecord struct {
-	stamp time.Time
-	ra    *net.TCPAddr
-	la    *net.TCPAddr
-	cmd   string
+	Record
 }
 
 func NewMerkleBlockRecord(msg *wire.MsgMerkleBlock, ra *net.TCPAddr,
 	la *net.TCPAddr) *MerkleBlockRecord {
 	record := &MerkleBlockRecord{
-		stamp: time.Now(),
-		ra:    ra,
-		la:    la,
-		cmd:   msg.Command(),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
 	}
 
 	return record
-}
-
-func (mr *MerkleBlockRecord) Address() *net.TCPAddr {
-	return mr.ra
-}
-
-func (mr *MerkleBlockRecord) Cmd() string {
-	return mr.cmd
 }
 
 func (mr *MerkleBlockRecord) String() string {

@@ -10,10 +10,8 @@ import (
 )
 
 type BlockRecord struct {
-	stamp   time.Time
-	ra      *net.TCPAddr
-	la      *net.TCPAddr
-	cmd     string
+	Record
+
 	hdr     *HeaderRecord
 	details []*DetailsRecord
 }
@@ -21,10 +19,13 @@ type BlockRecord struct {
 func NewBlockRecord(msg *wire.MsgBlock, ra *net.TCPAddr,
 	la *net.TCPAddr) *BlockRecord {
 	record := &BlockRecord{
-		stamp:   time.Now(),
-		ra:      ra,
-		la:      la,
-		cmd:     msg.Command(),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
+
 		hdr:     NewHeaderRecord(&msg.Header),
 		details: make([]*DetailsRecord, len(msg.Transactions)),
 	}
@@ -34,14 +35,6 @@ func NewBlockRecord(msg *wire.MsgBlock, ra *net.TCPAddr,
 	}
 
 	return record
-}
-
-func (br *BlockRecord) Address() *net.TCPAddr {
-	return br.ra
-}
-
-func (br *BlockRecord) Cmd() string {
-	return br.cmd
 }
 
 func (br *BlockRecord) String() string {

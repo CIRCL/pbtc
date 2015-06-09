@@ -76,7 +76,7 @@ ProcessLoop:
 
 // valid for dummy filter simply returns true for every record
 func (filter *IPFilter) valid(record adaptor.Record) bool {
-	return filter.config[record.Address().IP.String()]
+	return filter.config[record.RemoteAddress().IP.String()]
 }
 
 // forward will send the message to the following processors for processing.

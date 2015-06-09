@@ -11,10 +11,8 @@ import (
 )
 
 type RejectRecord struct {
-	stamp  time.Time
-	ra     *net.TCPAddr
-	la     *net.TCPAddr
-	cmd    string
+	Record
+
 	code   uint8
 	reject string
 	hash   []byte
@@ -24,10 +22,13 @@ type RejectRecord struct {
 func NewRejectRecord(msg *wire.MsgReject, ra *net.TCPAddr,
 	la *net.TCPAddr) *RejectRecord {
 	record := &RejectRecord{
-		stamp:  time.Now(),
-		ra:     ra,
-		la:     la,
-		cmd:    msg.Command(),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
+
 		code:   uint8(msg.Code),
 		reject: msg.Cmd,
 		hash:   msg.Hash.Bytes(),
@@ -35,14 +36,6 @@ func NewRejectRecord(msg *wire.MsgReject, ra *net.TCPAddr,
 	}
 
 	return record
-}
-
-func (rr *RejectRecord) Address() *net.TCPAddr {
-	return rr.ra
-}
-
-func (rr *RejectRecord) Cmd() string {
-	return rr.cmd
 }
 
 func (rr *RejectRecord) String() string {

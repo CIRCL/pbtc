@@ -11,10 +11,7 @@ import (
 )
 
 type AlertRecord struct {
-	stamp time.Time
-	ra    *net.TCPAddr
-	la    *net.TCPAddr
-	cmd   string
+	Record
 
 	version    int32
 	relayUntil int64
@@ -34,10 +31,12 @@ type AlertRecord struct {
 func NewAlertRecord(msg *wire.MsgAlert, ra *net.TCPAddr,
 	la *net.TCPAddr) *AlertRecord {
 	record := &AlertRecord{
-		stamp: time.Now(),
-		ra:    ra,
-		la:    la,
-		cmd:   msg.Command(),
+		Record: Record{
+			stamp: time.Now(),
+			ra:    ra,
+			la:    la,
+			cmd:   msg.Command(),
+		},
 
 		version:    msg.Payload.Version,
 		relayUntil: msg.Payload.RelayUntil,
@@ -55,14 +54,6 @@ func NewAlertRecord(msg *wire.MsgAlert, ra *net.TCPAddr,
 	}
 
 	return record
-}
-
-func (ar *AlertRecord) Address() *net.TCPAddr {
-	return ar.ra
-}
-
-func (ar *AlertRecord) Cmd() string {
-	return ar.cmd
 }
 
 func (ar *AlertRecord) String() string {
