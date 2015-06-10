@@ -39,15 +39,13 @@ type Manager struct {
 	addrTicker *time.Ticker
 	infoTicker *time.Ticker
 
-	network     wire.BitcoinNet
-	version     uint32
-	nonce       uint64
-	connRate    time.Duration
-	infoRate    time.Duration
-	peerLimit   int
-	defaultPort int
+	network   wire.BitcoinNet
+	version   uint32
+	connRate  time.Duration
+	connLimit int
 
-	done uint32
+	nonce uint64
+	done  uint32
 }
 
 // New returns a new manager initialized with the given options.
@@ -66,15 +64,17 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		peerIndex:   parmap.New(),
 		listenIndex: make(map[string]*net.TCPListener),
 
-		network:     wire.TestNet3,
-		version:     wire.RejectVersion,
-		defaultPort: 18333,
-		infoRate:    time.Second * 5,
-		connRate:    time.Second / 10,
-		peerLimit:   100,
+		network:   wire.TestNet3,
+		version:   wire.RejectVersion,
+		infoRate:  time.Second * 5,
+		connRate:  time.Second / 10,
+		connLimit: 100,
 	}
 
-	mgr.nonce, _ = wire.RandomUint64()
+	mgr.nonce, err = wire.RandomUint64()
+	if err != nil {
+		return nil, err
+	}
 
 	for _, option := range options {
 		option(mgr)
@@ -82,14 +82,6 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 
 	mgr.addrTicker = time.NewTicker(mgr.connRate)
 	mgr.infoTicker = time.NewTicker(mgr.infoRate)
-
-	switch mgr.network {
-	case wire.TestNet3:
-		mgr.defaultPort = 18333
-
-	case wire.MainNet:
-		mgr.defaultPort = 8333
-	}
 
 	mgr.wg.Add(2)
 	go mgr.goPeers()
@@ -150,20 +142,12 @@ func SetConnectionRate(connRate time.Duration) func(*Manager) {
 	}
 }
 
-// SetInformationRate has to be passed as a parameter on manager creation. It
-// defines the rate at which manager information will be output to the log.
-func SetInformationRate(infoRate time.Duration) func(*Manager) {
-	return func(mgr *Manager) {
-		mgr.infoRate = infoRate
-	}
-}
-
 // SetPeerLimit has to be passed as a parameter on manager creation. It sets
 // the maximum number of concurrent TCP connections, thus limiting the total
 // number of connecting and connected peers.
-func SetPeerLimit(peerLimit int) func(*Manager) {
+func SetConnectionLimit(connLimit int) func(*Manager) {
 	return func(mgr *Manager) {
-		mgr.peerLimit = peerLimit
+		mgr.connLimit = connLimit
 	}
 }
 
@@ -219,7 +203,7 @@ AddressLoop:
 		// at the pace of addr ticker, we request addresses to connect to
 		// as long as we have not reached the peer limit
 		case <-mgr.addrTicker.C:
-			if mgr.peerIndex.Count() >= mgr.peerLimit {
+			if mgr.peerIndex.Count() >= mgr.connLimit {
 				continue
 			}
 
@@ -295,7 +279,7 @@ PeerLoop:
 				continue
 			}
 
-			if mgr.peerIndex.Count() >= mgr.peerLimit {
+			if mgr.peerIndex.Count() >= mgr.connLimit {
 				mgr.log.Debug("[MGR] %v discarded, limit reached", addr)
 				continue
 			}
@@ -329,7 +313,7 @@ PeerLoop:
 				continue
 			}
 
-			if mgr.peerIndex.Count() >= mgr.peerLimit {
+			if mgr.peerIndex.Count() >= mgr.connLimit {
 				mgr.log.Debug("[MGR] %v disconnected, limit reached", addr)
 				conn.Close()
 				continue

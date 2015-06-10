@@ -36,6 +36,7 @@ func SetLog(log adaptor.Log) func(*Server) {
 }
 
 func (server *Server) Close() {
+
 }
 
 func (server *Server) goListen(host string) {
@@ -89,7 +90,7 @@ func (server *Server) goListen(host string) {
 			break
 		}
 
-		// we submit the connetion for peer creation
+		// we submit the connection for peer creation
 		//connQ <- conn
 	}
 }

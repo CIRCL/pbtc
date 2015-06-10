@@ -1,0 +1,147 @@
+;;;;; LOGGING ;;;;;
+
+;; The default logger is configured below the logger section. It can be ommitted
+;; if at least one named logger has been configured. You can define multiple
+;; loggers like this:
+
+; [logger "logger1"]
+; ...
+
+; [logger "logger2"]
+; ...
+
+;; A least of logger options and their description is given below.
+
+[logger]
+
+;; The console-enabled flag allows you to enable console logging by setting it
+;; to true or by simply not giving it a value.
+
+console-enabled=true
+;; default: false
+
+;; The console-format option allows you to customize the output of the logger
+;; to the console. The following placeholders are available:
+;; %{id}        Sequence number for log message (uint64).
+;; %{pid}       Process id (int)
+;; %{time}      Time when log occurred (time.Time)
+;; %{level}     Log level (Level)
+;; %{module}    Module (string)
+;; %{program}   Basename of os.Args[0] (string)
+;; %{message}   Message (string)
+;; %{longfile}  Full file name and line number: /a/b/c/d.go:23
+;; %{shortfile} Final file name element and line number: d.go:23
+;; %{color}     ANSI color based on log level (use %{color:reset} to end)
+
+console-format="%{color}%{time} %{level} %{shortfile} %{message}%{color:reset}"
+;; default: "%{message}"
+
+;; The console-level option allows you to set the minimum level of a message
+;; in order to be included in the console log. The available levels are:
+;; CRITICAL
+;; ERROR
+;; WARNING
+;; NOTICE
+;; INFO
+;; DEBUG
+
+console-level=INFO
+;; default: CRITICAL
+
+;; The file-enabled flag allows you to enable logging to file.
+
+file-enabled=true
+;; default: false
+
+;; The file-format option allows you to define the format of the messages logged
+;; to file. Please refer to the console format for details. Note that color
+;; codes won't work in most editors and will simply show up as weird characters.
+
+file-format="%{time} %{level} %{shortfile} %{message}"
+;; defalut: "%{message}"
+
+;; The file-level option allows you to set the minimum level for a message to be
+;; logged to the file. Please refer to the console level for a list of levels.
+
+file-level=DEBUG
+; file-level=CRITICAL
+
+;; The file-path option defines the path of the file to be used for logging. If
+;; the file already exists, it will be overwritten rather than appended to, so
+;; be careful to rotate the logs manually if needed.
+
+file-path=pbtc.log
+; file-path=log
+
+
+
+;;;;; REPOSITORY ;;;;;
+
+;; The default repository is configured below the repository section. It can be
+;; ommitted if there is at least one named repository. You can define named
+;; repositories like this:
+
+; [repository "repo1"]
+; ...
+
+; [repository "repo2"]
+; ...
+
+;; You need to declare at least one repository. A list of options and their
+;; available values is given below.
+
+[repository]
+
+;; You can give a list of DNS seeds to be used for bootstrapping. Provide one
+;; seed URL per line.
+
+;seeds-list=seed.bitcoin.sipa.be
+;seeds-list=testnet-seed.bitcoin.petertodd.org
+
+;; If you provide a list of DNS seeds, use this option to indicate the default
+;; port to be used when connecting to IPs pulled from the seeds.
+
+;seeds-port=8333
+
+;; The repository provides a mechanism to serialize and backup all node info
+;; to a file at regular intervals. The interval is in seconds. The default is
+;; zero, in which case no backups will be made.
+
+;backup-rate=900 // 15 minutes
+
+;; The back-up path indicates the location and name of the file. It can be given
+;; as relative or absolute path.
+
+;backup-path=nodes.dat
+
+[tracker]
+
+[manager]
+protocol-type=0xd9b4bef9
+protocol-version=70002
+connection-rate=10
+connection-limit=1000
+processor=writer1
+processor=filter1
+processor=filter2
+
+[server]
+address-list=127.0.0.1:8333
+address-list=192.168.0.52:8333
+
+[processor "writer1"]
+type=filewriter
+
+[processor "writer2"]
+type=zmqwriter
+
+[processor "writer3"]
+type=rediswriter
+
+[processor "filter1"]
+type=commandfilter
+next=writer2
+
+[processor "filter2"]
+type=base58filter
+next=writer3
