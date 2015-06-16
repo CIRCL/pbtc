@@ -1,4 +1,4 @@
-package loglib
+package logger
 
 import (
 	"os"

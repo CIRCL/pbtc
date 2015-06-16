@@ -1,17 +1,22 @@
 package supervisor
 
-import (
-	"github.com/btcsuite/btcd/wire"
-	"time"
-)
-
 type Config struct {
+	Logger map[string]*struct {
+		Console_enabled bool
+		Console_format  string
+		Console_level   string
+		File_enabled    bool
+		File_format     string
+		File_level      string
+		File_path       string
+	}
+
 	Repository map[string]*struct {
 		Seeds_list  []string
-		Seeds_port  int
+		Seeds_port  uint16
+		Backup_rate uint32
 		Backup_path string
-		Backup_rate time.Duration
-		Node_limit  int
+		Node_limit  uint32
 	}
 
 	Tracker map[string]*struct {
@@ -19,27 +24,15 @@ type Config struct {
 
 	Server map[string]*struct {
 		Address_list []string
-
-		Manager string
 	}
 
 	Manager map[string]*struct {
-		Protocol_type    uint32
+		Protocol_magic   uint32
 		Protocol_version uint32
-		Conn_rate        time.Duration
-		Conn_limit       int
-
-		Repository string
-		Tracker    string
-		Processor  []string
+		Connection_rate  uint32
+		Connection_limit uint32
 	}
 
 	Processor map[string]*struct {
-		Type string
-		Next []string
-	}
-
-	Compressor map[string]*struct {
-		Type string
 	}
 }
