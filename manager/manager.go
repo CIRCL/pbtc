@@ -66,22 +66,23 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 
 		network:   wire.TestNet3,
 		version:   wire.RejectVersion,
-		infoRate:  time.Second * 5,
 		connRate:  time.Second / 10,
 		connLimit: 100,
 	}
 
-	mgr.nonce, err = wire.RandomUint64()
+	nonce, err := wire.RandomUint64()
 	if err != nil {
 		return nil, err
 	}
+
+	mgr.nonce = nonce
 
 	for _, option := range options {
 		option(mgr)
 	}
 
 	mgr.addrTicker = time.NewTicker(mgr.connRate)
-	mgr.infoTicker = time.NewTicker(mgr.infoRate)
+	mgr.infoTicker = time.NewTicker(time.Second * 5)
 
 	mgr.wg.Add(2)
 	go mgr.goPeers()

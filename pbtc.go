@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/CIRCL/pbtc/logger"
 	"github.com/CIRCL/pbtc/supervisor"
 )
 
@@ -25,26 +24,14 @@ func main() {
 	// seed the random generator
 	rand.Seed(time.Now().UnixNano())
 
-	logr, err := logger.New()
-	if err != nil {
-		fmt.Println("Logger initialization failed (%v)", err)
-		os.Exit(1)
-	}
-
-	log := logr.GetLog("main")
-	log.Info("PBTC initializing...")
-
 	// initialize supervisor
-	supervisor, err := supervisor.New(logr)
+	supervisor, err := supervisor.New()
 	if err != nil {
-		log.Critical("Supervisor initialization failed (%v)", err)
+		fmt.Println("Supervisor initialization failed (%v)", err)
 		os.Exit(1)
 	}
-
-	log.Info("PBTC initialization complete")
 
 	// start supervisor
-	log.Info("Starting modules")
 	supervisor.Start()
 
 	// wait for signals in blocking loop
@@ -52,7 +39,6 @@ SigLoop:
 	for sig := range sigc {
 		switch sig {
 		case syscall.SIGINT:
-			log.Info("PBTC shutting down...")
 			break SigLoop
 
 		case syscall.SIGHUP:
@@ -63,7 +49,6 @@ SigLoop:
 	// we will initialize shutdown in a non-blocking way
 	c := make(chan struct{})
 	go func() {
-		log.Info("Stopping modules")
 		supervisor.Stop()
 		c <- struct{}{}
 	}()
@@ -76,10 +61,8 @@ SigLoop:
 		panic("SHUTDOWN FAILED")
 
 	case <-c:
-		log.Info("Modules stopped")
 		break
 	}
 
-	log.Info("PBTC shutdown complete")
 	os.Exit(0)
 }
