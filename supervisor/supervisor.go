@@ -1,7 +1,7 @@
 package supervisor
 
 import (
-	"errors"
+	"code.google.com/p/gcfg"
 
 	"github.com/CIRCL/pbtc/adaptor"
 	"github.com/CIRCL/pbtc/logger"
@@ -170,61 +170,7 @@ func New() (*Supervisor, error) {
 		}
 	}
 
-	if cfg.Processor[""] == nil {
-		for k, v := range cfg.Processor {
-			cfg.Processor[""] = v
-			delete(cfg.Processor, k)
-			break
-		}
-	}
-
-	// initialize supervisor struct
-	sup := &Supervisor{
-		log:  logr.GetLog("sup"),
-		repo: make(map[string]adaptor.Repository),
-		trk:  make(map[string]adaptor.Tracker),
-		svr:  make(map[string]adaptor.Server),
-		mgr:  make(map[string]adaptor.Manager),
-		pro:  make(map[string]adaptor.Processor),
-	}
-
-	// initialize repositories
-	for k, v := range cfg.Repository {
-		repo, err := repository.New(
-			repository.SetLog(logr.GetLog("repo"+k)),
-			repository.SetSeedsList(v.Seeds_list...),
-			repository.SetSeedsPort(v.Seeds_port),
-			repository.SetBackupPath(v.Backup_path),
-			repository.SetBackupRate(v.Backup_rate),
-			repository.SetNodeLimit(v.Node_limit),
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		logr.SetLevel("repo"+k, v.Log_level)
-		sup.repo[k] = repo
-	}
-
-	// initialize trackers
-	for k, v := range cfg.Tracker {
-		tkr, err := tracker.New(
-			tracker.SetLog(logr.GetLog("tkr" + k)),
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		logr.SetLevel("tkr"+k, tkr.Log_level)
-	}
-
-	// initialize servers
-
-	// initialize managers
-
-	// initialize processors
-
-	return sup, nil
+	return supervisor, nil
 }
 
 func initLogger(lgr_cfg *LoggerConfig) adaptor.Logger {
