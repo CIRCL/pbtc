@@ -1,23 +1,50 @@
 package processor
 
 import (
+	"errors"
+
 	"github.com/CIRCL/pbtc/adaptor"
 )
+
+type ProcessorType int
+
+const (
+	Base58F ProcessorType = iota
+	CommandF
+	IPF
+	FileW
+	RedisW
+	ZeroMQW
+)
+
+func ParseType(processor string) (ProcessorType, error) {
+	switch processor {
+	case "Base58Filter":
+		return Base58F, nil
+
+	case "CommandFilter":
+		return CommandF, nil
+
+	case "IPFilter":
+		return IPF, nil
+
+	case "FileWriter":
+		return FileW, nil
+
+	case "RedisWriter":
+		return RedisW, nil
+
+	case "ZeroMQWriter":
+		return ZeroMQW, nil
+
+	default:
+		return -1, errors.New("invalid processor string")
+	}
+}
 
 // New returns a new default filter.
 func New() (adaptor.Processor, error) {
 	return NewDummy()
-}
-
-func SetLog(log adaptor.Log) func(adaptor.Processor) {
-	return func(pro adaptor.Processor) {
-		lgr, ok := pro.(adaptor.Logger)
-		if !ok {
-			return
-		}
-
-		lgr.SetLog(log)
-	}
 }
 
 func SetNext(next ...adaptor.Processor) func(adaptor.Processor) {

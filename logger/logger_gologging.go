@@ -45,7 +45,7 @@ func ParseLevel(level string) (logging.Level, error) {
 		return logging.CRITICAL, nil
 
 	default:
-		return logging.Level(-1), errors.New("invalid logging level string")
+		return -1, errors.New("invalid logging level string")
 	}
 }
 

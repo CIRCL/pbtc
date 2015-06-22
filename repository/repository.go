@@ -31,7 +31,7 @@ type Repository struct {
 
 	seedsList  []string
 	seedsPort  uint16
-	backupPath string
+	backupFile *os.File
 	backupRate time.Duration
 	nodeLimit  uint32
 
@@ -57,7 +57,6 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 
 		seedsList:  []string{"testnet-seed.bitcoin.petertodd.org"},
 		seedsPort:  18333,
-		backupPath: "nodes.dat",
 		backupRate: 90 * time.Second,
 		nodeLimit:  100000,
 
@@ -66,6 +65,10 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 
 	for _, option := range options {
 		option(repo)
+	}
+
+	if repo.backupFile == nil {
+		repo.log.Warning("no valid backup file, not creating backups")
 	}
 
 	repo.tickerBackup = time.NewTicker(repo.backupRate)
@@ -116,15 +119,15 @@ func SetSeedsPort(port uint16) func(*Repository) {
 }
 
 // SetBackupPath sets the path for saving current address & node information.
-func SetBackupPath(path string) func(*Repository) {
+func SetBackupFile(file *os.File) func(*Repository) {
 	return func(repo *Repository) {
-		repo.backupPath = path
+		repo.backupFile = file
 	}
 }
 
-func SetBackupRate(rate uint32) func(*Repository) {
+func SetBackupRate(rate time.Duration) func(*Repository) {
 	return func(repo *Repository) {
-		repo.backupRate = time.Duration(rate) * time.Second
+		repo.backupRate = rate
 	}
 }
 
@@ -208,31 +211,45 @@ func (repo *Repository) bootstrap() {
 // save will try to save all current nodes to a file on disk.
 func (repo *Repository) save() {
 	// create the file, truncating if it already exists
-	file, err := os.Create(repo.backupPath)
-	if err != nil {
+	if repo.backupFile == nil {
 		return
 	}
-	defer file.Close()
 
-	// encode the entire index using gob outputting into file
-	enc := gob.NewEncoder(file)
+	//
+	err := repo.backupFile.Truncate(0)
+	if err != nil {
+		repo.log.Error("failed to truncate repo backup")
+		return
+	}
+
+	_, err = repo.backupFile.Seek(0, 0)
+	if err != nil {
+		repo.log.Error("failed to reset repo.backupFile pointer")
+		return
+	}
+
+	// encode the entire index using gob outputting into repo.backupFile
+	enc := gob.NewEncoder(repo.backupFile)
 	err = enc.Encode(repo.nodeIndex)
 	if err != nil {
+		repo.log.Error("failed to encode repo backup")
 		return
 	}
 }
 
 // restore will try to load the previously saved node file.
 func (repo *Repository) restore() {
-	// open the nodes file in read-only mode
-	file, err := os.Open(repo.backupPath)
+	if repo.backupFile == nil {
+		return
+	}
+
+	_, err := repo.backupFile.Seek(0, 0)
 	if err != nil {
 		return
 	}
-	defer file.Close()
 
 	// decode the entire index using gob reading from the file
-	dec := gob.NewDecoder(file)
+	dec := gob.NewDecoder(repo.backupFile)
 	err = dec.Decode(&repo.nodeIndex)
 	if err != nil {
 		return

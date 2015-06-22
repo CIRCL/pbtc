@@ -38,7 +38,8 @@ type ServerConfig struct {
 }
 
 type ProcessorConfig struct {
-	Log_level string
+	Log_level      string
+	Processor_type string
 }
 
 type ManagerConfig struct {

@@ -1,13 +1,16 @@
 package supervisor
 
 import (
+	"errors"
 	"os"
+	"time"
 
 	"code.google.com/p/gcfg"
 
 	"github.com/CIRCL/pbtc/adaptor"
 	"github.com/CIRCL/pbtc/logger"
 	"github.com/CIRCL/pbtc/manager"
+	"github.com/CIRCL/pbtc/processor"
 	"github.com/CIRCL/pbtc/repository"
 	"github.com/CIRCL/pbtc/server"
 	"github.com/CIRCL/pbtc/tracker"
@@ -77,23 +80,48 @@ func New() (*Supervisor, error) {
 
 	// initialize remaining modules
 	for name, repo_cfg := range cfg.Repository {
-		supervisor.repo[name] = initRepository(repo_cfg)
+		repo, err := initRepository(repo_cfg)
+		if err != nil {
+			continue
+		}
+
+		supervisor.repo[name] = repo
 	}
 
 	for name, tkr_cfg := range cfg.Tracker {
-		supervisor.tkr[name] = initTracker(tkr_cfg)
+		tkr, err := initTracker(tkr_cfg)
+		if err != nil {
+			continue
+		}
+
+		supervisor.tkr[name] = tkr
 	}
 
 	for name, svr_cfg := range cfg.Server {
-		supervisor.svr[name] = initServer(svr_cfg)
+		svr, err := initServer(svr_cfg)
+		if err != nil {
+			continue
+		}
+
+		supervisor.svr[name] = svr
 	}
 
 	for name, pro_cfg := range cfg.Processor {
-		supervisor.pro[name] = initProcessor(pro_cfg)
+		pro, err := initProcessor(pro_cfg)
+		if err != nil {
+			continue
+		}
+
+		supervisor.pro[name] = pro
 	}
 
 	for name, mgr_cfg := range cfg.Manager {
-		supervisor.mgr[name] = initManager(mgr_cfg)
+		mgr, err := initManager(mgr_cfg)
+		if err != nil {
+			continue
+		}
+
+		supervisor.mgr[name] = mgr
 	}
 
 	// check remaining modules for missing values
@@ -182,7 +210,7 @@ func New() (*Supervisor, error) {
 }
 
 func initLogger(lgr_cfg *LoggerConfig) (adaptor.Logger, error) {
-	options := make([]func(*logger.GologgingLogger), 0, 2)
+	options := make([]func(*logger.GologgingLogger), 0)
 
 	if lgr_cfg.Console_enabled != false {
 		enabled := lgr_cfg.Console_enabled
@@ -235,24 +263,118 @@ func initLogger(lgr_cfg *LoggerConfig) (adaptor.Logger, error) {
 	return logger.NewGologging(options...)
 }
 
-func initRepository(repo_cfg *RepositoryConfig) adaptor.Repository {
-	return nil
+func initRepository(repo_cfg *RepositoryConfig) (adaptor.Repository, error) {
+	options := make([]func(*repository.Repository), 0)
+
+	if repo_cfg.Seeds_list != nil {
+		seeds := repo_cfg.Seeds_list
+		options = append(options, repository.SetSeedsList(seeds...))
+	}
+
+	if repo_cfg.Seeds_port != 0 {
+		port := repo_cfg.Seeds_port
+		if port > 0 && port < 65535 {
+			options = append(options, repository.SetSeedsPort(port))
+		}
+	}
+
+	if repo_cfg.Backup_path != "" {
+		file, err := os.Create(repo_cfg.Backup_path)
+		if err == nil {
+			options = append(options, repository.SetBackupFile(file))
+		}
+	}
+
+	if repo_cfg.Backup_rate != 0 {
+		rate := time.Duration(repo_cfg.Backup_rate) * time.Second
+		if rate > time.Minute*15 && rate < time.Hour*24 {
+			options = append(options, repository.SetBackupRate(rate))
+		}
+	}
+
+	if repo_cfg.Node_limit != 0 {
+		limit := repo_cfg.Node_limit
+		if limit > 1000 && limit < 1000000 {
+			options = append(options, repository.SetNodeLimit(limit))
+		}
+	}
+
+	return repository.New(options...)
 }
 
-func initTracker(tkr_cfg *TrackerConfig) adaptor.Tracker {
-	return nil
+func initTracker(tkr_cfg *TrackerConfig) (adaptor.Tracker, error) {
+	options := make([]func(*tracker.Tracker), 0)
+
+	return tracker.New(options...)
 }
 
-func initServer(svr_cfg *ServerConfig) adaptor.Server {
-	return nil
+func initServer(svr_cfg *ServerConfig) (adaptor.Server, error) {
+	options := make([]func(*server.Server), 0)
+
+	if svr_cfg.Address_list != nil {
+		addrs := svr_cfg.Address_list
+		options = append(options, server.SetAddressList(addrs...))
+	}
+
+	return server.New(options...)
 }
 
-func initProcessor(pro_cfg *ProcessorConfig) adaptor.Processor {
-	return nil
+func initProcessor(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
+	pType, err := processor.ParseType(pro_cfg.Processor_type)
+	if err != nil {
+		return nil, err
+	}
+
+	switch pType {
+	case processor.Base58F:
+		return initBase58Filter(pro_cfg)
+
+	case processor.CommandF:
+		return initCommandFilter(pro_cfg)
+
+	case processor.IPF:
+		return initIPFilter(pro_cfg)
+
+	case processor.FileW:
+		return initFileWriter(pro_cfg)
+
+	case processor.RedisW:
+		return initRedisWriter(pro_cfg)
+
+	case processor.ZeroMQW:
+		return initZeroMQWriter(pro_cfg)
+
+	default:
+		return nil, errors.New("invalid processor type")
+	}
 }
 
-func initManager(mgr_cfg *ManagerConfig) adaptor.Manager {
-	return nil
+func initBase58Filter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
+
+}
+
+func initCommandFilter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
+
+}
+
+func initIPFilter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
+
+}
+
+func initFileWriter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
+
+}
+
+func initRedisWriter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
+
+}
+
+func initZeroMQWriter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
+
+}
+
+func initManager(mgr_cfg *ManagerConfig) (adaptor.Manager, error) {
+	return nil, nil
 }
 
 func (supervisor *Supervisor) Start() {

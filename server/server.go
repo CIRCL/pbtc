@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"net"
 	"strconv"
 	"strings"
@@ -20,10 +21,18 @@ func New(options ...func(*Server)) (*Server, error) {
 		wg: &sync.WaitGroup{},
 	}
 
+	for _, option := range options {
+		option(server)
+	}
+
+	if len(server.hosts) == 0 {
+		return nil, errors.New("missing address list")
+	}
+
 	return server, nil
 }
 
-func SetHosts(hosts ...string) func(*Server) {
+func SetAddressList(hosts ...string) func(*Server) {
 	return func(server *Server) {
 		server.hosts = hosts
 	}
