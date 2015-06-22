@@ -40,6 +40,9 @@ type ServerConfig struct {
 type ProcessorConfig struct {
 	Log_level      string
 	Processor_type string
+	Address_list   []string
+	IP_list        []string
+	Command_list   []string
 }
 
 type ManagerConfig struct {

@@ -20,7 +20,7 @@ type ZeroMQWriter struct {
 	done  uint32
 }
 
-func NewZMQWriter(options ...func(adaptor.Processor)) (*ZeroMQWriter, error) {
+func NewZeroMQWriter(options ...func(adaptor.Processor)) (*ZeroMQWriter, error) {
 	w := &ZeroMQWriter{
 		addr:  "127.0.0.1:12345",
 		lineQ: make(chan string, 1),

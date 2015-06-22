@@ -7,9 +7,9 @@ import (
 	"github.com/CIRCL/pbtc/records"
 )
 
-// Base58Filter is a filter which only forwards transactions if they contain
+// AddressFilter is a filter which only forwards transactions if they contain
 // an output to one of the given Bitcoin addresses.
-type Base58Filter struct {
+type AddressFilter struct {
 	Processor
 
 	wg      *sync.WaitGroup
@@ -22,8 +22,8 @@ type Base58Filter struct {
 // contain one output ot one of the given Bitcoin addresses. The list of
 // Bitcoin addresses and the processors to forward the transactions to are
 // passed as parameters on construction.
-func NewBase58Filter(options ...func(adaptor.Processor)) (*Base58Filter, error) {
-	filter := &Base58Filter{
+func NewAddressFilter(options ...func(adaptor.Processor)) (*AddressFilter, error) {
+	filter := &AddressFilter{
 		wg:      &sync.WaitGroup{},
 		sig:     make(chan struct{}),
 		recordQ: make(chan adaptor.Record, 1),
@@ -42,31 +42,31 @@ func NewBase58Filter(options ...func(adaptor.Processor)) (*Base58Filter, error) 
 // SetBase58s can be passed as parameter to NewBase58 in order to define the
 // list of Bitcoin addresses we want to filter transactions for. If this
 // parameter is not passed, no records will be forwarded.
-func SetBase58s(base58s ...string) func(adaptor.Processor) {
+func SetAddresses(addresses ...string) func(adaptor.Processor) {
 	return func(pro adaptor.Processor) {
-		filter, ok := pro.(*Base58Filter)
+		filter, ok := pro.(*AddressFilter)
 		if !ok {
 			return
 		}
 
-		filter.config = base58s
+		filter.config = addresses
 	}
 }
 
 // Process adds one messages to the filter for processing and forwarding.
-func (filter *Base58Filter) Process(record adaptor.Record) {
+func (filter *AddressFilter) Process(record adaptor.Record) {
 	filter.recordQ <- record
 }
 
 // Close will end the filter and wait for the go routine to quit.
-func (filter *Base58Filter) Close() {
+func (filter *AddressFilter) Close() {
 	close(filter.sig)
 	filter.wg.Wait()
 }
 
 // goProcess is to be launched as a go routine. It reads the records added to
 // the queue and forwards valid records to the next set of processors.
-func (filter *Base58Filter) goProcess() {
+func (filter *AddressFilter) goProcess() {
 	defer filter.wg.Done()
 
 ProcessLoop:
@@ -86,7 +86,7 @@ ProcessLoop:
 }
 
 // valid checks whether a record fulfills the criteria for forwarding.
-func (filter *Base58Filter) valid(record adaptor.Record) bool {
+func (filter *AddressFilter) valid(record adaptor.Record) bool {
 	tx, ok := record.(*records.TransactionRecord)
 	if !ok {
 		return false
@@ -102,7 +102,7 @@ func (filter *Base58Filter) valid(record adaptor.Record) bool {
 }
 
 // forward will send the message to all processors following this filter.
-func (filter *Base58Filter) forward(record adaptor.Record) {
+func (filter *AddressFilter) forward(record adaptor.Record) {
 	for _, processor := range filter.next {
 		processor.Process(record)
 	}

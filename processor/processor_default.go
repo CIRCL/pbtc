@@ -9,7 +9,7 @@ import (
 type ProcessorType int
 
 const (
-	Base58F ProcessorType = iota
+	AddressF ProcessorType = iota
 	CommandF
 	IPF
 	FileW
@@ -19,8 +19,8 @@ const (
 
 func ParseType(processor string) (ProcessorType, error) {
 	switch processor {
-	case "Base58Filter":
-		return Base58F, nil
+	case "AddressFilter":
+		return AddressF, nil
 
 	case "CommandFilter":
 		return CommandF, nil

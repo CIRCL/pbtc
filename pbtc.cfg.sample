@@ -1,12 +1,30 @@
-; A module can be named or unnamed. Here, the first one is unnamed:
+; PBTC CONFIGURATION FILE
+;
+; The configuration file defines and configures a certain number of modules to
+; be run by the application. In general, you should define at least one module
+; per type, though some of them (like writers) are optional.
+;
+; The sample configuration file provides a short description for each value.
+; It also provides information on the default value and gives a suggestion, or
+; example, of a possible sensible value.
+;
+; Whenever the value is part of an enumeration, the enumeration is given as
+; reference.
+;
+;
 ; [module]
+;
+; Defines the configuration for an anonymous module of the "module" type. There
+; can only be one anonymous module per module type. The anonymous module, if
+; present, is used as the default module for that module type.
+;
+;
 ; [module "name"]
 ;
-; The unnamed module is the default module for a type. If no default module is
-; provided, a random named module will be used as the default module.
-;
-; You can only configure one unnamed default module per type. You need at least
-; one module per required type.
+; Defines the configuration for a named module of type "module", named "name".
+; If no anonymous module has been defined, a random named module will be used as
+; the default module for that type. Otherwise, named modules need to be
+; explicitely referenced in a module configuration to be used.
 
 
 
@@ -26,6 +44,7 @@
 ;
 ; The console-format option allows you to customize the output of the logger
 ; to the console. The following placeholders are available:
+;
 ; %{id}        Sequence number for log message (uint64).
 ; %{pid}       Process id (int)
 ; %{time}      Time when log occurred (time.Time)
@@ -46,6 +65,7 @@
 ;
 ; The console-level option allows you to set the minimum level of a message
 ; in order to be included in the console log. The available levels are:
+;
 ; CRITICAL
 ; ERROR
 ; WARNING
@@ -65,6 +85,7 @@
 ; default: false
 
 ;file-enabled=true
+
 
 ; file-format (string)
 ;
@@ -93,15 +114,32 @@
 ; the file already exists, it will be overwritten rather than appended to, so
 ; be careful to rotate the logs manually if needed.
 ;
-; default=log
+; default="log"
 
-;file-path=pbtc.log
+;file-path="pbtc.log"
+
 
 
 
 [repository]
 
-; seeds-list (string)
+; log-level (enum)
+;
+; The log level setting can be used to increase or decrease the output sent to
+; the backends (console, file) from this module. This means that it can
+; effectively be used to decrease the output of a certain module. For instance,
+; if you set this to CRITICAL and the console level is on INFO, only critical
+; messages will be displayed for this module, while other modules will use
+; the default. On the other hand, if this setting is INFO and the console level
+; is on ERROR, you will still only get ERROR messages for this module, even
+; though all at level INFO or higher will be forwarded to the backend.
+;
+; default: (empty)
+
+;log-level=DEBUG
+
+
+; seeds-list (multi string)
 ;
 ; You can give a list of DNS seeds to be used for bootstrapping. Provide one
 ; seed URL per line. If no DNS seeds are provided and no nodes are known, the
@@ -109,8 +147,8 @@
 ;
 ; default: (empty)
 
-;seeds-list=seed.bitcoin.sipa.be
-;seeds-list=testnet-seed.bitcoin.petertodd.org
+;seeds-list="seed.bitcoin.sipa.be"
+;seeds-list="testnet-seed.bitcoin.petertodd.org"
 
 
 ; seeds-port (int)
@@ -139,19 +177,92 @@
 ; The back-up path indicates the location and name of the file. It can be given
 ; as relative or absolute path.
 ;
-; default: dat
+; default: "nodes.dat"
 
-;backup-path=nodes.dat
+;backup-path="nodes.dat"
+
+
+; node-limit (int)
+;
+; The node limit puts a limit on the maximum number of known nodes in the
+; repository. This does *not* have anything to do with connections; it simply
+; limits the number of node of which we track information in the repository,
+; thus putting an upper limit on memory usage.
+;
+; default: 32768
+
+;node-limit=1048576
 
 
 
 [tracker]
 
+; log-level (enum)
+;
+; The log level setting can be used to increase or decrease the output sent to
+; the backends (console, file) from this module. This means that it can
+; effectively be used to decrease the output of a certain module. For instance,
+; if you set this to CRITICAL and the console level is on INFO, only critical
+; messages will be displayed for this module, while other modules will use
+; the default. On the other hand, if this setting is INFO and the console level
+; is on ERROR, you will still only get ERROR messages for this module, even
+; though all at level INFO or higher will be forwarded to the backend.
+;
+; default: (empty)
+
+;log-level=DEBUG
+
+
+[server]
+
+; log-level (enum)
+;
+; The log level setting can be used to increase or decrease the output sent to
+; the backends (console, file) from this module. This means that it can
+; effectively be used to decrease the output of a certain module. For instance,
+; if you set this to CRITICAL and the console level is on INFO, only critical
+; messages will be displayed for this module, while other modules will use
+; the default. On the other hand, if this setting is INFO and the console level
+; is on ERROR, you will still only get ERROR messages for this module, even
+; though all at level INFO or higher will be forwarded to the backend.
+;
+; default: (empty)
+
+;log-level=DEBUG
+
+
+; address-list (string)
+;
+; The address list defines a list of IP addresses that we will listen on for
+; incoming clients. You can define multiple IPs or the same IP with different
+; ports by adding the entry multiple times.
+;
+; default: (empty)
+
+;address-list=127.0.0.1:8333
+;address-list=127.0.0.1:18333
+
 
 
 [manager]
 
-; protocole-type (int)
+; log-level (enum)
+;
+; The log level setting can be used to increase or decrease the output sent to
+; the backends (console, file) from this module. This means that it can
+; effectively be used to decrease the output of a certain module. For instance,
+; if you set this to CRITICAL and the console level is on INFO, only critical
+; messages will be displayed for this module, while other modules will use
+; the default. On the other hand, if this setting is INFO and the console level
+; is on ERROR, you will still only get ERROR messages for this module, even
+; though all at level INFO or higher will be forwarded to the backend.
+;
+; default: (empty)
+
+;log-level=DEBUG
+
+
+; protocol-magic (int)
 ;
 ; The protocol magic bytes define the network to be used to communicate with
 ; peers. Next to the port, it is what differentiates the protocol of the Bitcoin
@@ -159,7 +270,7 @@
 ;
 ; default: 0x0709110b
 
-;protocol-magit=0xd9b4bef9
+;protocol-magic=0xd9b4bef9
 
 
 ; protocol-version (int)
@@ -195,15 +306,211 @@
 
 
 
-[server]
+[processor]
 
-; address-list (string)
+; log-level (enum)
 ;
-; The address list defines a list of IP addresses that we will listen on for
-; incoming clients. You can define multiple IPs or the same IP with different
-; ports by adding the entry multiple times.
+; The log level setting can be used to increase or decrease the output sent to
+; the backends (console, file) from this module. This means that it can
+; effectively be used to decrease the output of a certain module. For instance,
+; if you set this to CRITICAL and the console level is on INFO, only critical
+; messages will be displayed for this module, while other modules will use
+; the default. On the other hand, if this setting is INFO and the console level
+; is on ERROR, you will still only get ERROR messages for this module, even
+; though all at level INFO or higher will be forwarded to the backend.
 ;
 ; default: (empty)
 
-;address-list=127.0.0.1:8333
-;address-list=127.0.0.1:18333
+;log-level=DEBUG
+
+
+; processor-type (enum)
+;
+; The processor type defines the type of processing that will be done on th
+; message input stream. The list of available processors is:
+;
+; PASSTHROUGH
+; ADDRESS_FILTER
+; COMMAND_FILTER
+; IP_FILTER
+; FILE_WRITER
+; REDIS_WRITER
+; ZEROMQ_WRITER
+;
+; default: PASSTHROUGH
+
+;processor-type=FILE_WRITER
+
+
+; address-list (multi string)
+;
+; Only used by the address filter. Defines a number of Bitcoin addresses in
+; Base58 string format for which messages will be forwarded.
+;
+; default: (empty)
+
+;address-list="1dice8EMZmqKvrGE4Qc9bUFf9PX3xaYDp"
+;address-list="1NxaBCFQwejSZbQfWcYNwgqML5wWoE3rK4"
+;address-list="1VayNert3x1KzbpzMGt2qdqrAThiRovi8"
+
+
+; command-list (multi enum)
+;
+; Only used by the command filter. Defines a number of commands as transmitted
+; on the Bitcoin network for which messages will be forwarded. The following
+; message types are currently defined on the Bitcoin network:
+;
+; VERSION
+; VERACK
+; ADDR
+; INV
+; GETDATA
+; NOTFOUND
+; GETBLOCKS
+; GETHEADERS
+; TX
+; BLOCK
+; HEADERS
+; GETADDR
+; MEMPOOL
+; PING
+; PONG
+; REJECT
+; FILTERLOAD
+; FILTERADD
+; FILTERCLEAR
+; MERKLEBLOCK
+; ALERT
+;
+; default: (empty)
+
+;command-list=INV
+;command-list=TX
+;command-list=BLOCK
+
+
+; ip-list (multi string)
+;
+; Only used by the ip filter. Defines a set of ip addresses. If a message is
+; received from one of these peers, it will be forwarded.
+;
+; default: (empty)
+
+;ip-list=127.0.0.1
+;ip-list=192.168.0.1
+
+
+; file-path (string)
+;
+; Only used for the file writer. Defines the path of the *directory* that the
+; file writer will use to dump the messages.
+;
+; default: "logs/"
+
+;file-path="logs/"
+
+
+; file-prefix (string)
+;
+; Only used for the file writer. Defines the prefix of the file name used by
+; the file writer when starting a new log file. The suffix is an ISO timestamp
+; and the file extension.
+;
+; default: ""
+
+;file-prefix="pbtc-"
+
+
+; file-name (string)
+;
+; Only used for the file writer. Defines the name of the file used by the file
+; writer when starting a new log file. It has to be in Go timestamp format.
+; 
+; default: "Mon Jan _2 15:04:05 MST 2006"
+
+;file-name="2006-01-02T15:04:05Z07:00"
+
+
+; file-suffix (string)
+;
+; Only used for the file writer. Defines the suffix of the file name used by the
+; file writer when starting a new log file. It is usually used to add an
+; extension.
+;
+; default: ""
+
+;file-suffix=".txt"
+
+
+; file-compression (enum)
+;
+; Only used for the file writer. Defines the compression algorithm to use for
+; the dumps written by the file writer. The following algorithms are available:
+;
+; NONE
+; LZ4
+;
+; default: NONE
+
+;file-compression: NONE
+
+
+; file-sizelimit (int)
+;
+; Only used for the file writer. Defines the size limit upon which the file
+; writer will rotate the output file. Zero means rotation on size is disabled.
+;
+; default: 1048576
+
+;file-sizelimit=0
+
+
+; file-agelimit (int)
+;
+; Only used for the file writer. Defines the age limit upon which the file
+; writer will rotate the output fle. Value in seconds. Zero means rotation on
+; age is disabled.
+;
+; default: 3600
+
+;file-agelimit=300
+
+
+; redis-host (string)
+;
+; Only used by the redis writer. Defines the host name/ip and port that the
+; writer will try to connect to.
+;
+; default: "localhost:6379"
+
+;redis-host="127.0.0.1:6379"
+
+
+; redis-password (string)
+;
+; Only used by the redis writer. Provides the password required to connect to
+; the given redis host.
+;
+; default: ""
+
+;redis-password=""
+
+
+; redis-database (int)
+;
+; Only used by the redis writer. Gives the database ID of the database that
+; we want to connect to on the given host.
+;
+; default: 0
+
+;redis-database=0
+
+
+; zeromq-host (string)
+;
+; Only used by the zeromq writer. Defines the ZeroMQ protocol, host/ip and port
+; that the writer will try to connect to. Has to be in ZeroMQ endpoint format.
+;
+; default: "ipc://pbtc"
+
+;zeromq-host="tcp://127.0.0.1:5555"

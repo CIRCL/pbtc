@@ -326,8 +326,8 @@ func initProcessor(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
 	}
 
 	switch pType {
-	case processor.Base58F:
-		return initBase58Filter(pro_cfg)
+	case processor.AddressF:
+		return initAddressFilter(pro_cfg)
 
 	case processor.CommandF:
 		return initCommandFilter(pro_cfg)
@@ -349,28 +349,55 @@ func initProcessor(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
 	}
 }
 
-func initBase58Filter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
+func initAddressFilter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
+	options := make([]func(adaptor.Processor), 0)
 
+	if len(pro_cfg.Address_list) > 0 {
+		addresses := pro_cfg.Address_list
+		options = append(options, processor.SetAddresses(addresses...))
+	}
+
+	return processor.NewAddressFilter(options...)
 }
 
 func initCommandFilter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
+	options := make([]func(adaptor.Processor), 0)
 
+	if len(pro_cfg.Command_list) > 0 {
+		commands := pro_cfg.Command_list
+		options = append(options, processor.SetCommands(commands...))
+	}
+
+	return processor.NewCommandFilter(options...)
 }
 
 func initIPFilter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
+	options := make([]func(adaptor.Processor), 0)
 
+	if len(pro_cfg.IP_list) > 0 {
+		ips := pro_cfg.IP_list
+		options = append(options, processor.SetIPs(ips...))
+	}
+
+	return processor.NewIPFilter(options...)
 }
 
 func initFileWriter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
+	options := make([]func(adaptor.Processor), 0)
 
+	return processor.NewFileWriter(options...)
 }
 
 func initRedisWriter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
+	options := make([]func(adaptor.Processor), 0)
 
+	return processor.NewRedisWriter(options...)
 }
 
 func initZeroMQWriter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
+	options := make([]func(adaptor.Processor), 0)
 
+	return processor.NewZeroMQWriter(options...)
 }
 
 func initManager(mgr_cfg *ManagerConfig) (adaptor.Manager, error) {
