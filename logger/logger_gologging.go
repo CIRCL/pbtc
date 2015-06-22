@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"errors"
 	"os"
 
 	"github.com/op/go-logging"
@@ -14,15 +15,42 @@ import (
 // to change the library in the future without having to rewrite other packages.
 type GologgingLogger struct {
 	consoleEnabled bool
-	consoleFormat  string
+	consoleFormat  logging.Formatter
 	consoleLevel   logging.Level
 	fileEnabled    bool
-	fileFormat     string
+	fileFormat     logging.Formatter
 	fileLevel      logging.Level
-	filePath       string
 	file           *os.File
-	levels         map[string]logging.Level
 	backends       []logging.Backend
+}
+
+func ParseLevel(level string) (logging.Level, error) {
+	switch level {
+	case "DEBUG":
+		return logging.DEBUG, nil
+
+	case "INFO":
+		return logging.INFO, nil
+
+	case "NOTICE":
+		return logging.NOTICE, nil
+
+	case "WARNING":
+		return logging.WARNING, nil
+
+	case "ERROR":
+		return logging.ERROR, nil
+
+	case "CRITICAL":
+		return logging.CRITICAL, nil
+
+	default:
+		return logging.Level(-1), errors.New("invalid logging level string")
+	}
+}
+
+func ParseFormat(format string) (logging.Formatter, error) {
+	return logging.NewStringFormatter(format)
 }
 
 // NewGologging returns a new Gologging log manager, initialized with the given
@@ -31,15 +59,12 @@ func NewGologging(options ...func(log *GologgingLogger)) (*GologgingLogger,
 	error) {
 	logr := &GologgingLogger{
 		consoleEnabled: false,
-		consoleFormat: "%{color}%{time} %{level} %{shortfile} %{message}" +
-			"%{color:reset}",
-		consoleLevel: logging.INFO,
-		fileEnabled:  false,
-		fileFormat:   "%{time} %{level} %{shortfile} %{message}",
-		fileLevel:    logging.INFO,
-		filePath:     "pbtc.log",
-		levels:       make(map[string]logging.Level),
-		backends:     make([]logging.Backend, 0, 2),
+		consoleFormat:  logging.MustStringFormatter("%{message}"),
+		consoleLevel:   logging.CRITICAL,
+		fileEnabled:    false,
+		fileFormat:     logging.MustStringFormatter("%{message}"),
+		fileLevel:      logging.CRITICAL,
+		backends:       make([]logging.Backend, 0, 2),
 	}
 
 	for _, option := range options {
@@ -47,33 +72,20 @@ func NewGologging(options ...func(log *GologgingLogger)) (*GologgingLogger,
 	}
 
 	if logr.consoleEnabled {
-		cFormatter, err := logging.NewStringFormatter(logr.consoleFormat)
-		if err != nil {
-			return nil, err
-		}
-
 		cBackend := logging.NewLogBackend(os.Stderr, "", 0)
-		cFormatted := logging.NewBackendFormatter(cBackend, cFormatter)
+		cFormatted := logging.NewBackendFormatter(cBackend, logr.consoleFormat)
 		cLeveled := logging.AddModuleLevel(cFormatted)
 		cLeveled.SetLevel(logr.consoleLevel, "")
 		logr.backends = append(logr.backends, cLeveled)
 	}
 
 	if logr.fileEnabled {
-		file, err := os.Create(logr.filePath)
-		if err != nil {
-			return nil, err
+		if logr.file == nil {
+			return nil, errors.New("invalid file path for logging")
 		}
 
-		fFormatter, err := logging.NewStringFormatter(logr.fileFormat)
-		if err != nil {
-			_ = file.Close()
-			return nil, err
-		}
-
-		logr.file = file
 		fBackend := logging.NewLogBackend(logr.file, "", 0)
-		fFormatted := logging.NewBackendFormatter(fBackend, fFormatter)
+		fFormatted := logging.NewBackendFormatter(fBackend, logr.fileFormat)
 		fLeveled := logging.AddModuleLevel(fFormatted)
 		fLeveled.SetLevel(logr.fileLevel, "")
 		logr.backends = append(logr.backends, fLeveled)
@@ -84,19 +96,11 @@ func NewGologging(options ...func(log *GologgingLogger)) (*GologgingLogger,
 	return logr, nil
 }
 
-// SetLevel has to be passed as a parameter on logger construction. It sets the
-// level of a certain module, described by a string, to the given log level.
-func SetLevel(module string, level logging.Level) func(*GologgingLogger) {
-	return func(logr *GologgingLogger) {
-		logr.levels[module] = level
-	}
-}
-
 // EnableConsole has to be passed as a parameter on logger construction. It
 // enables logging to console for this logger.
-func EnableConsole() func(*GologgingLogger) {
+func SetConsoleEnabled(enabled bool) func(*GologgingLogger) {
 	return func(logr *GologgingLogger) {
-		logr.consoleEnabled = true
+		logr.consoleEnabled = enabled
 	}
 }
 
@@ -104,7 +108,7 @@ func EnableConsole() func(*GologgingLogger) {
 // defines the format to be used by Gologging to write log lines to console.
 // EnableConsole has to be passed as a parameter for this option to have an
 // effect.
-func SetConsoleFormat(format string) func(*GologgingLogger) {
+func SetConsoleFormat(format logging.Formatter) func(*GologgingLogger) {
 	return func(logr *GologgingLogger) {
 		logr.consoleFormat = format
 	}
@@ -122,25 +126,25 @@ func SetConsoleLevel(level logging.Level) func(*GologgingLogger) {
 
 // EnableFile has to be passed as a parameter on logger construction. It enables
 // logging to a file for this logger.
-func EnableFile() func(*GologgingLogger) {
+func SetFileEnabled(enabled bool) func(*GologgingLogger) {
 	return func(logr *GologgingLogger) {
-		logr.fileEnabled = true
+		logr.fileEnabled = enabled
 	}
 }
 
 // SetFilePath has to be passed as a parameter on logger construction. It sets
 // the file path (including the file name) of the default log file.
 // EnableFile must be passed as a parameter for this option to have an effect.
-func SetFilePath(path string) func(*GologgingLogger) {
+func SetFile(file *os.File) func(*GologgingLogger) {
 	return func(logr *GologgingLogger) {
-		logr.filePath = path
+		logr.file = file
 	}
 }
 
 // SetFileFormat has to be passed as a parameter on logger construction. It
 // defines the format to be used by Gologging to write log lines to a file.
 // EnableFile must be passed as parameter for this option to have an effect.
-func SetFileFormat(format string) func(*GologgingLogger) {
+func SetFileFormat(format logging.Formatter) func(*GologgingLogger) {
 	return func(logr *GologgingLogger) {
 		logr.fileFormat = format
 	}
@@ -163,4 +167,8 @@ func (logr *GologgingLogger) Close() {
 // GetLog returns the log for a module identified with a certain string.
 func (logr *GologgingLogger) GetLog(module string) adaptor.Log {
 	return logging.MustGetLogger(module)
+}
+
+func (logr *GologgingLogger) SetLevel(level logging.Level, module string) {
+	logging.SetLevel(level, module)
 }

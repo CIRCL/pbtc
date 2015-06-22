@@ -1,6 +1,8 @@
 package supervisor
 
 import (
+	"os"
+
 	"code.google.com/p/gcfg"
 
 	"github.com/CIRCL/pbtc/adaptor"
@@ -12,13 +14,14 @@ import (
 )
 
 type Supervisor struct {
-	logr map[string]adaptor.Logger
-	repo map[string]adaptor.Repository
-	tkr  map[string]adaptor.Tracker
-	svr  map[string]adaptor.Server
-	pro  map[string]adaptor.Processor
-	mgr  map[string]adaptor.Manager
-	log  adaptor.Log
+	logr    map[string]adaptor.Logger
+	repo    map[string]adaptor.Repository
+	tkr     map[string]adaptor.Tracker
+	svr     map[string]adaptor.Server
+	pro     map[string]adaptor.Processor
+	mgr     map[string]adaptor.Manager
+	log     adaptor.Log
+	options []interface{}
 }
 
 func New() (*Supervisor, error) {
@@ -41,7 +44,12 @@ func New() (*Supervisor, error) {
 
 	// initialize loggers so we can start logging
 	for name, logr_cfg := range cfg.Logger {
-		supervisor.logr[name] = initLogger(logr_cfg)
+		logr, err := initLogger(logr_cfg)
+		if err != nil {
+			continue
+		}
+
+		supervisor.logr[name] = logr
 	}
 
 	if len(supervisor.logr) == 0 {
@@ -173,8 +181,58 @@ func New() (*Supervisor, error) {
 	return supervisor, nil
 }
 
-func initLogger(lgr_cfg *LoggerConfig) adaptor.Logger {
-	return nil
+func initLogger(lgr_cfg *LoggerConfig) (adaptor.Logger, error) {
+	options := make([]func(*logger.GologgingLogger), 0, 2)
+
+	if lgr_cfg.Console_enabled != false {
+		enabled := lgr_cfg.Console_enabled
+		options = append(options, logger.SetConsoleEnabled(enabled))
+	}
+
+	if lgr_cfg.Console_format != "" {
+		format, err := logger.ParseFormat(lgr_cfg.Console_format)
+		if err == nil {
+			options = append(options, logger.SetConsoleFormat(format))
+		}
+
+	}
+
+	if lgr_cfg.Console_level != "" {
+		level, err := logger.ParseLevel(lgr_cfg.Console_level)
+		if err == nil {
+			options = append(options, logger.SetConsoleLevel(level))
+		}
+	}
+
+	if lgr_cfg.File_enabled != false {
+		enabled := lgr_cfg.File_enabled
+		options = append(options, logger.SetFileEnabled(enabled))
+	}
+
+	if lgr_cfg.File_format != "" {
+		format, err := logger.ParseFormat(lgr_cfg.File_format)
+		if err == nil {
+			options = append(options, logger.SetFileFormat(format))
+		}
+	}
+
+	if lgr_cfg.File_level != "" {
+		level, err := logger.ParseLevel(lgr_cfg.File_level)
+		if err == nil {
+			options = append(options, logger.SetFileLevel(level))
+		}
+
+	}
+
+	if lgr_cfg.File_path != "" {
+		file, err := os.Create(lgr_cfg.File_path)
+		if err == nil {
+			options = append(options, logger.SetFile(file))
+		}
+
+	}
+
+	return logger.NewGologging(options...)
 }
 
 func initRepository(repo_cfg *RepositoryConfig) adaptor.Repository {

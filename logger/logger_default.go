@@ -8,7 +8,7 @@ var logr adaptor.Logger
 var err error
 
 func init() {
-	gologr, goerr := NewGologging(EnableConsole())
+	gologr, goerr := NewGologging(SetConsoleEnabled(true))
 	logr, err = gologr, goerr
 }
 
