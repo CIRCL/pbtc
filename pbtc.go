@@ -25,6 +25,13 @@ func main() {
 	// seed the random generator
 	rand.Seed(time.Now().UnixNano())
 
+	cfg := &Config{}
+	err := gcfg.ReadFileInto(cfg, "pbtc.cfg")
+	if err != nil {
+		fmt.Println("Could not read config file (%v)", err)
+		os.Exit(1)
+	}
+
 	logr, err := logger.New()
 	if err != nil {
 		fmt.Println("Logger initialization failed (%v)", err)

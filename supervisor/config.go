@@ -1,7 +1,7 @@
 package supervisor
 
 type Config struct {
-	Logger map[string]*struct {
+	Logging struct {
 		Console_enabled bool
 		Console_format  string
 		Console_level   string
@@ -12,6 +12,7 @@ type Config struct {
 	}
 
 	Repository map[string]*struct {
+		Log_level   string
 		Seeds_list  []string
 		Seeds_port  uint16
 		Backup_rate uint32
@@ -20,13 +21,16 @@ type Config struct {
 	}
 
 	Tracker map[string]*struct {
+		Log_level string
 	}
 
 	Server map[string]*struct {
+		Log_level    string
 		Address_list []string
 	}
 
 	Manager map[string]*struct {
+		Log_level        string
 		Protocol_magic   uint32
 		Protocol_version uint32
 		Connection_rate  uint32
@@ -34,5 +38,6 @@ type Config struct {
 	}
 
 	Processor map[string]*struct {
+		Log_level string
 	}
 }
