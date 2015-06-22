@@ -26,18 +26,18 @@ type Repository struct {
 	tickerBackup   *time.Ticker
 	tickerPoll     *time.Ticker
 	nodeIndex      map[string]*node
-	nodeLimit      int
-
-	seeds        []string
-	backupPath   string
-	invalidRange []*ipRange
 
 	log adaptor.Log
 
-	done             uint32
-	restoreEnabled   bool
-	defaultPort      int
-	bootstrapEnabled bool
+	seedsList  []string
+	seedsPort  uint16
+	backupPath string
+	backupRate time.Duration
+	nodeLimit  uint32
+
+	invalidRange []*ipRange
+
+	done uint32
 }
 
 // New creates a new repository initialized with default values. A variable list
@@ -53,20 +53,22 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 		addrRetrieve:   make(chan chan<- *net.TCPAddr, 1),
 		sigAddr:        make(chan struct{}),
 		sigRetrieval:   make(chan struct{}),
-		tickerBackup:   time.NewTicker(90 * time.Second),
 		tickerPoll:     time.NewTicker(30 * time.Minute),
-		defaultPort:    18333,
-		invalidRange:   make([]*ipRange, 0, 16),
-		nodeLimit:      100000,
 
-		seeds:          []string{"testnet-seed.bitcoin.petertodd.org"},
-		backupPath:     "nodes.dat",
-		restoreEnabled: true,
+		seedsList:  []string{"testnet-seed.bitcoin.petertodd.org"},
+		seedsPort:  18333,
+		backupPath: "nodes.dat",
+		backupRate: 90 * time.Second,
+		nodeLimit:  100000,
+
+		invalidRange: make([]*ipRange, 0, 16),
 	}
 
 	for _, option := range options {
 		option(repo)
 	}
+
+	repo.tickerBackup = time.NewTicker(repo.backupRate)
 
 	repo.addRange(newIPRange("0.0.0.0", "0.255.255.255"))       // RFC1700
 	repo.addRange(newIPRange("10.0.0.0", "10.255.255.255"))     // RFC1918
@@ -84,19 +86,9 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 	repo.addRange(newIPRange("224.0.0.0", "239.255.255.255"))   // RFC5771
 	repo.addRange(newIPRange("240.0.0.0", "255.255.255.255"))   // RFC6890
 
-	if repo.restoreEnabled {
-		repo.restore()
-	}
-
-	if len(repo.nodeIndex) == 0 {
-		repo.bootstrapEnabled = true
-	}
-
 	repo.start()
 
-	if repo.bootstrapEnabled {
-		repo.bootstrap()
-	}
+	repo.bootstrap()
 
 	return repo, nil
 }
@@ -109,13 +101,17 @@ func SetLog(log adaptor.Log) func(*Repository) {
 }
 
 // SetSeeds provides a list of DNS seeds to be used in case of bootstrapping.
-func SetSeeds(seeds ...string) func(*Repository) {
+func SetSeedsList(seeds ...string) func(*Repository) {
 	return func(repo *Repository) {
-		repo.seeds = make([]string, len(seeds))
+		repo.seedsList = seeds
+	}
+}
 
-		for i, seed := range seeds {
-			repo.seeds[i] = seed
-		}
+// SetDefaultPort sets the default port to be used for addresses discovered
+// through DNS seeds.
+func SetSeedsPort(port uint16) func(*Repository) {
+	return func(repo *Repository) {
+		repo.seedsPort = port
 	}
 }
 
@@ -126,25 +122,15 @@ func SetBackupPath(path string) func(*Repository) {
 	}
 }
 
-// SetDefaultPort sets the default port to be used for addresses discovered
-// through DNS seeds.
-func SetDefaultPort(port int) func(*Repository) {
+func SetBackupRate(rate uint32) func(*Repository) {
 	return func(repo *Repository) {
-		repo.defaultPort = port
+		repo.backupRate = time.Duration(rate) * time.Second
 	}
 }
 
-func SetNodeLimit(limit int) func(*Repository) {
+func SetNodeLimit(limit uint32) func(*Repository) {
 	return func(repo *Repository) {
 		repo.nodeLimit = limit
-	}
-}
-
-// DisableRestore disables the restoration of previous address & node info
-// from file and will overwrite old information on start-up.
-func DisableRestore() func(*Repository) {
-	return func(repo *Repository) {
-		repo.restoreEnabled = false
 	}
 }
 
@@ -204,7 +190,7 @@ func (repo *Repository) start() {
 // bootstrap will use a number of dns seeds to discover nodes.
 func (repo *Repository) bootstrap() {
 	// iterate over the seeds and try to get the ips
-	for _, seed := range repo.seeds {
+	for _, seed := range repo.seedsList {
 		// check if we can look up the ip addresses
 		ips, err := net.LookupIP(seed)
 		if err != nil {
@@ -213,7 +199,7 @@ func (repo *Repository) bootstrap() {
 
 		// range over the ips and add them to the repository
 		for _, ip := range ips {
-			addr := &net.TCPAddr{IP: ip, Port: repo.defaultPort}
+			addr := &net.TCPAddr{IP: ip, Port: int(repo.seedsPort)}
 			repo.Discovered(addr)
 		}
 	}
@@ -286,10 +272,6 @@ retrievalLoop:
 					continue
 				}
 
-				if node.addr.Port != repo.defaultPort {
-					continue
-				}
-
 				repo.log.Debug("[REPO] %v retrieved", node)
 				c <- node.addr
 				continue retrievalLoop
@@ -326,7 +308,7 @@ addrLoop:
 				continue
 			}
 
-			if len(repo.nodeIndex) >= repo.nodeLimit {
+			if uint32(len(repo.nodeIndex)) >= repo.nodeLimit {
 				return
 			}
 
