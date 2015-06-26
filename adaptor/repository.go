@@ -8,6 +8,8 @@ import (
 // of all addresses seen on the Bitcoin network and their characteristics. It
 // provides clients with a stream of addresses ordered by favourability.
 type Repository interface {
+	Start()
+	Stop()
 	Discovered(*net.TCPAddr)
 	Attempted(*net.TCPAddr)
 	Connected(*net.TCPAddr)

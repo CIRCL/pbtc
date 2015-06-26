@@ -5,6 +5,8 @@ package adaptor
 // will forward them to other processors, and writers, which will take the
 // records and output them to certain media.
 type Processor interface {
+	Start()
+	Stop()
 	SetNext(...Processor)
 	Process(Record)
 }

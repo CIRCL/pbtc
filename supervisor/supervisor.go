@@ -448,7 +448,57 @@ func initManager(mgr_cfg *ManagerConfig) (adaptor.Manager, error) {
 }
 
 func (supervisor *Supervisor) Start() {
+	// inject dependencies
+
+	// start the module execution
+	for _, logr := range supervisor.logr {
+		logr.Start()
+	}
+
+	for _, repo := range supervisor.repo {
+		repo.Start()
+	}
+
+	for _, tkr := range supervisor.tkr {
+		tkr.Start()
+	}
+
+	for _, svr := range supervisor.svr {
+		svr.Start()
+	}
+
+	for _, pro := range supervisor.pro {
+		pro.Start()
+	}
+
+	for _, mgr := range supervisor.mgr {
+		mgr.Start()
+	}
 }
 
 func (supervisor *Supervisor) Stop() {
+	// stop the module execution
+	for _, mgr := range supervisor.mgr {
+		mgr.Stop()
+	}
+
+	for _, pro := range supervisor.pro {
+		pro.Stop()
+	}
+
+	for _, svr := range supervisor.svr {
+		svr.Stop()
+	}
+
+	for _, tkr := range supervisor.tkr {
+		tkr.Stop()
+	}
+
+	for _, repo := range supervisor.repo {
+		repo.Stop()
+	}
+
+	for _, logr := range supervisor.logr {
+		logr.Stop()
+	}
 }

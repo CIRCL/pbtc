@@ -5,6 +5,8 @@ package adaptor
 // decides on actions depending on state. Different managers can implement
 // different behaviours.
 type Manager interface {
+	Start()
+	Stop()
 	Connected(Peer)
 	Ready(Peer)
 	Stopped(Peer)

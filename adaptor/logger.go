@@ -4,5 +4,7 @@ package adaptor
 // us to do configuration and setup of different logging modules. It makes our
 // initialization code independent from the logging library used.
 type Logger interface {
+	Start()
+	Stop()
 	GetLog(module string) Log
 }
