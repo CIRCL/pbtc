@@ -385,17 +385,67 @@ func initIPFilter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
 func initFileWriter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
 	options := make([]func(adaptor.Processor), 0)
 
+	if pro_cfg.File_path != "" {
+		path := pro_cfg.File_path
+		options = append(options, processor.SetFilePath(path))
+	}
+
+	if pro_cfg.File_prefix != "" {
+		prefix := pro_cfg.File_prefix
+		options = append(options, processor.SetFilePrefix(prefix))
+	}
+
+	if pro_cfg.File_name != "" {
+		name := pro_cfg.File_name
+		options = append(options, processor.SetFileName(name))
+	}
+
+	if pro_cfg.File_suffix != "" {
+		suffix := pro_cfg.File_suffix
+		options = append(options, processor.SetFileSuffix(suffix))
+	}
+
+	if pro_cfg.File_sizelimit != 0 {
+		sizelimit := pro_cfg.File_sizelimit
+		options = append(options, processor.SetFileSizelimit(sizelimit))
+	}
+
+	if pro_cfg.File_agelimit != 0 {
+		agelimit := time.Duration(pro_cfg.File_agelimit) * time.Second
+		options = append(options, processor.SetFileAgelimit(agelimit))
+	}
+
 	return processor.NewFileWriter(options...)
 }
 
 func initRedisWriter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
 	options := make([]func(adaptor.Processor), 0)
 
+	if pro_cfg.Redis_host != "" {
+		host := pro_cfg.Redis_host
+		options = append(options, processor.SetRedisHost(host))
+	}
+
+	if pro_cfg.Redis_password != "" {
+		password := pro_cfg.Redis_password
+		options = append(options, processor.SetRedisPassword(password))
+	}
+
+	if pro_cfg.Redis_database != 0 {
+		database := pro_cfg.Redis_database
+		options = append(options, processor.SetRedisDatabase(database))
+	}
+
 	return processor.NewRedisWriter(options...)
 }
 
 func initZeroMQWriter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
 	options := make([]func(adaptor.Processor), 0)
+
+	if pro_cfg.Zeromq_host != "" {
+		host := pro_cfg.Zeromq_host
+		options = append(options, processor.SetZeromqHost(host))
+	}
 
 	return processor.NewZeroMQWriter(options...)
 }

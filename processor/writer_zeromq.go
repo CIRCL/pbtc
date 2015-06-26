@@ -52,7 +52,7 @@ func NewZeroMQWriter(options ...func(adaptor.Processor)) (*ZeroMQWriter, error) 
 	return w, nil
 }
 
-func SetSocketAddress(addr string) func(adaptor.Processor) {
+func SetZeromqHost(addr string) func(adaptor.Processor) {
 	return func(pro adaptor.Processor) {
 		w, ok := pro.(*ZeroMQWriter)
 		if !ok {

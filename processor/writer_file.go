@@ -18,21 +18,28 @@ type FileWriter struct {
 
 	wg        *sync.WaitGroup
 	comp      adaptor.Compressor
-	filePath  string
-	fileSize  int64
-	fileAge   time.Duration
 	fileTimer *time.Timer
 	file      *os.File
 	sigWriter chan struct{}
 	txtQ      chan string
 	done      uint32
+
+	filePath      string
+	filePrefix    string
+	fileName      string
+	fileSuffix    string
+	fileSizelimit int64
+	fileAgelimit  time.Duration
 }
 
 func NewFileWriter(options ...func(adaptor.Processor)) (*FileWriter, error) {
 	w := &FileWriter{
-		filePath: "logs/",
-		fileSize: 1 * 1024 * 1024,
-		fileAge:  1 * 60 * time.Minute,
+		filePath:      "logs/",
+		filePrefix:    "pbtc-",
+		fileName:      "2006-01-02T15:04:05Z07:00",
+		fileSuffix:    ".log",
+		fileSizelimit: 1048576,
+		fileAgelimit:  3600 * time.Second,
 
 		sigWriter: make(chan struct{}),
 		wg:        &sync.WaitGroup{},
@@ -57,7 +64,7 @@ func NewFileWriter(options ...func(adaptor.Processor)) (*FileWriter, error) {
 
 	w.rotateLog()
 
-	w.fileTimer = time.NewTimer(w.fileAge)
+	w.fileTimer = time.NewTimer(w.fileAgelimit)
 
 	w.wg.Add(1)
 	go w.goWriter()
@@ -66,7 +73,7 @@ func NewFileWriter(options ...func(adaptor.Processor)) (*FileWriter, error) {
 }
 
 // SetCompressor injects the compression wrapper to be used on rotation.
-func SetCompressor(comp adaptor.Compressor) func(adaptor.Processor) {
+func SetFileCompressor(comp adaptor.Compressor) func(adaptor.Processor) {
 	return func(pro adaptor.Processor) {
 		w, ok := pro.(*FileWriter)
 		if !ok {
@@ -89,27 +96,60 @@ func SetFilePath(path string) func(adaptor.Processor) {
 	}
 }
 
-// SetSizeLimit sets the size limit upon which the logs will rotate.
-func SetSizeLimit(size int64) func(adaptor.Processor) {
+func SetFilePrefix(prefix string) func(adaptor.Processor) {
 	return func(pro adaptor.Processor) {
 		w, ok := pro.(*FileWriter)
 		if !ok {
 			return
 		}
 
-		w.fileSize = size
+		w.filePrefix = prefix
+	}
+}
+
+func SetFileName(name string) func(adaptor.Processor) {
+	return func(pro adaptor.Processor) {
+		w, ok := pro.(*FileWriter)
+		if !ok {
+			return
+		}
+
+		w.fileName = name
+	}
+}
+
+func SetFileSuffix(suffix string) func(adaptor.Processor) {
+	return func(pro adaptor.Processor) {
+		w, ok := pro.(*FileWriter)
+		if !ok {
+			return
+		}
+
+		w.fileSuffix = suffix
+	}
+}
+
+// SetSizeLimit sets the size limit upon which the logs will rotate.
+func SetFileSizelimit(sizelimit int64) func(adaptor.Processor) {
+	return func(pro adaptor.Processor) {
+		w, ok := pro.(*FileWriter)
+		if !ok {
+			return
+		}
+
+		w.fileSizelimit = sizelimit
 	}
 }
 
 // SetAgeLimit sets the file age upon which the logs will rotate.
-func SetAgeLimit(age time.Duration) func(adaptor.Processor) {
+func SetFileAgelimit(agelimit time.Duration) func(adaptor.Processor) {
 	return func(pro adaptor.Processor) {
 		w, ok := pro.(*FileWriter)
 		if !ok {
 			return
 		}
 
-		w.fileAge = age
+		w.fileAgelimit = agelimit
 	}
 }
 
@@ -157,17 +197,17 @@ WriteLoop:
 }
 
 func (w *FileWriter) checkTime() {
-	if w.fileAge == 0 {
+	if w.fileAgelimit == 0 {
 		return
 	}
 
 	w.rotateLog()
 
-	w.fileTimer.Reset(w.fileAge)
+	w.fileTimer.Reset(w.fileAgelimit)
 }
 
 func (w *FileWriter) checkSize() {
-	if w.fileSize == 0 {
+	if w.fileSizelimit == 0 {
 		return
 	}
 
@@ -176,7 +216,7 @@ func (w *FileWriter) checkSize() {
 		panic(err)
 	}
 
-	if fileStat.Size() < w.fileSize {
+	if fileStat.Size() < w.fileSizelimit {
 		return
 	}
 
@@ -184,8 +224,8 @@ func (w *FileWriter) checkSize() {
 }
 
 func (w *FileWriter) rotateLog() {
-	file, err := os.Create(w.filePath +
-		time.Now().Format(time.RFC3339) + ".txt")
+	stamp := time.Now().Format(w.fileName)
+	file, err := os.Create(w.filePath + w.filePrefix + stamp + w.fileSuffix)
 	if err != nil {
 		w.log.Error("Could not create file (%v)", err)
 		return

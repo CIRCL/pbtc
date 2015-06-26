@@ -16,7 +16,7 @@ type RedisWriter struct {
 	wg     *sync.WaitGroup
 	wSig   chan struct{}
 	client *redis.Client
-	addr   string
+	host   string
 	pw     string
 	db     int64
 	done   uint32
@@ -27,7 +27,7 @@ func NewRedisWriter(options ...func(adaptor.Processor)) (*RedisWriter, error) {
 		lineQ: make(chan string, 1),
 		wSig:  make(chan struct{}),
 		wg:    &sync.WaitGroup{},
-		addr:  "127.0.0.1:23456",
+		host:  "127.0.0.1:23456",
 		pw:    "",
 		db:    0,
 	}
@@ -37,7 +37,7 @@ func NewRedisWriter(options ...func(adaptor.Processor)) (*RedisWriter, error) {
 	}
 
 	client := redis.NewClient(&redis.Options{
-		Addr:     w.addr,
+		Addr:     w.host,
 		Password: w.pw,
 		DB:       w.db,
 	})
@@ -55,18 +55,18 @@ func NewRedisWriter(options ...func(adaptor.Processor)) (*RedisWriter, error) {
 	return w, nil
 }
 
-func SetServerAddress(addr string) func(adaptor.Processor) {
+func SetRedisHost(host string) func(adaptor.Processor) {
 	return func(pro adaptor.Processor) {
 		w, ok := pro.(*RedisWriter)
 		if !ok {
 			return
 		}
 
-		w.addr = addr
+		w.host = host
 	}
 }
 
-func SetPassword(pw string) func(adaptor.Processor) {
+func SetRedisPassword(pw string) func(adaptor.Processor) {
 	return func(pro adaptor.Processor) {
 		w, ok := pro.(*RedisWriter)
 		if !ok {
@@ -77,7 +77,7 @@ func SetPassword(pw string) func(adaptor.Processor) {
 	}
 }
 
-func SetDatabase(db int64) func(adaptor.Processor) {
+func SetRedisDatabase(db int64) func(adaptor.Processor) {
 	return func(pro adaptor.Processor) {
 		w, ok := pro.(*RedisWriter)
 		if !ok {

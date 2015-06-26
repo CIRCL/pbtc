@@ -38,11 +38,22 @@ type ServerConfig struct {
 }
 
 type ProcessorConfig struct {
-	Log_level      string
-	Processor_type string
-	Address_list   []string
-	IP_list        []string
-	Command_list   []string
+	Log_level        string
+	Processor_type   string
+	Address_list     []string
+	IP_list          []string
+	Command_list     []string
+	File_path        string
+	File_prefix      string
+	File_name        string
+	File_suffix      string
+	File_compression string
+	File_sizelimit   int64
+	File_agelimit    int
+	Redis_host       string
+	Redis_password   string
+	Redis_database   int64
+	Zeromq_host      string
 }
 
 type ManagerConfig struct {
