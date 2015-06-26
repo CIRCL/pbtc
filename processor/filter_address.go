@@ -1,3 +1,23 @@
+// Copyright (c) 2015 Max Wolter
+// Copyright (c) 2015 CIRCL - Computer Incident Response Center Luxembourg
+//                           (c/o smile, security made in Lëtzebuerg, Groupement
+//                           d'Intérêt Economique)
+//
+// This file is part of PBTC.
+//
+// PBTC is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PBTC is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with PBTC.  If not, see <http://www.gnu.org/licenses/>.
+
 package processor
 
 import (
@@ -33,9 +53,6 @@ func NewAddressFilter(options ...func(adaptor.Processor)) (*AddressFilter, error
 		option(filter)
 	}
 
-	filter.wg.Add(1)
-	go filter.goProcess()
-
 	return filter, nil
 }
 
@@ -53,15 +70,20 @@ func SetAddresses(addresses ...string) func(adaptor.Processor) {
 	}
 }
 
-// Process adds one messages to the filter for processing and forwarding.
-func (filter *AddressFilter) Process(record adaptor.Record) {
-	filter.recordQ <- record
+func (filter *AddressFilter) Start() {
+	filter.wg.Add(1)
+	go filter.goProcess()
 }
 
 // Close will end the filter and wait for the go routine to quit.
-func (filter *AddressFilter) Close() {
+func (filter *AddressFilter) Stop() {
 	close(filter.sig)
 	filter.wg.Wait()
+}
+
+// Process adds one messages to the filter for processing and forwarding.
+func (filter *AddressFilter) Process(record adaptor.Record) {
+	filter.recordQ <- record
 }
 
 // goProcess is to be launched as a go routine. It reads the records added to

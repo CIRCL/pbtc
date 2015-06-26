@@ -1,0 +1,91 @@
+PBTC - Passive Bitcoin Project
+
+Copyright (c) 2015 Max Wolter
+Copyright (c) 2015 CIRCL - Computer Incident Response Center Luxembourg
+                          (c/o smile, security made in Lëtzebuerg, Groupement
+                          d'Intérêt Economique)
+
+PBTC is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+PBTC is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with PBTC.  If not, see <http://www.gnu.org/licenses/>.
+
+
+PBTC uses the Go standard libraries:
+
+	* LICENSE:
+		* license/LICENSE_go
+	* WEBSITE:
+		* http://go.googlesource.com/go/
+
+
+PBTC uses btcd, an alternative full node bitcoin implementation written in Go (golang):
+
+	* LICENSE:
+		* license/LICENSE_btcd
+	* WEBSITE:
+		* http://github.com/btcsuite/btcutil
+
+
+PBTC uses btcutil, which provides bitcoin-specific convenience functions and types:
+
+	* LICENSE:
+		* license/LICENSE_btcutil
+	* WEBSITE:
+		* http://github.com/btcsuite/btcd
+
+
+PBTC uses go-logging, a Golang logging library:
+
+	* LICENSE:
+		* license/LICENSE_go-logging
+	* WEBSITE:
+		* http://github.com/op/go-logging
+
+
+PBTC uses go-clz4, LZ4 (de)compression bindings to the C library found at http://code.google.com/p/lz4/:
+
+	* LICENSE:
+		* license/LICENSE_go-clz4
+	* WEBSITE:
+		* http://github.com/pwaller/go-clz4
+
+
+PBTC uses pebbe zmq4, a Go interface to ZeroMQ version 4:
+
+	* LICENSE:
+		* license/LICENSE_zmq4
+	* WEBSITE:
+		* http://github.com/pebbe/zmq4
+
+
+PBTC uses go-redis, the redis client for Golang:
+
+	* LICENSE:
+		* license/LICENSE_go-redis
+	* WEBSITE:
+		* http://github.com/go-redis
+
+
+PBTC uses zoom, a blazing-fast datastore and querying engine for Go built on Redis:
+
+	* LICENSE:
+		* license/LICENSE_zoom
+	* WEBSITE:
+		* http://github.com/albrow/zoom
+
+
+PBTC uses gcfg, a Go library that reads text-based configuration files that consist of "name=value" pairs grouped into sections:
+
+	* LICENSE:
+		* license/LICENSE_gcfg
+	* WEBSITE:
+		* http://code.google.com/p/gcfg

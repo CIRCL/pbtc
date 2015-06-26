@@ -1,3 +1,23 @@
+// Copyright (c) 2015 Max Wolter
+// Copyright (c) 2015 CIRCL - Computer Incident Response Center Luxembourg
+//                           (c/o smile, security made in Lëtzebuerg, Groupement
+//                           d'Intérêt Economique)
+//
+// This file is part of PBTC.
+//
+// PBTC is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PBTC is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with PBTC.  If not, see <http://www.gnu.org/licenses/>.
+
 package main
 
 import (
@@ -13,6 +33,24 @@ import (
 )
 
 func main() {
+	fmt.Println("Copyright (c) 2015 Max Wolter")
+	fmt.Println("Copyright (c) 2015 CIRCL - Computer Incident Response Center Luxembourg")
+	fmt.Println("                          (c/o smile, security made in Lëtzebuerg, Groupement")
+	fmt.Println("                          d'Intérêt Economique)")
+	fmt.Println("")
+	fmt.Println("PBTC is free software: you can redistribute it and/or modify")
+	fmt.Println("it under the terms of the GNU Affero General Public License as published by")
+	fmt.Println("the Free Software Foundation, either version 3 of the License, or")
+	fmt.Println("(at your option) any later version.")
+	fmt.Println("")
+	fmt.Println("PBTC is distributed in the hope that it will be useful,")
+	fmt.Println("but WITHOUT ANY WARRANTY; without even the implied warranty of")
+	fmt.Println("MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the")
+	fmt.Println("GNU Affero General Public License for more details.")
+	fmt.Println("")
+	fmt.Println("You should have received a copy of the GNU Affero General Public License")
+	fmt.Println("along with PBTC.  If not, see <http://www.gnu.org/licenses/>.")
+
 	// catch signals
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGINT)

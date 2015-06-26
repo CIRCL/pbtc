@@ -1,3 +1,23 @@
+// Copyright (c) 2015 Max Wolter
+// Copyright (c) 2015 CIRCL - Computer Incident Response Center Luxembourg
+//                           (c/o smile, security made in Lëtzebuerg, Groupement
+//                           d'Intérêt Economique)
+//
+// This file is part of PBTC.
+//
+// PBTC is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PBTC is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with PBTC.  If not, see <http://www.gnu.org/licenses/>.
+
 package server
 
 import (
@@ -11,30 +31,32 @@ import (
 )
 
 type Server struct {
-	wg    *sync.WaitGroup
-	hosts []string
-	log   adaptor.Log
+	wg   *sync.WaitGroup
+	sig  chan struct{}
+	host string
+	log  adaptor.Log
 }
 
 func New(options ...func(*Server)) (*Server, error) {
 	server := &Server{
-		wg: &sync.WaitGroup{},
+		wg:  &sync.WaitGroup{},
+		sig: make(chan struct{}),
 	}
 
 	for _, option := range options {
 		option(server)
 	}
 
-	if len(server.hosts) == 0 {
-		return nil, errors.New("missing address list")
+	if server.host == "" {
+		return nil, errors.New("server: need host address")
 	}
 
 	return server, nil
 }
 
-func SetAddressList(hosts ...string) func(*Server) {
+func SetHostAddress(host string) func(*Server) {
 	return func(server *Server) {
-		server.hosts = hosts
+		server.host = host
 	}
 }
 
@@ -44,14 +66,20 @@ func SetLog(log adaptor.Log) func(*Server) {
 	}
 }
 
-func (server *Server) Close() {
-
+func (server *Server) Start() {
+	server.wg.Add(1)
+	go server.goListen()
 }
 
-func (server *Server) goListen(host string) {
+func (server *Server) Stop() {
+	close(server.sig)
+	server.wg.Wait()
+}
+
+func (server *Server) goListen() {
 	defer server.wg.Done()
 
-	ips, ports, err := net.SplitHostPort(host)
+	ips, ports, err := net.SplitHostPort(server.host)
 	if err != nil {
 		return
 	}
@@ -69,7 +97,7 @@ func (server *Server) goListen(host string) {
 	addr := &net.TCPAddr{IP: ip, Port: int(port)}
 	listener, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		server.log.Warning("%v: could not listen (%v)", host, err)
+		server.log.Warning("%v: could not listen (%v)", server.host, err)
 		return
 	}
 
@@ -82,7 +110,7 @@ func (server *Server) goListen(host string) {
 			break
 		}
 		if err != nil {
-			server.log.Warning("%v: could not accept connection (%v)", host, err)
+			server.log.Warning("%v: could not accept connection (%v)", server.host, err)
 			break
 		}
 

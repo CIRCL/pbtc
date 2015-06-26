@@ -1,10 +1,29 @@
+// Copyright (c) 2015 Max Wolter
+// Copyright (c) 2015 CIRCL - Computer Incident Response Center Luxembourg
+//                           (c/o smile, security made in Lëtzebuerg, Groupement
+//                           d'Intérêt Economique)
+//
+// This file is part of PBTC.
+//
+// PBTC is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PBTC is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with PBTC.  If not, see <http://www.gnu.org/licenses/>.
+
 package processor
 
 import (
 	"io"
 	"os"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/CIRCL/pbtc/adaptor"
@@ -20,7 +39,7 @@ type FileWriter struct {
 	comp      adaptor.Compressor
 	fileTimer *time.Timer
 	file      *os.File
-	sigWriter chan struct{}
+	sig       chan struct{}
 	txtQ      chan string
 	done      uint32
 
@@ -41,9 +60,9 @@ func NewFileWriter(options ...func(adaptor.Processor)) (*FileWriter, error) {
 		fileSizelimit: 1048576,
 		fileAgelimit:  3600 * time.Second,
 
-		sigWriter: make(chan struct{}),
-		wg:        &sync.WaitGroup{},
-		txtQ:      make(chan string, 1),
+		sig:  make(chan struct{}),
+		wg:   &sync.WaitGroup{},
+		txtQ: make(chan string, 1),
 	}
 
 	for _, option := range options {
@@ -54,20 +73,10 @@ func NewFileWriter(options ...func(adaptor.Processor)) (*FileWriter, error) {
 		w.comp = compressor.NewDummy()
 	}
 
-	_, err := os.Stat(w.filePath)
+	err := os.MkdirAll(w.filePath, 0777)
 	if err != nil {
-		err := os.MkdirAll(w.filePath, 0777)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
-
-	w.rotateLog()
-
-	w.fileTimer = time.NewTimer(w.fileAgelimit)
-
-	w.wg.Add(1)
-	go w.goWriter()
 
 	return w, nil
 }
@@ -153,15 +162,17 @@ func SetFileAgelimit(agelimit time.Duration) func(adaptor.Processor) {
 	}
 }
 
-// Stop ends the execution of the recorder sub-routines and returns once
-// everything was stopped cleanly.
-func (w *FileWriter) Close() {
-	if atomic.SwapUint32(&w.done, 1) == 1 {
-		return
-	}
+func (w *FileWriter) Start() {
+	w.rotateLog()
 
-	close(w.sigWriter)
+	w.fileTimer = time.NewTimer(w.fileAgelimit)
 
+	w.wg.Add(1)
+	go w.goProcess()
+}
+
+func (w *FileWriter) Stop() {
+	close(w.sig)
 	w.wg.Wait()
 }
 
@@ -169,13 +180,13 @@ func (w *FileWriter) Process(record adaptor.Record) {
 	w.txtQ <- record.String()
 }
 
-func (w *FileWriter) goWriter() {
+func (w *FileWriter) goProcess() {
 	defer w.wg.Done()
 
 WriteLoop:
 	for {
 		select {
-		case _, ok := <-w.sigWriter:
+		case _, ok := <-w.sig:
 			if !ok {
 				break WriteLoop
 			}

@@ -1,3 +1,23 @@
+// Copyright (c) 2015 Max Wolter
+// Copyright (c) 2015 CIRCL - Computer Incident Response Center Luxembourg
+//                           (c/o smile, security made in Lëtzebuerg, Groupement
+//                           d'Intérêt Economique)
+//
+// This file is part of PBTC.
+//
+// PBTC is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PBTC is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with PBTC.  If not, see <http://www.gnu.org/licenses/>.
+
 package supervisor
 
 import (
@@ -304,9 +324,9 @@ func initTracker(tkr_cfg *TrackerConfig) (adaptor.Tracker, error) {
 func initServer(svr_cfg *ServerConfig) (adaptor.Server, error) {
 	options := make([]func(*server.Server), 0)
 
-	if svr_cfg.Address_list != nil {
-		addrs := svr_cfg.Address_list
-		options = append(options, server.SetAddressList(addrs...))
+	if svr_cfg.Host_address != "" {
+		host := svr_cfg.Host_address
+		options = append(options, server.SetHostAddress(host))
 	}
 
 	return server.New(options...)

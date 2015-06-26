@@ -1,8 +1,27 @@
+// Copyright (c) 2015 Max Wolter
+// Copyright (c) 2015 CIRCL - Computer Incident Response Center Luxembourg
+//                           (c/o smile, security made in Lëtzebuerg, Groupement
+//                           d'Intérêt Economique)
+//
+// This file is part of PBTC.
+//
+// PBTC is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PBTC is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with PBTC.  If not, see <http://www.gnu.org/licenses/>.
+
 package processor
 
 import (
 	"sync"
-	"sync/atomic"
 
 	zmq "github.com/pebbe/zmq4"
 
@@ -15,7 +34,7 @@ type ZeroMQWriter struct {
 	addr  string
 	pub   *zmq.Socket
 	lineQ chan string
-	wSig  chan struct{}
+	sig   chan struct{}
 	wg    *sync.WaitGroup
 	done  uint32
 }
@@ -24,7 +43,7 @@ func NewZeroMQWriter(options ...func(adaptor.Processor)) (*ZeroMQWriter, error) 
 	w := &ZeroMQWriter{
 		addr:  "127.0.0.1:12345",
 		lineQ: make(chan string, 1),
-		wSig:  make(chan struct{}),
+		sig:   make(chan struct{}),
 		wg:    &sync.WaitGroup{},
 	}
 
@@ -46,9 +65,6 @@ func NewZeroMQWriter(options ...func(adaptor.Processor)) (*ZeroMQWriter, error) 
 
 	w.pub = pub
 
-	w.wg.Add(1)
-	go w.goLines()
-
 	return w, nil
 }
 
@@ -63,13 +79,13 @@ func SetZeromqHost(addr string) func(adaptor.Processor) {
 	}
 }
 
-func (w *ZeroMQWriter) Close() {
-	if atomic.SwapUint32(&w.done, 1) == 1 {
-		return
-	}
+func (w *ZeroMQWriter) Start() {
+	w.wg.Add(1)
+	go w.goLines()
+}
 
-	close(w.wSig)
-
+func (w *ZeroMQWriter) Stop() {
+	close(w.sig)
 	w.wg.Wait()
 }
 
@@ -83,7 +99,7 @@ func (w *ZeroMQWriter) goLines() {
 LineLoop:
 	for {
 		select {
-		case _, ok := <-w.wSig:
+		case _, ok := <-w.sig:
 			if !ok {
 				break LineLoop
 			}

@@ -1,3 +1,23 @@
+// Copyright (c) 2015 Max Wolter
+// Copyright (c) 2015 CIRCL - Computer Incident Response Center Luxembourg
+//                           (c/o smile, security made in Lëtzebuerg, Groupement
+//                           d'Intérêt Economique)
+//
+// This file is part of PBTC.
+//
+// PBTC is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PBTC is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with PBTC.  If not, see <http://www.gnu.org/licenses/>.
+
 package repository
 
 import (
@@ -5,7 +25,6 @@ import (
 	"net"
 	"os"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/CIRCL/pbtc/adaptor"
@@ -37,8 +56,6 @@ type Repository struct {
 	nodeLimit  uint32
 
 	invalidRange []*ipRange
-
-	done uint32
 }
 
 // New creates a new repository initialized with default values. A variable list
@@ -75,8 +92,6 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 	}
 	repo.file = file
 
-	repo.tickerBackup = time.NewTicker(repo.backupRate)
-
 	repo.addRange(newIPRange("0.0.0.0", "0.255.255.255"))       // RFC1700
 	repo.addRange(newIPRange("10.0.0.0", "10.255.255.255"))     // RFC1918
 	repo.addRange(newIPRange("100.64.0.0", "100.127.255.255"))  // RFC6598
@@ -92,10 +107,6 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 	repo.addRange(newIPRange("203.0.113.0", "203.0.113.255"))   // RFC5737
 	repo.addRange(newIPRange("224.0.0.0", "239.255.255.255"))   // RFC5771
 	repo.addRange(newIPRange("240.0.0.0", "255.255.255.255"))   // RFC6890
-
-	repo.start()
-
-	repo.bootstrap()
 
 	return repo, nil
 }
@@ -141,20 +152,24 @@ func SetNodeLimit(limit uint32) func(*Repository) {
 	}
 }
 
-// Stop will end all sub-routines and return on clean exit.
-func (repo *Repository) Close() {
-	if atomic.SwapUint32(&repo.done, 1) == 1 {
-		return
-	}
+func (repo *Repository) Start() {
+	repo.tickerBackup = time.NewTicker(repo.backupRate)
 
+	repo.wg.Add(2)
+	go repo.goRetrieval()
+	go repo.goAddresses()
+
+	repo.bootstrap()
+}
+
+// Stop will end all sub-routines and return on clean exit.
+func (repo *Repository) Stop() {
 	close(repo.sigRetrieval)
 	close(repo.sigAddr)
 
 	repo.wg.Wait()
 
 	repo.save()
-
-	repo.log.Info("[REPO] Shutdown complete")
 }
 
 // Discovered will submit an address that has been discovered on the Bitcoin
@@ -184,14 +199,6 @@ func (repo *Repository) Succeeded(addr *net.TCPAddr) {
 // channel.
 func (repo *Repository) Retrieve(c chan<- *net.TCPAddr) {
 	repo.addrRetrieve <- c
-}
-
-func (repo *Repository) start() {
-	repo.wg.Add(2)
-	go repo.goRetrieval()
-	go repo.goAddresses()
-
-	repo.log.Info("[REPO] Initialization complete")
 }
 
 // bootstrap will use a number of dns seeds to discover nodes.

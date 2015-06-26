@@ -1,8 +1,27 @@
+// Copyright (c) 2015 Max Wolter
+// Copyright (c) 2015 CIRCL - Computer Incident Response Center Luxembourg
+//                           (c/o smile, security made in Lëtzebuerg, Groupement
+//                           d'Intérêt Economique)
+//
+// This file is part of PBTC.
+//
+// PBTC is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PBTC is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with PBTC.  If not, see <http://www.gnu.org/licenses/>.
+
 package processor
 
 import (
 	"sync"
-	"sync/atomic"
 
 	redis "gopkg.in/redis.v3"
 
@@ -14,7 +33,7 @@ type RedisWriter struct {
 
 	lineQ  chan string
 	wg     *sync.WaitGroup
-	wSig   chan struct{}
+	sig    chan struct{}
 	client *redis.Client
 	host   string
 	pw     string
@@ -25,7 +44,7 @@ type RedisWriter struct {
 func NewRedisWriter(options ...func(adaptor.Processor)) (*RedisWriter, error) {
 	w := &RedisWriter{
 		lineQ: make(chan string, 1),
-		wSig:  make(chan struct{}),
+		sig:   make(chan struct{}),
 		wg:    &sync.WaitGroup{},
 		host:  "127.0.0.1:23456",
 		pw:    "",
@@ -48,9 +67,6 @@ func NewRedisWriter(options ...func(adaptor.Processor)) (*RedisWriter, error) {
 	}
 
 	w.client = client
-
-	w.wg.Add(1)
-	go w.goLines()
 
 	return w, nil
 }
@@ -88,13 +104,13 @@ func SetRedisDatabase(db int64) func(adaptor.Processor) {
 	}
 }
 
-func (w *RedisWriter) Close() {
-	if atomic.SwapUint32(&w.done, 1) == 1 {
-		return
-	}
+func (w *RedisWriter) Start() {
+	w.wg.Add(1)
+	go w.goProcess()
+}
 
-	close(w.wSig)
-
+func (w *RedisWriter) Stop() {
+	close(w.sig)
 	w.wg.Wait()
 }
 
@@ -102,13 +118,13 @@ func (w *RedisWriter) Process(record adaptor.Record) {
 	w.lineQ <- record.String()
 }
 
-func (w *RedisWriter) goLines() {
+func (w *RedisWriter) goProcess() {
 	defer w.wg.Done()
 
 LineLoop:
 	for {
 		select {
-		case _, ok := <-w.wSig:
+		case _, ok := <-w.sig:
 			if !ok {
 				break LineLoop
 			}
