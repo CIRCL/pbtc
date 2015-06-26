@@ -2,7 +2,6 @@ package supervisor
 
 import (
 	"errors"
-	"os"
 	"time"
 
 	"code.google.com/p/gcfg"
@@ -249,15 +248,11 @@ func initLogger(lgr_cfg *LoggerConfig) (adaptor.Logger, error) {
 		if err == nil {
 			options = append(options, logger.SetFileLevel(level))
 		}
-
 	}
 
 	if lgr_cfg.File_path != "" {
-		file, err := os.Create(lgr_cfg.File_path)
-		if err == nil {
-			options = append(options, logger.SetFile(file))
-		}
-
+		path := lgr_cfg.File_path
+		options = append(options, logger.SetFilePath(path))
 	}
 
 	return logger.NewGologging(options...)
@@ -279,10 +274,8 @@ func initRepository(repo_cfg *RepositoryConfig) (adaptor.Repository, error) {
 	}
 
 	if repo_cfg.Backup_path != "" {
-		file, err := os.Create(repo_cfg.Backup_path)
-		if err == nil {
-			options = append(options, repository.SetBackupFile(file))
-		}
+		path := repo_cfg.Backup_path
+		options = append(options, repository.SetBackupPath(path))
 	}
 
 	if repo_cfg.Backup_rate != 0 {

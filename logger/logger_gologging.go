@@ -14,14 +14,16 @@ import (
 // without breaking the loose coupling principle. Using this wrapper allows us
 // to change the library in the future without having to rewrite other packages.
 type GologgingLogger struct {
+	backends []logging.Backend
+	file     *os.File
+
 	consoleEnabled bool
 	consoleFormat  logging.Formatter
 	consoleLevel   logging.Level
 	fileEnabled    bool
 	fileFormat     logging.Formatter
 	fileLevel      logging.Level
-	file           *os.File
-	backends       []logging.Backend
+	filePath       string
 }
 
 func ParseLevel(level string) (logging.Level, error) {
@@ -80,10 +82,12 @@ func NewGologging(options ...func(log *GologgingLogger)) (*GologgingLogger,
 	}
 
 	if logr.fileEnabled {
-		if logr.file == nil {
-			return nil, errors.New("invalid file path for logging")
+		file, err := os.Create(logr.filePath)
+		if err == nil {
+			return nil, err
 		}
 
+		logr.file = file
 		fBackend := logging.NewLogBackend(logr.file, "", 0)
 		fFormatted := logging.NewBackendFormatter(fBackend, logr.fileFormat)
 		fLeveled := logging.AddModuleLevel(fFormatted)
@@ -135,9 +139,9 @@ func SetFileEnabled(enabled bool) func(*GologgingLogger) {
 // SetFilePath has to be passed as a parameter on logger construction. It sets
 // the file path (including the file name) of the default log file.
 // EnableFile must be passed as a parameter for this option to have an effect.
-func SetFile(file *os.File) func(*GologgingLogger) {
+func SetFilePath(filePath string) func(*GologgingLogger) {
 	return func(logr *GologgingLogger) {
-		logr.file = file
+		logr.filePath = filePath
 	}
 }
 
