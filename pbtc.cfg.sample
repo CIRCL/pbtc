@@ -6,10 +6,8 @@
 ;
 ; The sample configuration file provides a short description for each value.
 ; It also provides information on the default value and gives a suggestion, or
-; example, of a possible sensible value.
-;
-; Whenever the value is part of an enumeration, the enumeration is given as
-; reference.
+; example, of a possible sensible value. When the value is part of an
+; enumeration, all enum values are given as a reference.
 ;
 ;
 ; [module]
@@ -29,6 +27,17 @@
 
 
 [logger]
+
+; log-level (enum)
+;
+; The log level for this logger module. It only defines the log level for the
+; messages internal to the logger module. Check the console-level option for
+; a complete list of available log levels.
+;
+; default: CRITICAL
+
+;log-level=INFO
+
 
 ; console-enabled (bool)
 ;
@@ -123,6 +132,18 @@
 
 [repository]
 
+; logger (string)
+;
+; Logger defines the name of the log module to be used for this module. All log
+; messages for this module will be routed to this log module. If omitted, the
+; default log module will be used. If an invalid log module name is given, no
+; log output will be generated.
+;
+; default: ""
+
+;logger=""
+
+
 ; log-level (enum)
 ;
 ; The log level setting can be used to increase or decrease the output sent to
@@ -197,6 +218,18 @@
 
 [tracker]
 
+; logger (string)
+;
+; Logger defines the name of the log module to be used for this module. All log
+; messages for this module will be routed to this log module. If omitted, the
+; default log module will be used. If an invalid log module name is given, no
+; log output will be generated.
+;
+; default: ""
+
+;logger=""
+
+
 ; log-level (enum)
 ;
 ; The log level setting can be used to increase or decrease the output sent to
@@ -214,6 +247,18 @@
 
 
 [server]
+
+; logger (string)
+;
+; Logger defines the name of the log module to be used for this module. All log
+; messages for this module will be routed to this log module. If omitted, the
+; default log module will be used. If an invalid log module name is given, no
+; log output will be generated.
+;
+; default: ""
+
+;logger=""
+
 
 ; log-level (enum)
 ;
@@ -246,6 +291,18 @@
 
 
 [manager]
+
+; logger (string)
+;
+; Logger defines the name of the log module to be used for this module. All log
+; messages for this module will be routed to this log module. If omitted, the
+; default log module will be used. If an invalid log module name is given, no
+; log output will be generated.
+;
+; default: ""
+
+;logger=""
+
 
 ; log-level (enum)
 ;
@@ -308,6 +365,18 @@
 
 
 [processor]
+
+; logger (string)
+;
+; Logger defines the name of the log module to be used for this module. All log
+; messages for this module will be routed to this log module. If omitted, the
+; default log module will be used. If an invalid log module name is given, no
+; log output will be generated.
+;
+; default: ""
+
+;logger=""
+
 
 ; log-level (enum)
 ;
