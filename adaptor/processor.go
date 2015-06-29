@@ -28,6 +28,6 @@ type Processor interface {
 	Start()
 	Stop()
 	SetLog(Log)
-	SetNext(...Processor)
+	AddNext(Processor)
 	Process(Record)
 }

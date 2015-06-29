@@ -304,6 +304,41 @@
 ;logger=""
 
 
+; repository (string)
+;
+; Repository defines the name of the repository module use by the manager to
+; keep track of nodes / reputation / addresses. If ommitted,the default module
+; will be used.
+;
+; default: ""
+
+;repository=""
+
+
+
+; tracker (string)
+;
+; Tracker defines the name of the tracker module used by the manager to keep
+; track of already known messages / blocks / transactions. If ommitted, the
+; the default module will be used.
+;
+; default: ""
+
+;tracker=""
+
+
+; processor (string list)
+;
+; Processor provides a list of processors that the manager will forward received
+; messages to. You can provide one processor per line. If no processors are
+; given, no messages are forwarded.
+;
+; default: (empty)
+
+;processor="file_writer"
+;processor="cmd_filter"
+
+
 ; log-level (enum)
 ;
 ; The log level setting can be used to increase or decrease the output sent to
@@ -376,6 +411,17 @@
 ; default: ""
 
 ;logger=""
+
+
+; next (string list)
+;
+; Next provides a list of processors to forward the filtered messages to. You
+; can add one processor per line.
+;
+; default: (empty)
+
+;next="name1"
+;next="name2"
 
 
 ; log-level (enum)

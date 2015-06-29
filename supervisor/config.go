@@ -63,6 +63,7 @@ type ServerConfig struct {
 
 type ProcessorConfig struct {
 	Logger           string
+	Next             []string
 	Log_level        string
 	Processor_type   string
 	Address_list     []string
@@ -83,6 +84,9 @@ type ProcessorConfig struct {
 
 type ManagerConfig struct {
 	Logger           string
+	Repository       string
+	Tracker          string
+	Processor        []string
 	Log_level        string
 	Protocol_magic   uint32
 	Protocol_version uint32

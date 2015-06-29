@@ -38,13 +38,7 @@ import (
 // new incoming & outgoing peers and take care of state transitions. As the
 // main control instance, it defines most of the behaviour of our peer.
 type Manager struct {
-	log  adaptor.Log
-	repo adaptor.Repository
-	tkr  adaptor.Tracker
-	pro  adaptor.Processor
-
-	wg *sync.WaitGroup
-
+	wg            *sync.WaitGroup
 	peerSig       chan struct{}
 	addrSig       chan struct{}
 	addrQ         chan *net.TCPAddr
@@ -52,17 +46,20 @@ type Manager struct {
 	peerConnected chan adaptor.Peer
 	peerReady     chan adaptor.Peer
 	peerStopped   chan adaptor.Peer
-
-	peerIndex   *parmap.ParMap
-	listenIndex map[string]*net.TCPListener
-
-	addrTicker *time.Ticker
-	infoTicker *time.Ticker
+	peerIndex     *parmap.ParMap
+	listenIndex   map[string]*net.TCPListener
+	addrTicker    *time.Ticker
+	infoTicker    *time.Ticker
 
 	network   wire.BitcoinNet
 	version   uint32
 	connRate  time.Duration
 	connLimit int
+
+	log  adaptor.Log
+	repo adaptor.Repository
+	tkr  adaptor.Tracker
+	pro  []adaptor.Processor
 
 	nonce uint64
 	done  uint32
@@ -102,26 +99,6 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 	}
 
 	return mgr, nil
-}
-
-// SetRepository has to be passed as a parameter on manager creation. It injects
-// the repository to be used for node management.
-func SetRepository(repo adaptor.Repository) func(*Manager) {
-	return func(mgr *Manager) {
-		mgr.repo = repo
-	}
-}
-
-func SetTracker(tkr adaptor.Tracker) func(*Manager) {
-	return func(mgr *Manager) {
-		mgr.tkr = tkr
-	}
-}
-
-func SetProcessor(pro adaptor.Processor) func(*Manager) {
-	return func(mgr *Manager) {
-		mgr.pro = pro
-	}
 }
 
 // SetNetwork has to be passed as a parameter on manager creation. It sets the
@@ -185,6 +162,18 @@ func (mgr *Manager) Stop() {
 
 func (mgr *Manager) SetLog(log adaptor.Log) {
 	mgr.log = log
+}
+
+func (mgr *Manager) SetRepository(repo adaptor.Repository) {
+	mgr.repo = repo
+}
+
+func (mgr *Manager) SetTracker(tkr adaptor.Tracker) {
+	mgr.tkr = tkr
+}
+
+func (mgr *Manager) AddProcessor(pro adaptor.Processor) {
+	mgr.pro = append(mgr.pro, pro)
 }
 
 // Connected signals to the manager that we have successfully established a

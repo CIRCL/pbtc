@@ -347,6 +347,8 @@ func New() (*Supervisor, error) {
 		mgr.SetLog(logr.GetLog(log))
 	}
 
+	// inject processor dependencies
+
 	return supervisor, nil
 }
 
