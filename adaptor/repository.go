@@ -30,6 +30,7 @@ import (
 type Repository interface {
 	Start()
 	Stop()
+	SetLog(Log)
 	Discovered(*net.TCPAddr)
 	Attempted(*net.TCPAddr)
 	Connected(*net.TCPAddr)

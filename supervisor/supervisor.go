@@ -225,6 +225,128 @@ func New() (*Supervisor, error) {
 		}
 	}
 
+	// inject logging dependencies
+	for key, logr := range supervisor.logr {
+		logr_cfg, ok := cfg.Logger[key]
+		if !ok {
+			continue
+		}
+
+		level, err := logger.ParseLevel(logr_cfg.Log_level)
+		if err != nil {
+			continue
+		}
+
+		log := "logr___" + key
+		logr.SetLevel(log, level)
+		logr.SetLog(logr.GetLog(log))
+	}
+
+	for key, repo := range supervisor.repo {
+		repo_cfg, ok := cfg.Repository[key]
+		if !ok {
+			continue
+		}
+
+		logr, ok := supervisor.logr[repo_cfg.Logger]
+		if !ok {
+			continue
+		}
+
+		level, err := logger.ParseLevel(repo_cfg.Log_level)
+		if err != nil {
+			continue
+		}
+
+		log := "repo___" + key
+		logr.SetLevel(log, level)
+		repo.SetLog(logr.GetLog(log))
+	}
+
+	for key, tkr := range supervisor.tkr {
+		tkr_cfg, ok := cfg.Tracker[key]
+		if !ok {
+			continue
+		}
+
+		logr, ok := supervisor.logr[tkr_cfg.Logger]
+		if !ok {
+			continue
+		}
+
+		level, err := logger.ParseLevel(tkr_cfg.Log_level)
+		if err != nil {
+			continue
+		}
+
+		log := "tkr___" + key
+		logr.SetLevel(log, level)
+		tkr.SetLog(logr.GetLog(log))
+	}
+
+	for key, svr := range supervisor.svr {
+		svr_cfg, ok := cfg.Server[key]
+		if !ok {
+			continue
+		}
+
+		logr, ok := supervisor.logr[svr_cfg.Logger]
+		if !ok {
+			continue
+		}
+
+		level, err := logger.ParseLevel(svr_cfg.Log_level)
+		if err != nil {
+			continue
+		}
+
+		log := "svr___" + key
+		logr.SetLevel(log, level)
+		svr.SetLog(logr.GetLog(log))
+	}
+
+	for key, pro := range supervisor.pro {
+		pro_cfg, ok := cfg.Repository[key]
+		if !ok {
+			continue
+		}
+
+		logr, ok := supervisor.logr[pro_cfg.Logger]
+		if !ok {
+			continue
+		}
+
+		level, err := logger.ParseLevel(pro_cfg.Log_level)
+		if err != nil {
+			continue
+		}
+
+		log := "pro___" + key
+		logr.SetLevel(log, level)
+		pro.SetLog(logr.GetLog(log))
+	}
+
+	for key, mgr := range supervisor.mgr {
+		mgr_cfg, ok := cfg.Repository[key]
+		if !ok {
+			continue
+		}
+
+		logr, ok := supervisor.logr[mgr_cfg.Logger]
+		if !ok {
+			continue
+		}
+
+		level, err := logger.ParseLevel(mgr_cfg.Log_level)
+		if err != nil {
+			continue
+		}
+
+		log := "mgr___" + key
+		logr.SetLevel(log, level)
+		mgr.SetLog(logr.GetLog(log))
+	}
+
 	return supervisor, nil
 }
 
@@ -468,8 +590,6 @@ func initManager(mgr_cfg *ManagerConfig) (adaptor.Manager, error) {
 }
 
 func (supervisor *Supervisor) Start() {
-	// inject dependencies
-
 	// start the module execution
 	for _, logr := range supervisor.logr {
 		logr.Start()

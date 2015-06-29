@@ -39,19 +39,21 @@ func New(options ...func(*Tracker)) (*Tracker, error) {
 		txs:    parmap.New(),
 	}
 
-	return tracker, nil
-}
-
-func SetLog(log adaptor.Log) func(*Tracker) {
-	return func(tracker *Tracker) {
-		tracker.log = log
+	for _, option := range options {
+		option(tracker)
 	}
+
+	return tracker, nil
 }
 
 func (tracker *Tracker) Start() {
 }
 
 func (tracker *Tracker) Stop() {
+}
+
+func (tracker *Tracker) SetLog(log adaptor.Log) {
+	tracker.log = log
 }
 
 func (tracker *Tracker) AddTx(hash wire.ShaHash) {

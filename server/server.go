@@ -60,12 +60,6 @@ func SetHostAddress(host string) func(*Server) {
 	}
 }
 
-func SetLog(log adaptor.Log) func(*Server) {
-	return func(server *Server) {
-		server.log = log
-	}
-}
-
 func (server *Server) Start() {
 	server.wg.Add(1)
 	go server.goListen()
@@ -74,6 +68,10 @@ func (server *Server) Start() {
 func (server *Server) Stop() {
 	close(server.sig)
 	server.wg.Wait()
+}
+
+func (server *Server) SetLog(log adaptor.Log) {
+	server.log = log
 }
 
 func (server *Server) goListen() {

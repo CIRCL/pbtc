@@ -30,6 +30,7 @@ type Config struct {
 }
 
 type LoggerConfig struct {
+	Log_level       string
 	Console_enabled bool
 	Console_format  string
 	Console_level   string
@@ -40,6 +41,7 @@ type LoggerConfig struct {
 }
 
 type RepositoryConfig struct {
+	Logger      string
 	Log_level   string
 	Seeds_list  []string
 	Seeds_port  uint16
@@ -49,15 +51,18 @@ type RepositoryConfig struct {
 }
 
 type TrackerConfig struct {
+	Logger    string
 	Log_level string
 }
 
 type ServerConfig struct {
+	Logger       string
 	Log_level    string
 	Host_address string
 }
 
 type ProcessorConfig struct {
+	Logger           string
 	Log_level        string
 	Processor_type   string
 	Address_list     []string
@@ -77,6 +82,7 @@ type ProcessorConfig struct {
 }
 
 type ManagerConfig struct {
+	Logger           string
 	Log_level        string
 	Protocol_magic   uint32
 	Protocol_version uint32

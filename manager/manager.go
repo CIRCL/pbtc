@@ -104,14 +104,6 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 	return mgr, nil
 }
 
-// SetLog has to be passed as a parameter on manager creation. It injects
-// the log to be used for logging.
-func SetLog(log adaptor.Log) func(*Manager) {
-	return func(mgr *Manager) {
-		mgr.log = log
-	}
-}
-
 // SetRepository has to be passed as a parameter on manager creation. It injects
 // the repository to be used for node management.
 func SetRepository(repo adaptor.Repository) func(*Manager) {
@@ -189,6 +181,10 @@ func (mgr *Manager) Stop() {
 	}
 
 	mgr.wg.Wait()
+}
+
+func (mgr *Manager) SetLog(log adaptor.Log) {
+	mgr.log = log
 }
 
 // Connected signals to the manager that we have successfully established a

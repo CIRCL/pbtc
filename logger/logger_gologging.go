@@ -44,6 +44,8 @@ type GologgingLogger struct {
 	fileFormat     logging.Formatter
 	fileLevel      logging.Level
 	filePath       string
+
+	log adaptor.Log
 }
 
 func ParseLevel(level string) (logging.Level, error) {
@@ -190,11 +192,15 @@ func (logr *GologgingLogger) Stop() {
 	_ = logr.file.Close()
 }
 
+func (logr *GologgingLogger) SetLog(log adaptor.Log) {
+	logr.log = log
+}
+
 // GetLog returns the log for a module identified with a certain string.
 func (logr *GologgingLogger) GetLog(module string) adaptor.Log {
 	return logging.MustGetLogger(module)
 }
 
-func (logr *GologgingLogger) SetLevel(level logging.Level, module string) {
+func (logr *GologgingLogger) SetLevel(module string, level logging.Level) {
 	logging.SetLevel(level, module)
 }

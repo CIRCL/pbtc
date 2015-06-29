@@ -27,6 +27,7 @@ import (
 type Tracker interface {
 	Start()
 	Stop()
+	SetLog(Log)
 	AddTx(hash wire.ShaHash)
 	KnowsTx(hash wire.ShaHash) bool
 	AddBlock(hash wire.ShaHash)

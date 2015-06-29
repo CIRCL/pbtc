@@ -111,13 +111,6 @@ func New(options ...func(repo *Repository)) (*Repository, error) {
 	return repo, nil
 }
 
-// SetLogger injects a logger to be used for logging.
-func SetLog(log adaptor.Log) func(*Repository) {
-	return func(repo *Repository) {
-		repo.log = log
-	}
-}
-
 // SetSeeds provides a list of DNS seeds to be used in case of bootstrapping.
 func SetSeedsList(seeds ...string) func(*Repository) {
 	return func(repo *Repository) {
@@ -170,6 +163,10 @@ func (repo *Repository) Stop() {
 	repo.wg.Wait()
 
 	repo.save()
+}
+
+func (repo *Repository) SetLog(log adaptor.Log) {
+	repo.log = log
 }
 
 // Discovered will submit an address that has been discovered on the Bitcoin

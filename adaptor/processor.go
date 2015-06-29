@@ -27,6 +27,7 @@ package adaptor
 type Processor interface {
 	Start()
 	Stop()
+	SetLog(Log)
 	SetNext(...Processor)
 	Process(Record)
 }

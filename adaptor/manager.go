@@ -27,6 +27,7 @@ package adaptor
 type Manager interface {
 	Start()
 	Stop()
+	SetLog(Log)
 	Connected(Peer)
 	Ready(Peer)
 	Stopped(Peer)
