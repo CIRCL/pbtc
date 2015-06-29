@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"code.google.com/p/gcfg"
+	"github.com/op/go-logging"
 
 	"github.com/CIRCL/pbtc/adaptor"
 	"github.com/CIRCL/pbtc/logger"
@@ -229,12 +230,12 @@ func New() (*Supervisor, error) {
 	for key, logr := range supervisor.logr {
 		logr_cfg, ok := cfg.Logger[key]
 		if !ok {
-			continue
+			logr = supervisor.logr[""]
 		}
 
 		level, err := logger.ParseLevel(logr_cfg.Log_level)
 		if err != nil {
-			continue
+			level = logging.CRITICAL
 		}
 
 		log := "logr___" + key
@@ -250,12 +251,12 @@ func New() (*Supervisor, error) {
 
 		logr, ok := supervisor.logr[repo_cfg.Logger]
 		if !ok {
-			continue
+			logr = supervisor.logr[""]
 		}
 
 		level, err := logger.ParseLevel(repo_cfg.Log_level)
 		if err != nil {
-			continue
+			level = logging.CRITICAL
 		}
 
 		log := "repo___" + key
@@ -271,12 +272,12 @@ func New() (*Supervisor, error) {
 
 		logr, ok := supervisor.logr[tkr_cfg.Logger]
 		if !ok {
-			continue
+			logr = supervisor.logr[""]
 		}
 
 		level, err := logger.ParseLevel(tkr_cfg.Log_level)
-		if err != nil {
-			continue
+		if err == nil {
+			level = logging.CRITICAL
 		}
 
 		log := "tkr___" + key
@@ -292,12 +293,12 @@ func New() (*Supervisor, error) {
 
 		logr, ok := supervisor.logr[svr_cfg.Logger]
 		if !ok {
-			continue
+			logr = supervisor.logr[""]
 		}
 
 		level, err := logger.ParseLevel(svr_cfg.Log_level)
-		if err != nil {
-			continue
+		if err == nil {
+			level = logging.CRITICAL
 		}
 
 		log := "svr___" + key
@@ -313,12 +314,12 @@ func New() (*Supervisor, error) {
 
 		logr, ok := supervisor.logr[pro_cfg.Logger]
 		if !ok {
-			continue
+			logr = supervisor.logr[""]
 		}
 
 		level, err := logger.ParseLevel(pro_cfg.Log_level)
-		if err != nil {
-			continue
+		if err == nil {
+			level = logging.CRITICAL
 		}
 
 		log := "pro___" + key
@@ -334,12 +335,12 @@ func New() (*Supervisor, error) {
 
 		logr, ok := supervisor.logr[mgr_cfg.Logger]
 		if !ok {
-			continue
+			logr = supervisor.logr[""]
 		}
 
 		level, err := logger.ParseLevel(mgr_cfg.Log_level)
-		if err != nil {
-			continue
+		if err == nil {
+			level = logging.CRITICAL
 		}
 
 		log := "mgr___" + key
@@ -347,7 +348,69 @@ func New() (*Supervisor, error) {
 		mgr.SetLog(logr.GetLog(log))
 	}
 
-	// inject processor dependencies
+	// inject repository into manager
+	for key, mgr := range supervisor.mgr {
+		mgr_cfg, ok := cfg.Manager[key]
+		if !ok {
+			continue
+		}
+
+		repo, ok := supervisor.repo[mgr_cfg.Repository]
+		if !ok {
+			repo = supervisor.repo[""]
+		}
+
+		mgr.SetRepository(repo)
+	}
+
+	// inject tracker into manager
+	for key, mgr := range supervisor.mgr {
+		mgr_cfg, ok := cfg.Manager[key]
+		if !ok {
+			continue
+		}
+
+		tkr, ok := supervisor.tkr[mgr_cfg.Tracker]
+		if !ok {
+			tkr = supervisor.tkr[""]
+		}
+
+		mgr.SetTracker(tkr)
+	}
+
+	// inject processors into managers
+	for key, mgr := range supervisor.mgr {
+		mgr_cfg, ok := cfg.Manager[key]
+		if !ok {
+			continue
+		}
+
+		for _, name := range mgr_cfg.Processor {
+			pro, ok := supervisor.pro[name]
+			if !ok {
+				continue
+			}
+
+			mgr.AddProcessor(pro)
+		}
+	}
+
+	// inject processors into processors
+	for key, pro := range supervisor.pro {
+		pro_cfg, ok := cfg.Processor[key]
+		if !ok {
+			continue
+		}
+
+		for _, name := range pro_cfg.Next {
+			next, ok := supervisor.pro[name]
+			if !ok {
+				continue
+			}
+
+			pro.AddNext(next)
+		}
+	}
 
 	return supervisor, nil
 }
