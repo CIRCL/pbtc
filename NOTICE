@@ -73,15 +73,7 @@ PBTC uses go-redis, the redis client for Golang:
 		* license/LICENSE_go-redis
 	* WEBSITE:
 		* http://github.com/go-redis
-
-
-PBTC uses zoom, a blazing-fast datastore and querying engine for Go built on Redis:
-
-	* LICENSE:
-		* license/LICENSE_zoom
-	* WEBSITE:
-		* http://github.com/albrow/zoom
-
+		
 
 PBTC uses gcfg, a Go library that reads text-based configuration files that consist of "name=value" pairs grouped into sections:
 
