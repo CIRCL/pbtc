@@ -24,4 +24,5 @@ type Server interface {
 	Start()
 	Stop()
 	SetLog(Log)
+	SetManager(Manager)
 }

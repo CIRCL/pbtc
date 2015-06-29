@@ -1,0 +1,55 @@
+[logger]
+console-enabled=true
+console-level=INFO
+
+[repository]
+seeds-list="seed.bitcoin.sipa.be"
+seeds-list="testnet-seed.bitcoin.petertodd.org"
+seeds-port=8333
+node-limit=524283
+
+[tracker]
+
+
+[server]
+host-address="127.0.0.1:8333"
+
+[manager]
+processor="file_writer"
+processor="cmd_filter"
+processor="address_filter"
+protocol-magic=0xd9b4bef9
+protocol-version=70002
+
+[processor "file_writer"]
+processor-type=FILE_WRITER
+file-path="logs/"
+file-prefix="pbtc-"
+file-name="2006-01-02T15:04:05Z07:00"
+file-suffix=".txt"
+file-compression=NONE
+file-sizelimit=0
+file-agelimit=300
+
+[processor "cmd_filter"]
+next="zmq_writer"
+processor-type=COMMAND_FILTER
+command-list=TX
+command-list=BLOCK
+
+[processor "zmq_writer"]
+processor-type=ZEROMQ_WRITER
+zeromq-host="tcp://127.0.0.1:12345"
+
+[processor "address_filter"]
+next="redis_writer"
+processor-type=ADDRESS_FILTER
+address-list="1dice8EMZmqKvrGE4Qc9bUFf9PX3xaYDp"
+address-list="1NxaBCFQwejSZbQfWcYNwgqML5wWoE3rK4"
+address-list="1VayNert3x1KzbpzMGt2qdqrAThiRovi8"
+
+[processor "redis_writer"]
+processor-type=REDIS_WRITER
+redis-host="127.0.0.1:23456"
+redis-password=""
+redis-database=0

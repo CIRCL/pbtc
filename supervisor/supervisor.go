@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"code.google.com/p/gcfg"
+	"github.com/btcsuite/btcd/wire"
 	"github.com/op/go-logging"
 
 	"github.com/CIRCL/pbtc/adaptor"
@@ -81,15 +82,15 @@ func New() (*Supervisor, error) {
 			return nil, err
 		}
 
-		supervisor.logr[""] = logr
-		supervisor.log = supervisor.logr[""].GetLog("sup")
+		supervisor.logr["default"] = logr
+		supervisor.log = logr.GetLog("sup")
 		supervisor.log.Warning("No logger module defined")
 	} else {
 		_, ok := supervisor.logr[""]
 		if !ok {
-			for _, v := range supervisor.logr {
-				supervisor.logr[""] = v
-				supervisor.log = supervisor.logr[""].GetLog("sup")
+			for _, logr := range supervisor.logr {
+				supervisor.logr["default"] = logr
+				supervisor.log = logr.GetLog("sup")
 				supervisor.log.Notice("No default logger defined")
 				break
 			}
@@ -97,6 +98,8 @@ func New() (*Supervisor, error) {
 			supervisor.log = supervisor.logr[""].GetLog("sup")
 		}
 	}
+
+	supervisor.log.Notice("Initializion...")
 
 	// initialize remaining modules
 	for name, repo_cfg := range cfg.Repository {
@@ -152,7 +155,7 @@ func New() (*Supervisor, error) {
 			return nil, err
 		}
 
-		supervisor.repo[""] = repo
+		supervisor.repo["default"] = repo
 	}
 
 	if len(supervisor.tkr) == 0 {
@@ -162,21 +165,7 @@ func New() (*Supervisor, error) {
 			return nil, err
 		}
 
-		supervisor.tkr[""] = tkr
-	}
-
-	if len(supervisor.svr) == 0 {
-		supervisor.log.Notice("No server module defined")
-		svr, err := server.New()
-		if err != nil {
-			return nil, err
-		}
-
-		supervisor.svr[""] = svr
-	}
-
-	if len(supervisor.pro) == 0 {
-		supervisor.log.Notice("No processor module defined")
+		supervisor.tkr["default"] = tkr
 	}
 
 	if len(supervisor.mgr) == 0 {
@@ -186,51 +175,17 @@ func New() (*Supervisor, error) {
 			return nil, err
 		}
 
-		supervisor.mgr[""] = mgr
-	}
-
-	// check remaining modules for missing default module
-	_, ok := supervisor.repo[""]
-	if !ok {
-		for _, v := range supervisor.repo {
-			supervisor.log.Notice("No default repository defined")
-			supervisor.repo[""] = v
-			break
-		}
-	}
-
-	_, ok = supervisor.tkr[""]
-	if !ok {
-		for _, v := range supervisor.tkr {
-			supervisor.log.Notice("No default tracker defined")
-			supervisor.tkr[""] = v
-			break
-		}
-	}
-
-	_, ok = supervisor.svr[""]
-	if !ok {
-		for _, v := range supervisor.svr {
-			supervisor.log.Notice("No default server defined")
-			supervisor.svr[""] = v
-			break
-		}
-	}
-
-	_, ok = supervisor.mgr[""]
-	if !ok {
-		for _, v := range supervisor.mgr {
-			supervisor.log.Notice("No default manager defined")
-			supervisor.mgr[""] = v
-			break
-		}
+		supervisor.mgr["default"] = mgr
 	}
 
 	// inject logging dependencies
 	for key, logr := range supervisor.logr {
 		logr_cfg, ok := cfg.Logger[key]
 		if !ok {
-			logr = supervisor.logr[""]
+			for _, def := range supervisor.logr {
+				logr = def
+				break
+			}
 		}
 
 		level, err := logger.ParseLevel(logr_cfg.Log_level)
@@ -251,7 +206,10 @@ func New() (*Supervisor, error) {
 
 		logr, ok := supervisor.logr[repo_cfg.Logger]
 		if !ok {
-			logr = supervisor.logr[""]
+			for _, def := range supervisor.logr {
+				logr = def
+				break
+			}
 		}
 
 		level, err := logger.ParseLevel(repo_cfg.Log_level)
@@ -272,7 +230,10 @@ func New() (*Supervisor, error) {
 
 		logr, ok := supervisor.logr[tkr_cfg.Logger]
 		if !ok {
-			logr = supervisor.logr[""]
+			for _, def := range supervisor.logr {
+				logr = def
+				break
+			}
 		}
 
 		level, err := logger.ParseLevel(tkr_cfg.Log_level)
@@ -293,7 +254,10 @@ func New() (*Supervisor, error) {
 
 		logr, ok := supervisor.logr[svr_cfg.Logger]
 		if !ok {
-			logr = supervisor.logr[""]
+			for _, def := range supervisor.logr {
+				logr = def
+				break
+			}
 		}
 
 		level, err := logger.ParseLevel(svr_cfg.Log_level)
@@ -314,7 +278,10 @@ func New() (*Supervisor, error) {
 
 		logr, ok := supervisor.logr[pro_cfg.Logger]
 		if !ok {
-			logr = supervisor.logr[""]
+			for _, def := range supervisor.logr {
+				logr = def
+				break
+			}
 		}
 
 		level, err := logger.ParseLevel(pro_cfg.Log_level)
@@ -335,7 +302,10 @@ func New() (*Supervisor, error) {
 
 		logr, ok := supervisor.logr[mgr_cfg.Logger]
 		if !ok {
-			logr = supervisor.logr[""]
+			for _, def := range supervisor.logr {
+				logr = def
+				break
+			}
 		}
 
 		level, err := logger.ParseLevel(mgr_cfg.Log_level)
@@ -348,6 +318,24 @@ func New() (*Supervisor, error) {
 		mgr.SetLog(logr.GetLog(log))
 	}
 
+	// inject manager into server
+	for key, svr := range supervisor.svr {
+		svr_cfg, ok := cfg.Server[key]
+		if !ok {
+			continue
+		}
+
+		mgr, ok := supervisor.mgr[svr_cfg.Manager]
+		if !ok {
+			for _, def := range supervisor.mgr {
+				mgr = def
+				break
+			}
+		}
+
+		svr.SetManager(mgr)
+	}
+
 	// inject repository into manager
 	for key, mgr := range supervisor.mgr {
 		mgr_cfg, ok := cfg.Manager[key]
@@ -357,7 +345,10 @@ func New() (*Supervisor, error) {
 
 		repo, ok := supervisor.repo[mgr_cfg.Repository]
 		if !ok {
-			repo = supervisor.repo[""]
+			for _, def := range supervisor.repo {
+				repo = def
+				break
+			}
 		}
 
 		mgr.SetRepository(repo)
@@ -372,7 +363,10 @@ func New() (*Supervisor, error) {
 
 		tkr, ok := supervisor.tkr[mgr_cfg.Tracker]
 		if !ok {
-			tkr = supervisor.tkr[""]
+			for _, def := range supervisor.tkr {
+				tkr = def
+				break
+			}
 		}
 
 		mgr.SetTracker(tkr)
@@ -411,6 +405,8 @@ func New() (*Supervisor, error) {
 			pro.AddNext(next)
 		}
 	}
+
+	supervisor.log.Notice("Initialization complete")
 
 	return supervisor, nil
 }
@@ -651,7 +647,29 @@ func initZeroMQWriter(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
 }
 
 func initManager(mgr_cfg *ManagerConfig) (adaptor.Manager, error) {
-	return nil, nil
+	options := make([]func(*manager.Manager), 0)
+
+	if mgr_cfg.Connection_limit != 0 {
+		limit := mgr_cfg.Connection_limit
+		options = append(options, manager.SetConnectionLimit(limit))
+	}
+
+	if mgr_cfg.Connection_rate != 0 {
+		rate := time.Duration(mgr_cfg.Connection_rate) * time.Second
+		options = append(options, manager.SetConnectionRate(rate))
+	}
+
+	if mgr_cfg.Protocol_magic != 0 {
+		magic := wire.BitcoinNet(mgr_cfg.Protocol_magic)
+		options = append(options, manager.SetProtocolMagic(magic))
+	}
+
+	if mgr_cfg.Protocol_version != 0 {
+		version := mgr_cfg.Protocol_version
+		options = append(options, manager.SetProtocolVersion(version))
+	}
+
+	return manager.New(options...)
 }
 
 func (supervisor *Supervisor) Start() {

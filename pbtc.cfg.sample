@@ -260,6 +260,17 @@
 ;logger=""
 
 
+; manager (string)
+;
+; Manager defines the manager module that the server will forward successful
+; incoming connections to. If no manager is given, the default manager will be
+; used.
+;
+; default: ""
+
+;manager=""
+
+
 ; log-level (enum)
 ;
 ; The log level setting can be used to increase or decrease the output sent to

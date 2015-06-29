@@ -57,6 +57,7 @@ type TrackerConfig struct {
 
 type ServerConfig struct {
 	Logger       string
+	Manager      string
 	Log_level    string
 	Host_address string
 }
@@ -90,6 +91,6 @@ type ManagerConfig struct {
 	Log_level        string
 	Protocol_magic   uint32
 	Protocol_version uint32
-	Connection_rate  uint32
-	Connection_limit uint32
+	Connection_rate  int
+	Connection_limit int
 }

@@ -50,6 +50,7 @@ func main() {
 	fmt.Println("")
 	fmt.Println("You should have received a copy of the GNU Affero General Public License")
 	fmt.Println("along with PBTC.  If not, see <http://www.gnu.org/licenses/>.")
+	fmt.Println("")
 
 	// catch signals
 	sigc := make(chan os.Signal, 1)
@@ -65,7 +66,7 @@ func main() {
 	// initialize supervisor
 	supervisor, err := supervisor.New()
 	if err != nil {
-		fmt.Println("Supervisor initialization failed (%v)", err)
+		fmt.Printf("Initialization failed (%v)\n", err)
 		os.Exit(1)
 	}
 

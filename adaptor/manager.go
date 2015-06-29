@@ -20,6 +20,10 @@
 
 package adaptor
 
+import (
+	"net"
+)
+
 // Manager defines the interface used by peers to communicate with their
 // manager. It is notified of peer state, keeps track of shared state and
 // decides on actions depending on state. Different managers can implement
@@ -31,6 +35,7 @@ type Manager interface {
 	SetRepository(Repository)
 	SetTracker(Tracker)
 	AddProcessor(Processor)
+	Connection(*net.TCPConn)
 	Connected(Peer)
 	Ready(Peer)
 	Stopped(Peer)

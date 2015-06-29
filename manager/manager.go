@@ -103,7 +103,7 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 
 // SetNetwork has to be passed as a parameter on manager creation. It sets the
 // Bitcoin network to be used (main, test, regression, ...).
-func SetNetwork(network wire.BitcoinNet) func(*Manager) {
+func SetProtocolMagic(network wire.BitcoinNet) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.network = network
 	}
@@ -111,7 +111,7 @@ func SetNetwork(network wire.BitcoinNet) func(*Manager) {
 
 // SetVersion has to be passed as a parameter on manager creation. It sets the
 // maximum protocol version to be used for peer communication.
-func SetVersion(version uint32) func(*Manager) {
+func SetProtocolVersion(version uint32) func(*Manager) {
 	return func(mgr *Manager) {
 		mgr.version = version
 	}
@@ -174,6 +174,10 @@ func (mgr *Manager) SetTracker(tkr adaptor.Tracker) {
 
 func (mgr *Manager) AddProcessor(pro adaptor.Processor) {
 	mgr.pro = append(mgr.pro, pro)
+}
+
+func (mgr *Manager) Connection(conn *net.TCPConn) {
+	mgr.connQ <- conn
 }
 
 // Connected signals to the manager that we have successfully established a

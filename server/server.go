@@ -35,6 +35,7 @@ type Server struct {
 	sig  chan struct{}
 	host string
 	log  adaptor.Log
+	mgr  adaptor.Manager
 }
 
 func New(options ...func(*Server)) (*Server, error) {
@@ -72,6 +73,10 @@ func (server *Server) Stop() {
 
 func (server *Server) SetLog(log adaptor.Log) {
 	server.log = log
+}
+
+func (server *Server) SetManager(mgr adaptor.Manager) {
+	server.mgr = mgr
 }
 
 func (server *Server) goListen() {
@@ -112,20 +117,7 @@ func (server *Server) goListen() {
 			break
 		}
 
-		// we are only interested in TCP connections (should never fail)
-		addr, ok := conn.RemoteAddr().(*net.TCPAddr)
-		if !ok {
-			conn.Close()
-			break
-		}
-
-		// only accept connections to port 8333 for now (for easy counting)
-		if addr.Port != 8333 {
-			conn.Close()
-			break
-		}
-
 		// we submit the connection for peer creation
-		//connQ <- conn
+		server.mgr.Connection(conn)
 	}
 }
