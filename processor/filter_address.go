@@ -71,18 +71,28 @@ func SetAddresses(addresses ...string) func(adaptor.Processor) {
 }
 
 func (filter *AddressFilter) Start() {
+	filter.log.Info("[FA] Start: begin")
+
 	filter.wg.Add(1)
 	go filter.goProcess()
+
+	filter.log.Info("[FA] Start: completed")
 }
 
 // Close will end the filter and wait for the go routine to quit.
 func (filter *AddressFilter) Stop() {
+	filter.log.Info("[FA] Stop: begin")
+
 	close(filter.sig)
 	filter.wg.Wait()
+
+	filter.log.Info("[FA] Stop: completed")
 }
 
 // Process adds one messages to the filter for processing and forwarding.
 func (filter *AddressFilter) Process(record adaptor.Record) {
+	filter.log.Debug("[FA] PRocess: %v", record.Command())
+
 	filter.recordQ <- record
 }
 

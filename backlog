@@ -1,6 +1,4 @@
-- set up injection & dependency management in config file
-- verify list items in configuration file for validity
-- add logging for all packages
+---- LOGGING ----
 - fix lz4 compression compatibility
 - do something about chaincfg config
 - port range configuration option (manager)

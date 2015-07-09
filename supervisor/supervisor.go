@@ -66,45 +66,57 @@ func New() (*Supervisor, error) {
 		mgr:  make(map[string]adaptor.Manager),
 	}
 
-	// initialize loggers so we can start logging
+	// initialize default logger
+	if len(cfg.Logger) == 0 {
+		logr, err := logger.New()
+		if err != nil {
+			return nil, err
+		}
+
+		supervisor.logr[""] = logr
+
+	} else if cfg.Logger[""] == nil {
+		for key, logr_cfg := range cfg.Logger {
+			logr, err := initLogger(logr_cfg)
+			if err != nil {
+				return nil, err
+			}
+
+			delete(cfg.Logger, key)
+			supervisor.logr[""] = logr
+			supervisor.logr[key] = logr
+			break
+		}
+	} else {
+		logr_cfg := cfg.Logger[""]
+		logr, err := initLogger(logr_cfg)
+		if err != nil {
+			return nil, err
+		}
+
+		supervisor.logr[""] = logr
+	}
+
+	supervisor.log = supervisor.logr[""].GetLog("supervisor")
+	supervisor.log.Info("[SUP] Init: started")
+	supervisor.log.Info("[SUP] Init: default logger initialized")
+	supervisor.log.Info("[SUP] Init: initializing modules")
+
+	// initialize remaining modules
 	for name, logr_cfg := range cfg.Logger {
 		logr, err := initLogger(logr_cfg)
 		if err != nil {
+			supervisor.log.Warning("[SUP] Init: logger init failed (%v)", err)
 			continue
 		}
 
 		supervisor.logr[name] = logr
 	}
 
-	if len(supervisor.logr) == 0 {
-		logr, err := logger.New()
-		if err != nil {
-			return nil, err
-		}
-
-		supervisor.logr["default"] = logr
-		supervisor.log = logr.GetLog("sup")
-		supervisor.log.Warning("No logger module defined")
-	} else {
-		_, ok := supervisor.logr[""]
-		if !ok {
-			for _, logr := range supervisor.logr {
-				supervisor.logr["default"] = logr
-				supervisor.log = logr.GetLog("sup")
-				supervisor.log.Notice("No default logger defined")
-				break
-			}
-		} else {
-			supervisor.log = supervisor.logr[""].GetLog("sup")
-		}
-	}
-
-	supervisor.log.Notice("Initializion...")
-
-	// initialize remaining modules
 	for name, repo_cfg := range cfg.Repository {
 		repo, err := initRepository(repo_cfg)
 		if err != nil {
+			supervisor.log.Warning("[SUP] Init: repo init failed (%v)", err)
 			continue
 		}
 
@@ -114,6 +126,7 @@ func New() (*Supervisor, error) {
 	for name, tkr_cfg := range cfg.Tracker {
 		tkr, err := initTracker(tkr_cfg)
 		if err != nil {
+			supervisor.log.Warning("[SUP] Init: tracker init failed (%v)", err)
 			continue
 		}
 
@@ -123,6 +136,7 @@ func New() (*Supervisor, error) {
 	for name, svr_cfg := range cfg.Server {
 		svr, err := initServer(svr_cfg)
 		if err != nil {
+			supervisor.log.Warning("[SUP] Init: server init failed (%v)", err)
 			continue
 		}
 
@@ -132,6 +146,7 @@ func New() (*Supervisor, error) {
 	for name, pro_cfg := range cfg.Processor {
 		pro, err := initProcessor(pro_cfg)
 		if err != nil {
+			supervisor.log.Warning("[SUP] Init: proc init failed (%v)", err)
 			continue
 		}
 
@@ -141,15 +156,18 @@ func New() (*Supervisor, error) {
 	for name, mgr_cfg := range cfg.Manager {
 		mgr, err := initManager(mgr_cfg)
 		if err != nil {
+			supervisor.log.Warning("[SUP] Init: manager init failed (%v)", err)
 			continue
 		}
 
 		supervisor.mgr[name] = mgr
 	}
 
+	supervisor.log.Info("[SUP] Init: checking module cardinality")
+
 	// check remaining modules for missing values
 	if len(supervisor.repo) == 0 {
-		supervisor.log.Warning("No repository module defined")
+		supervisor.log.Warning("[SUP] Init: missing repository module")
 		repo, err := repository.New()
 		if err != nil {
 			return nil, err
@@ -159,7 +177,7 @@ func New() (*Supervisor, error) {
 	}
 
 	if len(supervisor.tkr) == 0 {
-		supervisor.log.Warning("No tracker module defined")
+		supervisor.log.Warning("[SUP] Init: missing tracker module")
 		tkr, err := tracker.New()
 		if err != nil {
 			return nil, err
@@ -169,7 +187,7 @@ func New() (*Supervisor, error) {
 	}
 
 	if len(supervisor.mgr) == 0 {
-		supervisor.log.Warning("No manager module defined")
+		supervisor.log.Warning("[SUP] Init: missing manager module")
 		mgr, err := manager.New()
 		if err != nil {
 			return nil, err
@@ -178,14 +196,21 @@ func New() (*Supervisor, error) {
 		supervisor.mgr["default"] = mgr
 	}
 
+	if len(supervisor.svr) == 0 {
+		supervisor.log.Notice("[SUP] Init: no server module")
+	}
+
+	if len(supervisor.pro) == 0 {
+		supervisor.log.Notice("[SUP] Init: no processor module")
+	}
+
+	supervisor.log.Info("[SUP] Init: injecting logging capabilities")
+
 	// inject logging dependencies
 	for key, logr := range supervisor.logr {
 		logr_cfg, ok := cfg.Logger[key]
 		if !ok {
-			for _, def := range supervisor.logr {
-				logr = def
-				break
-			}
+			continue
 		}
 
 		level, err := logger.ParseLevel(logr_cfg.Log_level)
@@ -194,8 +219,8 @@ func New() (*Supervisor, error) {
 		}
 
 		log := "logr___" + key
-		logr.SetLevel(log, level)
 		logr.SetLog(logr.GetLog(log))
+		logr.SetLevel(log, level)
 	}
 
 	for key, repo := range supervisor.repo {
@@ -206,10 +231,7 @@ func New() (*Supervisor, error) {
 
 		logr, ok := supervisor.logr[repo_cfg.Logger]
 		if !ok {
-			for _, def := range supervisor.logr {
-				logr = def
-				break
-			}
+			logr = supervisor.logr[""]
 		}
 
 		level, err := logger.ParseLevel(repo_cfg.Log_level)
@@ -218,8 +240,8 @@ func New() (*Supervisor, error) {
 		}
 
 		log := "repo___" + key
-		logr.SetLevel(log, level)
 		repo.SetLog(logr.GetLog(log))
+		logr.SetLevel(log, level)
 	}
 
 	for key, tkr := range supervisor.tkr {
@@ -230,10 +252,7 @@ func New() (*Supervisor, error) {
 
 		logr, ok := supervisor.logr[tkr_cfg.Logger]
 		if !ok {
-			for _, def := range supervisor.logr {
-				logr = def
-				break
-			}
+			logr = supervisor.logr[""]
 		}
 
 		level, err := logger.ParseLevel(tkr_cfg.Log_level)
@@ -242,8 +261,8 @@ func New() (*Supervisor, error) {
 		}
 
 		log := "tkr___" + key
-		logr.SetLevel(log, level)
 		tkr.SetLog(logr.GetLog(log))
+		logr.SetLevel(log, level)
 	}
 
 	for key, svr := range supervisor.svr {
@@ -254,10 +273,7 @@ func New() (*Supervisor, error) {
 
 		logr, ok := supervisor.logr[svr_cfg.Logger]
 		if !ok {
-			for _, def := range supervisor.logr {
-				logr = def
-				break
-			}
+			logr = supervisor.logr[""]
 		}
 
 		level, err := logger.ParseLevel(svr_cfg.Log_level)
@@ -266,22 +282,19 @@ func New() (*Supervisor, error) {
 		}
 
 		log := "svr___" + key
-		logr.SetLevel(log, level)
 		svr.SetLog(logr.GetLog(log))
+		logr.SetLevel(log, level)
 	}
 
 	for key, pro := range supervisor.pro {
-		pro_cfg, ok := cfg.Repository[key]
+		pro_cfg, ok := cfg.Processor[key]
 		if !ok {
 			continue
 		}
 
 		logr, ok := supervisor.logr[pro_cfg.Logger]
 		if !ok {
-			for _, def := range supervisor.logr {
-				logr = def
-				break
-			}
+			logr = supervisor.logr[""]
 		}
 
 		level, err := logger.ParseLevel(pro_cfg.Log_level)
@@ -290,22 +303,19 @@ func New() (*Supervisor, error) {
 		}
 
 		log := "pro___" + key
-		logr.SetLevel(log, level)
 		pro.SetLog(logr.GetLog(log))
+		logr.SetLevel(log, level)
 	}
 
 	for key, mgr := range supervisor.mgr {
-		mgr_cfg, ok := cfg.Repository[key]
+		mgr_cfg, ok := cfg.Manager[key]
 		if !ok {
 			continue
 		}
 
 		logr, ok := supervisor.logr[mgr_cfg.Logger]
 		if !ok {
-			for _, def := range supervisor.logr {
-				logr = def
-				break
-			}
+			logr = supervisor.logr[""]
 		}
 
 		level, err := logger.ParseLevel(mgr_cfg.Log_level)
@@ -314,9 +324,11 @@ func New() (*Supervisor, error) {
 		}
 
 		log := "mgr___" + key
-		logr.SetLevel(log, level)
 		mgr.SetLog(logr.GetLog(log))
+		logr.SetLevel(log, level)
 	}
+
+	supervisor.log.Info("[SUP] Init: injecting module dependencies")
 
 	// inject manager into server
 	for key, svr := range supervisor.svr {
@@ -406,7 +418,7 @@ func New() (*Supervisor, error) {
 		}
 	}
 
-	supervisor.log.Notice("Initialization complete")
+	supervisor.log.Info("[SUP] Init: completed")
 
 	return supervisor, nil
 }
@@ -522,22 +534,22 @@ func initProcessor(pro_cfg *ProcessorConfig) (adaptor.Processor, error) {
 	}
 
 	switch pType {
-	case processor.AddressF:
+	case processor.AddressFilterType:
 		return initAddressFilter(pro_cfg)
 
-	case processor.CommandF:
+	case processor.CommandFilterType:
 		return initCommandFilter(pro_cfg)
 
-	case processor.IPF:
+	case processor.IPFilterType:
 		return initIPFilter(pro_cfg)
 
-	case processor.FileW:
+	case processor.FileWriterType:
 		return initFileWriter(pro_cfg)
 
-	case processor.RedisW:
+	case processor.RedisWriterType:
 		return initRedisWriter(pro_cfg)
 
-	case processor.ZeroMQW:
+	case processor.ZeroMQWriterType:
 		return initZeroMQWriter(pro_cfg)
 
 	default:
@@ -674,54 +686,84 @@ func initManager(mgr_cfg *ManagerConfig) (adaptor.Manager, error) {
 
 func (supervisor *Supervisor) Start() {
 	// start the module execution
+	supervisor.log.Info("[SUP] Start: begin")
+	supervisor.log.Info("[SUP] Start: starting loggers")
+
 	for _, logr := range supervisor.logr {
 		logr.Start()
 	}
+
+	supervisor.log.Info("[SUP] Start: starting repositories")
 
 	for _, repo := range supervisor.repo {
 		repo.Start()
 	}
 
+	supervisor.log.Info("[SUP] Start: starting trackers")
+
 	for _, tkr := range supervisor.tkr {
 		tkr.Start()
 	}
+
+	supervisor.log.Info("[SUP] Start: starting servers")
 
 	for _, svr := range supervisor.svr {
 		svr.Start()
 	}
 
+	supervisor.log.Info("[SUP] Start: starting processors")
+
 	for _, pro := range supervisor.pro {
 		pro.Start()
 	}
 
+	supervisor.log.Info("[SUP] Start: starting managers")
+
 	for _, mgr := range supervisor.mgr {
 		mgr.Start()
 	}
+
+	supervisor.log.Info("[SUP] Start: completed")
 }
 
 func (supervisor *Supervisor) Stop() {
 	// stop the module execution
+	supervisor.log.Info("[SUP] Stop: begin")
+	supervisor.log.Info("[SUP] Stop: stopping managers")
+
 	for _, mgr := range supervisor.mgr {
 		mgr.Stop()
 	}
+
+	supervisor.log.Info("[SUP] Stop: stopping processors")
 
 	for _, pro := range supervisor.pro {
 		pro.Stop()
 	}
 
+	supervisor.log.Info("[SUP] Stop: stopping servers")
+
 	for _, svr := range supervisor.svr {
 		svr.Stop()
 	}
+
+	supervisor.log.Info("[SUP] Stop: stopping trackers")
 
 	for _, tkr := range supervisor.tkr {
 		tkr.Stop()
 	}
 
+	supervisor.log.Info("[SUP] Stop: stopping repositories")
+
 	for _, repo := range supervisor.repo {
 		repo.Stop()
 	}
 
+	supervisor.log.Info("[SUP] Stop: stopping loggers")
+
 	for _, logr := range supervisor.logr {
 		logr.Stop()
 	}
+
+	supervisor.log.Info("[SUP] Stop: completed")
 }

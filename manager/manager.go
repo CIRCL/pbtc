@@ -24,7 +24,6 @@ import (
 	"net"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
@@ -62,7 +61,6 @@ type Manager struct {
 	pro  []adaptor.Processor
 
 	nonce uint64
-	done  uint32
 }
 
 // New returns a new manager initialized with the given options.
@@ -135,19 +133,21 @@ func SetConnectionLimit(connLimit int) func(*Manager) {
 }
 
 func (mgr *Manager) Start() {
+	mgr.log.Info("[MGR] Start: begin")
+
 	mgr.addrTicker = time.NewTicker(mgr.connRate)
 	mgr.infoTicker = time.NewTicker(time.Second * 5)
 
 	mgr.wg.Add(2)
 	go mgr.goPeers()
 	go mgr.goAddresses()
+
+	mgr.log.Info("[MGR] Start: completed")
 }
 
 // Close will clean-up before shutdown.
 func (mgr *Manager) Stop() {
-	if atomic.SwapUint32(&mgr.done, 1) == 1 {
-		return
-	}
+	mgr.log.Info("[MGR] Stop: begin")
 
 	close(mgr.addrSig)
 	close(mgr.peerSig)
@@ -158,6 +158,8 @@ func (mgr *Manager) Stop() {
 	}
 
 	mgr.wg.Wait()
+
+	mgr.log.Info("[MGR] Stop: completed")
 }
 
 func (mgr *Manager) SetLog(log adaptor.Log) {
@@ -177,24 +179,32 @@ func (mgr *Manager) AddProcessor(pro adaptor.Processor) {
 }
 
 func (mgr *Manager) Connection(conn *net.TCPConn) {
+	mgr.log.Debug("[MGR] Connection: %v", conn.RemoteAddr)
+
 	mgr.connQ <- conn
 }
 
 // Connected signals to the manager that we have successfully established a
 // TCP connection to a peer.
 func (mgr *Manager) Connected(p adaptor.Peer) {
+	mgr.log.Debug("[MGR] Connected: %v", p)
+
 	mgr.peerConnected <- p
 }
 
 // Ready signals to the manager that we have successfully completed the Bitcoin
 // protocol handshake with a peer.
 func (mgr *Manager) Ready(p adaptor.Peer) {
+	mgr.log.Debug("[MGR] Ready: %v", p)
+
 	mgr.peerReady <- p
 }
 
 // Stopped signals to the manager that the connection to this peer has been
 // shut down.
 func (mgr *Manager) Stopped(p adaptor.Peer) {
+	mgr.log.Debug("[MGR] Stopped: %v", p)
+
 	mgr.peerStopped <- p
 }
 
@@ -202,7 +212,6 @@ func (mgr *Manager) Stopped(p adaptor.Peer) {
 // will request and receive addresses for our connection attempts
 func (mgr *Manager) goAddresses() {
 	defer mgr.wg.Done()
-	mgr.log.Info("[MGR] Address routine started")
 
 AddressLoop:
 	for {
@@ -222,15 +231,12 @@ AddressLoop:
 			mgr.repo.Retrieve(mgr.addrQ)
 		}
 	}
-
-	mgr.log.Info("[MGR] Address routine stopped")
 }
 
 // to be called from a go routine
 // will try to accept incoming peers on the given listener
 func (mgr *Manager) goConnections(listener *net.TCPListener) {
 	defer mgr.wg.Done()
-	mgr.log.Info("[MGR] Connection routine started (%v)", listener.Addr())
 
 	for {
 		conn, err := listener.AcceptTCP()
@@ -262,15 +268,12 @@ func (mgr *Manager) goConnections(listener *net.TCPListener) {
 		// we submit the connetion for peer creation
 		mgr.connQ <- conn
 	}
-
-	mgr.log.Info("[MGR] Connection routine stopped (%v)", listener.Addr())
 }
 
 // to be called from a go routine
 // will manage all peer connection/disconnection
 func (mgr *Manager) goPeers() {
 	defer mgr.wg.Done()
-	mgr.log.Info("[MGR] Peer routine started")
 
 PeerLoop:
 	for {
@@ -412,6 +415,4 @@ PeerLoop:
 			break
 		}
 	}
-
-	mgr.log.Info("[MGR] Peer routine stopped")
 }

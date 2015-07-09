@@ -36,6 +36,7 @@ import (
 type GologgingLogger struct {
 	backends []logging.Backend
 	file     *os.File
+	name     string
 
 	consoleEnabled bool
 	consoleFormat  logging.Formatter
@@ -89,6 +90,7 @@ func NewGologging(options ...func(log *GologgingLogger)) (*GologgingLogger,
 		fileFormat:     logging.MustStringFormatter("%{message}"),
 		fileLevel:      logging.CRITICAL,
 		backends:       make([]logging.Backend, 0, 2),
+		name:           "default",
 	}
 
 	for _, option := range options {
@@ -118,8 +120,15 @@ func NewGologging(options ...func(log *GologgingLogger)) (*GologgingLogger,
 	}
 
 	logging.SetBackend(logr.backends...)
+	logr.log = logging.MustGetLogger("logr___" + logr.name)
 
 	return logr, nil
+}
+
+func SetLogName(name string) func(*GologgingLogger) {
+	return func(logr *GologgingLogger) {
+		logr.name = name
+	}
 }
 
 // EnableConsole has to be passed as a parameter on logger construction. It
@@ -186,10 +195,17 @@ func SetFileLevel(level logging.Level) func(*GologgingLogger) {
 }
 
 func (logr *GologgingLogger) Start() {
+	logr.log.Info("[LOG] Start: begin")
+
+	logr.log.Info("[LOG] Start: completed")
 }
 
 func (logr *GologgingLogger) Stop() {
+	logr.log.Info("[LOG] Stop: begin")
+
 	_ = logr.file.Close()
+
+	logr.log.Info("[LOG] Stop: completed")
 }
 
 func (logr *GologgingLogger) SetLog(log adaptor.Log) {
@@ -198,9 +214,13 @@ func (logr *GologgingLogger) SetLog(log adaptor.Log) {
 
 // GetLog returns the log for a module identified with a certain string.
 func (logr *GologgingLogger) GetLog(module string) adaptor.Log {
+	logr.log.Debug("[LOG] GetLog: %v", module)
+
 	return logging.MustGetLogger(module)
 }
 
 func (logr *GologgingLogger) SetLevel(module string, level logging.Level) {
+	logr.log.Debug("[LOG] SetLevel: %v - %v", module, level)
+
 	logging.SetLevel(level, module)
 }

@@ -41,7 +41,6 @@ type FileWriter struct {
 	file      *os.File
 	sig       chan struct{}
 	txtQ      chan string
-	done      uint32
 
 	filePath      string
 	filePrefix    string
@@ -163,20 +162,30 @@ func SetFileAgelimit(agelimit time.Duration) func(adaptor.Processor) {
 }
 
 func (w *FileWriter) Start() {
+	w.log.Info("[WF] Start: begin")
+
 	w.rotateLog()
 
 	w.fileTimer = time.NewTimer(w.fileAgelimit)
 
 	w.wg.Add(1)
 	go w.goProcess()
+
+	w.log.Info("[WF] Start: completed")
 }
 
 func (w *FileWriter) Stop() {
+	w.log.Info("[WF] Stop: begin")
+
 	close(w.sig)
 	w.wg.Wait()
+
+	w.log.Info("[WF] Stop: completed")
 }
 
 func (w *FileWriter) Process(record adaptor.Record) {
+	w.log.Debug("[WF] Process: %v", record.Command())
+
 	w.txtQ <- record.String()
 }
 

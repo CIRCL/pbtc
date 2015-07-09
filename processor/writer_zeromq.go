@@ -36,7 +36,6 @@ type ZeroMQWriter struct {
 	lineQ chan string
 	sig   chan struct{}
 	wg    *sync.WaitGroup
-	done  uint32
 }
 
 func NewZeroMQWriter(options ...func(adaptor.Processor)) (*ZeroMQWriter, error) {

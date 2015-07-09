@@ -21,6 +21,8 @@
 package logger
 
 import (
+	"github.com/op/go-logging"
+
 	"github.com/CIRCL/pbtc/adaptor"
 )
 
@@ -28,7 +30,11 @@ var logr adaptor.Logger
 var err error
 
 func init() {
-	gologr, goerr := NewGologging(SetConsoleEnabled(true))
+	gologr, goerr := NewGologging(
+		SetConsoleEnabled(true),
+		SetConsoleLevel(logging.DEBUG),
+	)
+
 	logr, err = gologr, goerr
 }
 

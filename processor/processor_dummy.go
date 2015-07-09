@@ -51,13 +51,21 @@ func NewDummy(options ...func(adaptor.Processor)) (*DummyFilter, error) {
 }
 
 func (filter *DummyFilter) Start() {
+	filter.log.Info("[FD] Start: begin")
+
 	filter.wg.Add(1)
 	go filter.goProcess()
+
+	filter.log.Info("[FD] Start: completed")
 }
 
 func (filter *DummyFilter) Stop() {
+	filter.log.Info("[FD] Stop: begin")
+
 	close(filter.sig)
 	filter.wg.Wait()
+
+	filter.log.Info("[FD] Stop: completed")
 }
 
 // Process will add a new record to the queue of the dummy filter, which will

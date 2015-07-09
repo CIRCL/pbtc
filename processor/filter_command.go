@@ -72,17 +72,27 @@ func SetCommands(cmds ...string) func(adaptor.Processor) {
 }
 
 func (filter *CommandFilter) Start() {
+	filter.log.Info("[FC] Start: begin")
+
 	filter.wg.Add(1)
 	go filter.goProcess()
+
+	filter.log.Info("[FC] Start: completed")
 }
 
 func (filter *CommandFilter) Stop() {
+	filter.log.Info("[FC] Stop: begin")
+
 	close(filter.sig)
 	filter.wg.Wait()
+
+	filter.log.Info("[FC] Stop: completed")
 }
 
 // Process adds one messages to the filter for processing and forwarding.
 func (filter *CommandFilter) Process(record adaptor.Record) {
+	filter.log.Debug("[FC] Process: %v", record.Command())
+
 	filter.recordQ <- record
 }
 

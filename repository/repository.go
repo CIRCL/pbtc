@@ -146,6 +146,8 @@ func SetNodeLimit(limit uint32) func(*Repository) {
 }
 
 func (repo *Repository) Start() {
+	repo.log.Info("[REPO] Start: begin")
+
 	repo.tickerBackup = time.NewTicker(repo.backupRate)
 
 	repo.wg.Add(2)
@@ -153,6 +155,8 @@ func (repo *Repository) Start() {
 	go repo.goAddresses()
 
 	repo.bootstrap()
+
+	repo.log.Info("[REPO] Start: complete")
 }
 
 // Stop will end all sub-routines and return on clean exit.
@@ -172,34 +176,47 @@ func (repo *Repository) SetLog(log adaptor.Log) {
 // Discovered will submit an address that has been discovered on the Bitcoin
 // network.
 func (repo *Repository) Discovered(addr *net.TCPAddr) {
+	repo.log.Debug("[REPO] Discovered: %v", addr)
+
 	repo.addrDiscovered <- addr
 }
 
 // Attempted will mark an address as having been attempted for connection.
 func (repo *Repository) Attempted(addr *net.TCPAddr) {
+	repo.log.Debug("[REPO] Attempted: %v", addr)
+
 	repo.addrAttempted <- addr
 }
 
 // Connected will mark an address as having been used successfully for a TCP
 // connection.
 func (repo *Repository) Connected(addr *net.TCPAddr) {
+	repo.log.Debug("[REPO] Connected: %v", addr)
+
 	repo.addrConnected <- addr
 }
 
 // Succeeded will mark an address as having completed the Bitcoin protocol
 // handshake successfully.
 func (repo *Repository) Succeeded(addr *net.TCPAddr) {
+	repo.log.Debug("[REPO] Succeeded: %v", addr)
+
 	repo.addrSucceeded <- addr
 }
 
 // Retrieve will send a good candidate address for connecting on the given
 // channel.
 func (repo *Repository) Retrieve(c chan<- *net.TCPAddr) {
+	repo.log.Debug("[REPO] Retrieve: requested")
+
 	repo.addrRetrieve <- c
 }
 
 // bootstrap will use a number of dns seeds to discover nodes.
 func (repo *Repository) bootstrap() {
+	repo.log.Info("[REPO] Bootstrap: getting IPs from %v seeds",
+		len(repo.seedsList))
+
 	// iterate over the seeds and try to get the ips
 	for _, seed := range repo.seedsList {
 		// check if we can look up the ip addresses
@@ -207,6 +224,8 @@ func (repo *Repository) bootstrap() {
 		if err != nil {
 			continue
 		}
+
+		repo.log.Debug("[REPO] Bootstrap: found %v IPs from %v", len(ips), seed)
 
 		// range over the ips and add them to the repository
 		for _, ip := range ips {

@@ -78,6 +78,8 @@ SigLoop:
 	for sig := range sigc {
 		switch sig {
 		case syscall.SIGINT:
+			fmt.Printf("\nShutdown through signal (%v)\n", sig.String())
+			panic("HAHAHA")
 			break SigLoop
 
 		case syscall.SIGHUP:
@@ -96,8 +98,9 @@ SigLoop:
 	// however, if we receive another signal during shutdown, we panic
 	// this allows us to see the stacktrace in case shutdown blocks somewhere
 	select {
-	case <-sigc:
-		panic("SHUTDOWN FAILED")
+	case sig := <-sigc:
+		fmt.Printf("\n")
+		panic("FORCED PANIC SHUTDOWN (" + sig.String() + ")")
 
 	case <-c:
 		break

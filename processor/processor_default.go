@@ -29,33 +29,33 @@ import (
 type ProcessorType int
 
 const (
-	AddressF ProcessorType = iota
-	CommandF
-	IPF
-	FileW
-	RedisW
-	ZeroMQW
+	AddressFilterType ProcessorType = iota
+	CommandFilterType
+	IPFilterType
+	FileWriterType
+	RedisWriterType
+	ZeroMQWriterType
 )
 
 func ParseType(processor string) (ProcessorType, error) {
 	switch processor {
-	case "AddressFilter":
-		return AddressF, nil
+	case "ADDRESS_FILTER":
+		return AddressFilterType, nil
 
-	case "CommandFilter":
-		return CommandF, nil
+	case "COMMAND_FILTER":
+		return CommandFilterType, nil
 
-	case "IPFilter":
-		return IPF, nil
+	case "IP_FILTER":
+		return IPFilterType, nil
 
-	case "FileWriter":
-		return FileW, nil
+	case "FILE_WRITER":
+		return FileWriterType, nil
 
-	case "RedisWriter":
-		return RedisW, nil
+	case "REDIS_WRITER":
+		return RedisWriterType, nil
 
-	case "ZeroMQWriter":
-		return ZeroMQW, nil
+	case "ZEROMQ_WRITER":
+		return ZeroMQWriterType, nil
 
 	default:
 		return -1, errors.New("invalid processor string")

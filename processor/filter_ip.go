@@ -70,17 +70,27 @@ func SetIPs(ips ...string) func(adaptor.Processor) {
 }
 
 func (filter *IPFilter) Start() {
+	filter.log.Info("[FI] Start: begin")
+
 	filter.wg.Add(1)
 	go filter.goProcess()
+
+	filter.log.Info("[FI] Start: completed")
 }
 
 func (filter *IPFilter) Stop() {
+	filter.log.Info("[FI] Stop: begin")
+
 	close(filter.sig)
 	filter.wg.Wait()
+
+	filter.log.Info("[FI] Stop: completed")
 }
 
 // Process will add a record to the queue of records to be processed.
 func (filter *IPFilter) Process(record adaptor.Record) {
+	filter.log.Debug("[FI] Process: %v", record.Command())
+
 	filter.recordQ <- record
 }
 

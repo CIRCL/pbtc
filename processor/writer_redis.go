@@ -38,7 +38,6 @@ type RedisWriter struct {
 	host   string
 	pw     string
 	db     int64
-	done   uint32
 }
 
 func NewRedisWriter(options ...func(adaptor.Processor)) (*RedisWriter, error) {
