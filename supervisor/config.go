@@ -21,12 +21,17 @@
 package supervisor
 
 type Config struct {
+	Supervisor SupervisorConfig
 	Logger     map[string]*LoggerConfig
 	Repository map[string]*RepositoryConfig
 	Tracker    map[string]*TrackerConfig
 	Server     map[string]*ServerConfig
 	Processor  map[string]*ProcessorConfig
 	Manager    map[string]*ManagerConfig
+}
+
+type SupervisorConfig struct {
+	Log_level string
 }
 
 type LoggerConfig struct {

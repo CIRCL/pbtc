@@ -31,11 +31,12 @@ import (
 )
 
 type Server struct {
-	wg   *sync.WaitGroup
-	sig  chan struct{}
-	host string
-	log  adaptor.Log
-	mgr  adaptor.Manager
+	wg       *sync.WaitGroup
+	sig      chan struct{}
+	host     string
+	log      adaptor.Log
+	mgr      adaptor.Manager
+	listener *net.TCPListener
 }
 
 func New(options ...func(*Server)) (*Server, error) {
@@ -68,6 +69,7 @@ func (server *Server) Start() {
 
 func (server *Server) Stop() {
 	close(server.sig)
+	server.listener.Close()
 	server.wg.Wait()
 }
 
@@ -103,6 +105,8 @@ func (server *Server) goListen() {
 		server.log.Warning("%v: could not listen (%v)", server.host, err)
 		return
 	}
+
+	server.listener = listener
 
 	for {
 		conn, err := listener.AcceptTCP()

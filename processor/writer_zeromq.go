@@ -79,13 +79,21 @@ func SetZeromqHost(addr string) func(adaptor.Processor) {
 }
 
 func (w *ZeroMQWriter) Start() {
+	w.log.Info("[WZ] Start: begin")
+
 	w.wg.Add(1)
 	go w.goLines()
+
+	w.log.Info("[WZ] Start: completed")
 }
 
 func (w *ZeroMQWriter) Stop() {
+	w.log.Info("[WZ] Stop: begin")
+
 	close(w.sig)
 	w.wg.Wait()
+
+	w.log.Info("[WZ] Stop: completed")
 }
 
 func (w *ZeroMQWriter) Process(record adaptor.Record) {

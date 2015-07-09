@@ -67,6 +67,8 @@ func New() (*Supervisor, error) {
 	}
 
 	// initialize default logger
+	level := logging.CRITICAL
+
 	if len(cfg.Logger) == 0 {
 		logr, err := logger.New()
 		if err != nil {
@@ -97,7 +99,10 @@ func New() (*Supervisor, error) {
 		supervisor.logr[""] = logr
 	}
 
+	level, _ = logger.ParseLevel(cfg.Supervisor.Log_level)
+
 	supervisor.log = supervisor.logr[""].GetLog("supervisor")
+	supervisor.logr[""].SetLevel("supervisor", level)
 	supervisor.log.Info("[SUP] Init: started")
 	supervisor.log.Info("[SUP] Init: default logger initialized")
 	supervisor.log.Info("[SUP] Init: initializing modules")

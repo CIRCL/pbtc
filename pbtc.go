@@ -63,6 +63,8 @@ func main() {
 	// seed the random generator
 	rand.Seed(time.Now().UnixNano())
 
+	fmt.Printf("Starting PBTC\n")
+
 	// initialize supervisor
 	supervisor, err := supervisor.New()
 	if err != nil {
@@ -78,8 +80,7 @@ SigLoop:
 	for sig := range sigc {
 		switch sig {
 		case syscall.SIGINT:
-			fmt.Printf("\nShutdown through signal (%v)\n", sig.String())
-			panic("HAHAHA")
+			fmt.Printf("\nSIGNAL CAUSED SHUTDOWN (%v)\n", sig.String())
 			break SigLoop
 
 		case syscall.SIGHUP:
@@ -105,6 +106,7 @@ SigLoop:
 	case <-c:
 		break
 	}
+	fmt.Printf("Shutdown complete\n")
 
 	os.Exit(0)
 }

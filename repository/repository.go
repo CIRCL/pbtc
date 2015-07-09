@@ -146,7 +146,7 @@ func SetNodeLimit(limit uint32) func(*Repository) {
 }
 
 func (repo *Repository) Start() {
-	repo.log.Info("[REPO] Start: begin")
+	repo.log.Info("[REP] Start: begin")
 
 	repo.tickerBackup = time.NewTicker(repo.backupRate)
 
@@ -156,17 +156,23 @@ func (repo *Repository) Start() {
 
 	repo.bootstrap()
 
-	repo.log.Info("[REPO] Start: complete")
+	repo.log.Info("[REP] Start: completed")
 }
 
 // Stop will end all sub-routines and return on clean exit.
 func (repo *Repository) Stop() {
+	repo.log.Info("[REP] Stop: begin")
+
 	close(repo.sigRetrieval)
 	close(repo.sigAddr)
 
 	repo.wg.Wait()
 
+	repo.log.Info("[REP] Stop: saving node information")
+
 	repo.save()
+
+	repo.log.Info("[REP] Stop: completed")
 }
 
 func (repo *Repository) SetLog(log adaptor.Log) {
@@ -176,14 +182,14 @@ func (repo *Repository) SetLog(log adaptor.Log) {
 // Discovered will submit an address that has been discovered on the Bitcoin
 // network.
 func (repo *Repository) Discovered(addr *net.TCPAddr) {
-	repo.log.Debug("[REPO] Discovered: %v", addr)
+	repo.log.Debug("[REP] Discovered: %v", addr)
 
 	repo.addrDiscovered <- addr
 }
 
 // Attempted will mark an address as having been attempted for connection.
 func (repo *Repository) Attempted(addr *net.TCPAddr) {
-	repo.log.Debug("[REPO] Attempted: %v", addr)
+	repo.log.Debug("[REP] Attempted: %v", addr)
 
 	repo.addrAttempted <- addr
 }
@@ -191,7 +197,7 @@ func (repo *Repository) Attempted(addr *net.TCPAddr) {
 // Connected will mark an address as having been used successfully for a TCP
 // connection.
 func (repo *Repository) Connected(addr *net.TCPAddr) {
-	repo.log.Debug("[REPO] Connected: %v", addr)
+	repo.log.Debug("[REP] Connected: %v", addr)
 
 	repo.addrConnected <- addr
 }
@@ -199,7 +205,7 @@ func (repo *Repository) Connected(addr *net.TCPAddr) {
 // Succeeded will mark an address as having completed the Bitcoin protocol
 // handshake successfully.
 func (repo *Repository) Succeeded(addr *net.TCPAddr) {
-	repo.log.Debug("[REPO] Succeeded: %v", addr)
+	repo.log.Debug("[REP] Succeeded: %v", addr)
 
 	repo.addrSucceeded <- addr
 }
@@ -207,14 +213,14 @@ func (repo *Repository) Succeeded(addr *net.TCPAddr) {
 // Retrieve will send a good candidate address for connecting on the given
 // channel.
 func (repo *Repository) Retrieve(c chan<- *net.TCPAddr) {
-	repo.log.Debug("[REPO] Retrieve: requested")
+	repo.log.Debug("[REP] Retrieve: requested")
 
 	repo.addrRetrieve <- c
 }
 
 // bootstrap will use a number of dns seeds to discover nodes.
 func (repo *Repository) bootstrap() {
-	repo.log.Info("[REPO] Bootstrap: getting IPs from %v seeds",
+	repo.log.Info("[REP] Bootstrap: getting IPs from %v seeds",
 		len(repo.seedsList))
 
 	// iterate over the seeds and try to get the ips
@@ -225,7 +231,7 @@ func (repo *Repository) bootstrap() {
 			continue
 		}
 
-		repo.log.Debug("[REPO] Bootstrap: found %v IPs from %v", len(ips), seed)
+		repo.log.Info("[REP] Bootstrap: found %v IPs from %v", len(ips), seed)
 
 		// range over the ips and add them to the repository
 		for _, ip := range ips {
@@ -316,7 +322,7 @@ retrievalLoop:
 					continue
 				}
 
-				repo.log.Debug("[REPO] %v retrieved", node)
+				repo.log.Debug("[REP] %v retrieved", node)
 				c <- node.addr
 				continue retrievalLoop
 			}
@@ -327,8 +333,6 @@ retrievalLoop:
 func (repo *Repository) goAddresses() {
 	defer repo.wg.Done()
 
-	repo.log.Info("[REPO] Address routine started")
-
 addrLoop:
 	for {
 		select {
@@ -338,11 +342,11 @@ addrLoop:
 			}
 
 		case <-repo.tickerBackup.C:
-			repo.log.Info("[REPO] Saving node index")
+			repo.log.Info("[REP] Saving node index")
 			go repo.save()
 
 		case <-repo.tickerPoll.C:
-			repo.log.Info("[REPO] Polling DNS seeds")
+			repo.log.Info("[REP] Polling DNS seeds")
 			go repo.bootstrap()
 
 		case addr := <-repo.addrDiscovered:
@@ -365,43 +369,41 @@ addrLoop:
 				}
 			}
 
-			repo.log.Debug("[REPO] %v discovered", addr)
+			repo.log.Debug("[REP] %v discovered", addr)
 			n = newNode(addr)
 			repo.nodeIndex[addr.String()] = n
 
 		case addr := <-repo.addrAttempted:
 			n, ok := repo.nodeIndex[addr.String()]
 			if !ok {
-				repo.log.Warning("[REPO] %v attempted unknown", addr)
+				repo.log.Warning("[REP] %v attempted unknown", addr)
 				continue
 			}
 
-			repo.log.Debug("[REPO] %v attempted", addr)
+			repo.log.Debug("[REP] %v attempted", addr)
 			n.numAttempts++
 			n.lastAttempted = time.Now()
 
 		case addr := <-repo.addrConnected:
 			n, ok := repo.nodeIndex[addr.String()]
 			if !ok {
-				repo.log.Warning("[REPO] %v connected unknown", addr)
+				repo.log.Warning("[REP] %v connected unknown", addr)
 				continue
 			}
 
-			repo.log.Debug("[REPO] %v connected", addr)
+			repo.log.Debug("[REP] %v connected", addr)
 			n.lastConnected = time.Now()
 
 		case addr := <-repo.addrSucceeded:
 			n, ok := repo.nodeIndex[addr.String()]
 			if !ok {
-				repo.log.Warning("[REPO] %v succeeded unknown", addr)
+				repo.log.Warning("[REP] %v succeeded unknown", addr)
 				continue
 			}
 
-			repo.log.Debug("[REPO] %v succeeded", addr)
+			repo.log.Debug("[REP] %v succeeded", addr)
 			n.numAttempts = 0
 			n.lastSucceeded = time.Now()
 		}
 	}
-
-	repo.log.Info("[REPO] Address routine stopped")
 }
