@@ -162,7 +162,7 @@ func SetFileAgelimit(agelimit time.Duration) func(adaptor.Processor) {
 }
 
 func (w *FileWriter) Start() {
-	w.log.Info("[WF] Start: begin")
+	w.log.Info("[PWF] Start: begin")
 
 	w.rotateLog()
 
@@ -171,20 +171,20 @@ func (w *FileWriter) Start() {
 	w.wg.Add(1)
 	go w.goProcess()
 
-	w.log.Info("[WF] Start: completed")
+	w.log.Info("[PWF] Start: completed")
 }
 
 func (w *FileWriter) Stop() {
-	w.log.Info("[WF] Stop: begin")
+	w.log.Info("[PWF] Stop: begin")
 
 	close(w.sig)
 	w.wg.Wait()
 
-	w.log.Info("[WF] Stop: completed")
+	w.log.Info("[PWF] Stop: completed")
 }
 
 func (w *FileWriter) Process(record adaptor.Record) {
-	w.log.Debug("[WF] Process: %v", record.Command())
+	w.log.Debug("[PWF] Process: %v", record.Command())
 
 	w.txtQ <- record.String()
 }

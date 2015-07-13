@@ -308,6 +308,7 @@ PeerLoop:
 				peer.SetNonce(mgr.nonce),
 				peer.SetAddress(addr),
 				peer.SetTracker(mgr.tkr),
+				peer.SetProcessors(mgr.pro),
 			)
 			if err != nil {
 				mgr.log.Error("[MGR] %v failed outbound (%v)", addr, err)
@@ -343,6 +344,7 @@ PeerLoop:
 				peer.SetNonce(mgr.nonce),
 				peer.SetConnection(conn),
 				peer.SetTracker(mgr.tkr),
+				peer.SetProcessors(mgr.pro),
 			)
 			if err != nil {
 				mgr.log.Error("[MGR] %v failed inbound (%v)", addr, err)

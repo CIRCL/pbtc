@@ -104,24 +104,26 @@ func SetRedisDatabase(db int64) func(adaptor.Processor) {
 }
 
 func (w *RedisWriter) Start() {
-	w.log.Info("[WR] Start: begin")
+	w.log.Info("[PWR] Start: begin")
 
 	w.wg.Add(1)
 	go w.goProcess()
 
-	w.log.Info("[WR] Start: completed")
+	w.log.Info("[PWR] Start: completed")
 }
 
 func (w *RedisWriter) Stop() {
-	w.log.Info("[WR] Stop: begin")
+	w.log.Info("[PWR] Stop: begin")
 
 	close(w.sig)
 	w.wg.Wait()
 
-	w.log.Info("[WR] Stop: completed")
+	w.log.Info("[PWR] Stop: completed")
 }
 
 func (w *RedisWriter) Process(record adaptor.Record) {
+	w.log.Debug("[PWR] Process: %v", record.Command())
+
 	w.lineQ <- record.String()
 }
 

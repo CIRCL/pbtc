@@ -66,9 +66,6 @@ func New() (*Supervisor, error) {
 		mgr:  make(map[string]adaptor.Manager),
 	}
 
-	// initialize default logger
-	level := logging.CRITICAL
-
 	if len(cfg.Logger) == 0 {
 		logr, err := logger.New()
 		if err != nil {
@@ -99,7 +96,10 @@ func New() (*Supervisor, error) {
 		supervisor.logr[""] = logr
 	}
 
-	level, _ = logger.ParseLevel(cfg.Supervisor.Log_level)
+	level, err := logger.ParseLevel(cfg.Supervisor.Log_level)
+	if err != nil {
+		level = logging.CRITICAL
+	}
 
 	supervisor.log = supervisor.logr[""].GetLog("supervisor")
 	supervisor.logr[""].SetLevel("supervisor", level)
@@ -109,6 +109,10 @@ func New() (*Supervisor, error) {
 
 	// initialize remaining modules
 	for name, logr_cfg := range cfg.Logger {
+		if name == "" {
+			continue
+		}
+
 		logr, err := initLogger(logr_cfg)
 		if err != nil {
 			supervisor.log.Warning("[SUP] Init: logger init failed (%v)", err)
@@ -261,7 +265,7 @@ func New() (*Supervisor, error) {
 		}
 
 		level, err := logger.ParseLevel(tkr_cfg.Log_level)
-		if err == nil {
+		if err != nil {
 			level = logging.CRITICAL
 		}
 
@@ -282,7 +286,7 @@ func New() (*Supervisor, error) {
 		}
 
 		level, err := logger.ParseLevel(svr_cfg.Log_level)
-		if err == nil {
+		if err != nil {
 			level = logging.CRITICAL
 		}
 
@@ -303,7 +307,7 @@ func New() (*Supervisor, error) {
 		}
 
 		level, err := logger.ParseLevel(pro_cfg.Log_level)
-		if err == nil {
+		if err != nil {
 			level = logging.CRITICAL
 		}
 
@@ -324,7 +328,7 @@ func New() (*Supervisor, error) {
 		}
 
 		level, err := logger.ParseLevel(mgr_cfg.Log_level)
-		if err == nil {
+		if err != nil {
 			level = logging.CRITICAL
 		}
 

@@ -47,9 +47,15 @@ func New(options ...func(*Tracker)) (*Tracker, error) {
 }
 
 func (tracker *Tracker) Start() {
+	tracker.log.Info("[TKR] Start: begin")
+
+	tracker.log.Info("[TKR] Start: completed")
 }
 
 func (tracker *Tracker) Stop() {
+	tracker.log.Info("[TKR] Stop: begin")
+
+	tracker.log.Info("[TKR] Stop: completed")
 }
 
 func (tracker *Tracker) SetLog(log adaptor.Log) {
