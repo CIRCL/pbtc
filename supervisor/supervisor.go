@@ -676,7 +676,7 @@ func initManager(mgr_cfg *ManagerConfig) (adaptor.Manager, error) {
 	}
 
 	if mgr_cfg.Connection_rate != 0 {
-		rate := time.Duration(mgr_cfg.Connection_rate) * time.Second
+		rate := time.Second / time.Duration(mgr_cfg.Connection_rate)
 		options = append(options, manager.SetConnectionRate(rate))
 	}
 
