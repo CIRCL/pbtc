@@ -75,15 +75,13 @@ func New() (*Supervisor, error) {
 		supervisor.logr[""] = logr
 
 	} else if cfg.Logger[""] == nil {
-		for key, logr_cfg := range cfg.Logger {
+		for _, logr_cfg := range cfg.Logger {
 			logr, err := initLogger(logr_cfg)
 			if err != nil {
 				return nil, err
 			}
 
-			delete(cfg.Logger, key)
 			supervisor.logr[""] = logr
-			supervisor.logr[key] = logr
 			break
 		}
 	} else {

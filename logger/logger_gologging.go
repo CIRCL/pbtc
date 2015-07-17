@@ -107,7 +107,7 @@ func NewGologging(options ...func(log *GologgingLogger)) (*GologgingLogger,
 
 	if logr.fileEnabled {
 		file, err := os.Create(logr.filePath)
-		if err == nil {
+		if err != nil {
 			return nil, err
 		}
 
