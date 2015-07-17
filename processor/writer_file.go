@@ -35,12 +35,12 @@ const Version = "PBTC Log Version 1"
 type FileWriter struct {
 	Processor
 
-	wg        *sync.WaitGroup
-	comp      adaptor.Compressor
-	fileTimer *time.Timer
-	file      *os.File
-	sig       chan struct{}
-	txtQ      chan string
+	wg         *sync.WaitGroup
+	comp       adaptor.Compressor
+	fileTicker *time.Ticker
+	file       *os.File
+	sig        chan struct{}
+	txtQ       chan string
 
 	filePath      string
 	filePrefix    string
@@ -166,7 +166,7 @@ func (w *FileWriter) Start() {
 
 	w.rotateLog()
 
-	w.fileTimer = time.NewTimer(w.fileAgelimit)
+	w.fileTicker = time.NewTicker(w.fileAgelimit)
 
 	w.wg.Add(1)
 	go w.goProcess()
@@ -200,7 +200,7 @@ WriteLoop:
 				break WriteLoop
 			}
 
-		case <-w.fileTimer.C:
+		case <-w.fileTicker.C:
 			w.checkTime()
 
 		case txt := <-w.txtQ:
@@ -208,8 +208,6 @@ WriteLoop:
 			if err != nil {
 				w.log.Error("[REC] Could not write txt file (%v)", err)
 			}
-
-			w.checkSize()
 		}
 	}
 
@@ -222,8 +220,6 @@ func (w *FileWriter) checkTime() {
 	}
 
 	w.rotateLog()
-
-	w.fileTimer.Reset(w.fileAgelimit)
 }
 
 func (w *FileWriter) checkSize() {
