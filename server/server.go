@@ -28,6 +28,7 @@ import (
 	"sync"
 
 	"github.com/CIRCL/pbtc/adaptor"
+	"github.com/CIRCL/pbtc/peer"
 )
 
 type Server struct {
@@ -122,6 +123,13 @@ func (server *Server) goListen() {
 		}
 
 		// we submit the connection for peer creation
-		server.mgr.Connection(conn)
+		p, err := peer.New(
+			peer.SetConnection(conn),
+		)
+		if err != nil {
+			server.log.Warning("%v", err)
+		}
+
+		server.mgr.Incoming(p)
 	}
 }

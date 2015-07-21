@@ -29,25 +29,25 @@ import (
 
 	"github.com/CIRCL/pbtc/adaptor"
 	"github.com/CIRCL/pbtc/parmap"
-	"github.com/CIRCL/pbtc/peer"
 )
 
 // Manager is the module responsible for peer management. It will initialize
 // new incoming & outgoing peers and take care of state transitions. As the
 // main control instance, it defines most of the behaviour of our peer.
 type Manager struct {
-	wg            *sync.WaitGroup
-	peerSig       chan struct{}
-	addrSig       chan struct{}
-	addrQ         chan *net.TCPAddr
-	connQ         chan *net.TCPConn
-	peerConnected chan adaptor.Peer
-	peerReady     chan adaptor.Peer
-	peerStopped   chan adaptor.Peer
-	peerIndex     *parmap.ParMap
-	listenIndex   map[string]*net.TCPListener
-	addrTicker    *time.Ticker
-	infoTicker    *time.Ticker
+	wg  *sync.WaitGroup
+	sig chan struct{}
+
+	incomingQ  chan adaptor.Peer
+	outgoingQ  chan adaptor.Peer
+	connectedQ chan adaptor.Peer
+	readyQ     chan adaptor.Peer
+	stoppedQ   chan adaptor.Peer
+
+	tickerT *time.Ticker
+
+	peerIndex   *parmap.ParMap
+	listenIndex map[string]*net.TCPListener
 
 	network        wire.BitcoinNet
 	version        uint32
@@ -66,15 +66,14 @@ type Manager struct {
 // New returns a new manager initialized with the given options.
 func New(options ...func(mgr *Manager)) (*Manager, error) {
 	mgr := &Manager{
-		wg: &sync.WaitGroup{},
+		wg:  &sync.WaitGroup{},
+		sig: make(chan struct{}),
 
-		peerSig:       make(chan struct{}),
-		addrSig:       make(chan struct{}),
-		addrQ:         make(chan *net.TCPAddr, 1),
-		connQ:         make(chan *net.TCPConn, 1),
-		peerConnected: make(chan adaptor.Peer, 1),
-		peerReady:     make(chan adaptor.Peer, 1),
-		peerStopped:   make(chan adaptor.Peer, 1),
+		incomingQ:  make(chan adaptor.Peer, 1),
+		outgoingQ:  make(chan adaptor.Peer, 1),
+		connectedQ: make(chan adaptor.Peer, 1),
+		readyQ:     make(chan adaptor.Peer, 1),
+		stoppedQ:   make(chan adaptor.Peer, 1),
 
 		peerIndex:   parmap.New(),
 		listenIndex: make(map[string]*net.TCPListener),
@@ -142,13 +141,12 @@ func SetTickerInterval(tickerInterval time.Duration) func(*Manager) {
 func (mgr *Manager) Start() {
 	mgr.log.Info("[MGR] Start: begin")
 
-	mgr.addrTicker = time.NewTicker(mgr.connRate)
-	mgr.infoTicker = time.NewTicker(mgr.tickerInterval)
+	mgr.tickerT = time.NewTicker(mgr.tickerInterval)
 
-	mgr.wg.Add(3)
-	go mgr.goPeers()
-	go mgr.goAddresses()
+	mgr.wg.Add(2)
 	go mgr.goTicker()
+	go mgr.goEvents()
+	go mgr.goPeers()
 
 	mgr.log.Info("[MGR] Start: completed")
 }
@@ -157,8 +155,7 @@ func (mgr *Manager) Start() {
 func (mgr *Manager) Stop() {
 	mgr.log.Info("[MGR] Stop: begin")
 
-	close(mgr.addrSig)
-	close(mgr.peerSig)
+	close(mgr.sig)
 
 	for s := range mgr.peerIndex.Iter() {
 		p := s.(adaptor.Peer)
@@ -186,10 +183,16 @@ func (mgr *Manager) AddProcessor(pro adaptor.Processor) {
 	mgr.pro = append(mgr.pro, pro)
 }
 
-func (mgr *Manager) Connection(conn *net.TCPConn) {
-	mgr.log.Debug("[MGR] Connection: %v", conn.RemoteAddr)
+func (mgr *Manager) Outgoing(p adaptor.Peer) {
+	mgr.log.Debug("[MGR] Outgoing: %v", p)
 
-	mgr.connQ <- conn
+	mgr.outgoingQ <- p
+}
+
+func (mgr *Manager) Incoming(p adaptor.Peer) {
+	mgr.log.Debug("[MGR] Incoming: %v", p)
+
+	mgr.incomingQ <- p
 }
 
 // Connected signals to the manager that we have successfully established a
@@ -197,7 +200,7 @@ func (mgr *Manager) Connection(conn *net.TCPConn) {
 func (mgr *Manager) Connected(p adaptor.Peer) {
 	mgr.log.Debug("[MGR] Connected: %v", p)
 
-	mgr.peerConnected <- p
+	mgr.connectedQ <- p
 }
 
 // Ready signals to the manager that we have successfully completed the Bitcoin
@@ -205,7 +208,7 @@ func (mgr *Manager) Connected(p adaptor.Peer) {
 func (mgr *Manager) Ready(p adaptor.Peer) {
 	mgr.log.Debug("[MGR] Ready: %v", p)
 
-	mgr.peerReady <- p
+	mgr.readyQ <- p
 }
 
 // Stopped signals to the manager that the connection to this peer has been
@@ -213,32 +216,7 @@ func (mgr *Manager) Ready(p adaptor.Peer) {
 func (mgr *Manager) Stopped(p adaptor.Peer) {
 	mgr.log.Debug("[MGR] Stopped: %v", p)
 
-	mgr.peerStopped <- p
-}
-
-// to be called from a go routine
-// will request and receive addresses for our connection attempts
-func (mgr *Manager) goAddresses() {
-	defer mgr.wg.Done()
-
-AddressLoop:
-	for {
-		select {
-		case _, ok := <-mgr.addrSig:
-			if !ok {
-				break AddressLoop
-			}
-
-		// at the pace of addr ticker, we request addresses to connect to
-		// as long as we have not reached the peer limit
-		case <-mgr.addrTicker.C:
-			if mgr.peerIndex.Count() >= mgr.connLimit {
-				continue
-			}
-
-			mgr.repo.Retrieve(mgr.addrQ)
-		}
-	}
+	mgr.stoppedQ <- p
 }
 
 func (mgr Manager) goTicker() {
@@ -247,103 +225,29 @@ func (mgr Manager) goTicker() {
 TickerLoop:
 	for {
 		select {
-		case _, ok := <-mgr.peerSig:
+		case _, ok := <-mgr.sig:
 			if !ok {
 				break TickerLoop
 			}
 
 		// print manager information to the log
-		case <-mgr.infoTicker.C:
+		case <-mgr.tickerT.C:
 			mgr.log.Info("[MGR] %v total peers managed", mgr.peerIndex.Count())
 		}
 	}
 }
 
-// to be called from a go routine
-// will manage all peer connection/disconnection
-func (mgr *Manager) goPeers() {
-	defer mgr.wg.Done()
-
+func (mgr *Manager) goEvents() {
 PeerLoop:
 	for {
 		select {
-		case _, ok := <-mgr.peerSig:
+		case _, ok := <-mgr.sig:
 			if !ok {
 				break PeerLoop
 			}
 
-		// create new outgoing peers for received addresses
-		case addr := <-mgr.addrQ:
-			if mgr.peerIndex.HasKey(addr.String()) {
-				mgr.log.Debug("[MGR] %v already created", addr)
-				continue
-			}
-
-			if mgr.peerIndex.Count() >= mgr.connLimit {
-				mgr.log.Debug("[MGR] %v discarded, limit reached", addr)
-				continue
-			}
-
-			p, err := peer.New(
-				peer.SetLog(mgr.log),
-				peer.SetRepository(mgr.repo),
-				peer.SetManager(mgr),
-				peer.SetNetwork(mgr.network),
-				peer.SetVersion(mgr.version),
-				peer.SetNonce(mgr.nonce),
-				peer.SetAddress(addr),
-				peer.SetTracker(mgr.tkr),
-				peer.SetProcessors(mgr.pro),
-			)
-			if err != nil {
-				mgr.log.Error("[MGR] %v failed outbound (%v)", addr, err)
-				continue
-			}
-
-			mgr.log.Debug("[MGR] %v created", p)
-			mgr.peerIndex.Insert(p)
-			mgr.repo.Attempted(p.Addr())
-			p.Connect()
-
-		// create new incoming peer for received connections
-		case conn := <-mgr.connQ:
-			addr := conn.RemoteAddr()
-			if mgr.peerIndex.HasKey(addr.String()) {
-				mgr.log.Notice("[MGR] limit reached, %v not accepted", addr)
-				conn.Close()
-				continue
-			}
-
-			if mgr.peerIndex.Count() >= mgr.connLimit {
-				mgr.log.Debug("[MGR] %v disconnected, limit reached", addr)
-				conn.Close()
-				continue
-			}
-
-			p, err := peer.New(
-				peer.SetLog(mgr.log),
-				peer.SetRepository(mgr.repo),
-				peer.SetManager(mgr),
-				peer.SetNetwork(mgr.network),
-				peer.SetVersion(mgr.version),
-				peer.SetNonce(mgr.nonce),
-				peer.SetConnection(conn),
-				peer.SetTracker(mgr.tkr),
-				peer.SetProcessors(mgr.pro),
-			)
-			if err != nil {
-				mgr.log.Error("[MGR] %v failed inbound (%v)", addr, err)
-				continue
-			}
-
-			mgr.log.Debug("[MGR] %v accepted", p)
-			mgr.peerIndex.Insert(p)
-			mgr.repo.Attempted(p.Addr())
-			mgr.repo.Connected(p.Addr())
-			p.Start()
-
 		// manage peers that have successfully connected
-		case p := <-mgr.peerConnected:
+		case p := <-mgr.connectedQ:
 			if !mgr.peerIndex.Has(p) {
 				mgr.log.Warning("[MGR] %v connected unknown", p)
 				p.Stop()
@@ -356,7 +260,7 @@ PeerLoop:
 			p.Greet()
 
 		// manage peers that have completed the handshake
-		case p := <-mgr.peerReady:
+		case p := <-mgr.readyQ:
 			if !mgr.peerIndex.Has(p) {
 				mgr.log.Warning("[MGR] %v already ready", p)
 				p.Stop()
@@ -368,7 +272,7 @@ PeerLoop:
 			p.Poll()
 
 		// manage peers that have dropped the connection
-		case p := <-mgr.peerStopped:
+		case p := <-mgr.stoppedQ:
 			if !mgr.peerIndex.Has(p) {
 				mgr.log.Warning("[MGR] %v done unknown", p)
 				continue
@@ -382,24 +286,39 @@ PeerLoop:
 	// wait for all peers to stop and drain the channels
 	for mgr.peerIndex.Count() > 0 {
 		select {
-		case <-mgr.addrQ:
-			break
-
-		case conn := <-mgr.connQ:
-			conn.Close()
-			break
-
-		case p := <-mgr.peerConnected:
+		case p := <-mgr.connectedQ:
 			p.Stop()
 			break
 
-		case p := <-mgr.peerReady:
+		case p := <-mgr.readyQ:
 			p.Stop()
 			break
 
-		case p := <-mgr.peerStopped:
+		case p := <-mgr.stoppedQ:
 			mgr.peerIndex.Remove(p)
 			break
+		}
+	}
+}
+
+// to be called from a go routine
+// will manage all peer connection/disconnection
+func (mgr *Manager) goPeers() {
+	defer mgr.wg.Done()
+
+PeerLoop:
+	for {
+		select {
+		case _, ok := <-mgr.sig:
+			if !ok {
+				break PeerLoop
+			}
+
+		// manage peers that have successfully connected
+		case _ = <-mgr.incomingQ:
+
+		case _ = <-mgr.outgoingQ:
+
 		}
 	}
 }
