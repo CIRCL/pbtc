@@ -28,8 +28,6 @@ import (
 // us to do configuration and setup of different logging modules. It makes our
 // initialization code independent from the logging library used.
 type Logger interface {
-	Start()
-	Stop()
 	SetLog(Log)
 	GetLog(string) Log
 	SetLevel(string, logging.Level)

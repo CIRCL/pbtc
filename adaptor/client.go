@@ -21,8 +21,6 @@
 package adaptor
 
 type Client interface {
-	Start()
-	Stop()
 	SetLog(Log)
 	SetManager(Manager)
 }

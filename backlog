@@ -1,3 +1,4 @@
+- find good solution to DI & initialization
 - fix lz4 compression compatibility
 - do something about chaincfg config
 - port range configuration option (manager)
