@@ -688,6 +688,11 @@ func initManager(mgr_cfg *ManagerConfig) (adaptor.Manager, error) {
 		options = append(options, manager.SetProtocolVersion(version))
 	}
 
+	if mgr_cfg.Ticker_interval != 0 {
+		interval := time.Second * time.Duration(mgr_cfg.Ticker_interval)
+		options = append(options, manager.SetTickerInterval(interval))
+	}
+
 	return manager.New(options...)
 }
 

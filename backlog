@@ -1,5 +1,3 @@
-- receive errors fix (create event & log in bulk)
-- fix memory leaks
 - fix lz4 compression compatibility
 - do something about chaincfg config
 - port range configuration option (manager)

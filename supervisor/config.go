@@ -34,6 +34,19 @@ type SupervisorConfig struct {
 	Log_level string
 }
 
+type ManagerConfig struct {
+	Logger           string
+	Repository       string
+	Tracker          string
+	Processor        []string
+	Log_level        string
+	Protocol_magic   uint32
+	Protocol_version uint32
+	Connection_rate  int
+	Connection_limit int
+	Ticker_interval  int
+}
+
 type LoggerConfig struct {
 	Log_level       string
 	Console_enabled bool
@@ -86,16 +99,4 @@ type ProcessorConfig struct {
 	Redis_password   string
 	Redis_database   int64
 	Zeromq_host      string
-}
-
-type ManagerConfig struct {
-	Logger           string
-	Repository       string
-	Tracker          string
-	Processor        []string
-	Log_level        string
-	Protocol_magic   uint32
-	Protocol_version uint32
-	Connection_rate  int
-	Connection_limit int
 }

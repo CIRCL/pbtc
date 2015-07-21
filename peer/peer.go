@@ -23,7 +23,6 @@ package peer
 import (
 	"errors"
 	"net"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -247,12 +246,12 @@ func (p *Peer) Poll() {
 // yet a connection that has been established
 func (p *Peer) connect() {
 	if atomic.LoadUint32(&p.done) != 0 {
-		p.log.Warning("[PEER] %v can't connect when done", p)
+		p.log.Debug("[PEER] %v can't connect when done", p)
 		return
 	}
 
 	if p.conn != nil {
-		p.log.Warning("[PEER] %v already connected", p)
+		p.log.Debug("[PEER] %v already connected", p)
 		return
 	}
 
@@ -266,14 +265,14 @@ func (p *Peer) connect() {
 	// we only care about TCP connections, but this should never fail
 	conn, ok := connGen.(*net.TCPConn)
 	if !ok {
-		p.log.Warning("[PEER] %v connection type assert failed", p)
+		p.log.Debug("[PEER] %v connection type assert failed", p)
 		p.shutdown()
 		return
 	}
 
 	// if the peer was stoppe while trying to connect, we can discard everything
 	if atomic.LoadUint32(&p.done) == 1 {
-		p.log.Warning("[PEER] %v connection late", p)
+		p.log.Debug("[PEER] %v connection late", p)
 		conn.Close()
 		p.shutdown()
 		return
@@ -283,7 +282,7 @@ func (p *Peer) connect() {
 
 	err = p.parse()
 	if err != nil {
-		p.log.Warning("[PEER] %v connection parsing failed", p)
+		p.log.Debug("[PEER] %v connection parsing failed", p)
 		p.shutdown()
 		return
 	}
@@ -391,18 +390,14 @@ SendLoop:
 		case msg := <-p.sendQ:
 			err := p.sendMessage(msg)
 			if e, ok := err.(net.Error); ok && e.Timeout() {
-				break SendLoop
-			}
-			if _, ok := err.(*wire.MessageError); ok {
-				p.log.Notice("[PEER] %v: send ignored (%v)", p, err)
 				continue
 			}
-			if err != nil && strings.Contains(err.Error(),
-				"use of closed network connection") {
-				break SendLoop
+			if _, ok := err.(*wire.MessageError); ok {
+				p.log.Debug("[PEER] %v: send ignored (%v)", p, err)
+				continue
 			}
 			if err != nil {
-				p.log.Warning("[PEER] %v: send failed (%v)", p, err)
+				p.log.Debug("[PEER] %v: disconnected (%v)", p, err)
 				break SendLoop
 			}
 
@@ -449,7 +444,7 @@ ReceiveLoop:
 
 		// if we haven't received a message in a while, disconnect the peer
 		case <-idleTimer.C:
-			p.log.Notice("[PEER] %v: peer timed out")
+			p.log.Debug("[PEER] %v: peer timed out", p)
 			break ReceiveLoop
 
 		// try to receive a message and put in on the receive queue
@@ -459,15 +454,11 @@ ReceiveLoop:
 				continue
 			}
 			if _, ok := err.(*wire.MessageError); ok {
-				p.log.Notice("[PEER] %v: received ignored (%v)", p, err)
+				p.log.Debug("[PEER] %v: received ignored (%v)", p, err)
 				continue
 			}
-			if err != nil && strings.Contains(err.Error(),
-				"use of closed network connection") {
-				break ReceiveLoop
-			}
 			if err != nil {
-				p.log.Warning("[PEER] %v: receive failed (%v)", p, err)
+				p.log.Debug("[PEER] %v : disconnected (%v)", p, err)
 				break ReceiveLoop
 			}
 
@@ -533,7 +524,7 @@ func (p *Peer) processMessage(msg wire.Message) {
 	if atomic.LoadUint32(&p.rcvd) == 0 {
 		_, ok := msg.(*wire.MsgVersion)
 		if !ok {
-			p.log.Warning("%v: out of order non-version message", p)
+			p.log.Debug("%v: out of order non-version message", p)
 			p.Stop()
 			return
 		}
@@ -546,19 +537,19 @@ func (p *Peer) processMessage(msg wire.Message) {
 	// we also try to avoid out-of-date protocol peers and connections to self
 	case *wire.MsgVersion:
 		if atomic.SwapUint32(&p.rcvd, 1) == 1 {
-			p.log.Warning("%v: out of order version message", p)
+			p.log.Debug("%v: out of order version message", p)
 			p.Stop()
 			return
 		}
 
 		if m.Nonce == p.nonce {
-			p.log.Warning("%v: detected connection to self", p)
+			p.log.Debug("%v: detected connection to self", p)
 			p.Stop()
 			return
 		}
 
 		if uint32(m.ProtocolVersion) < wire.MultipleAddressVersion {
-			p.log.Warning("%v: connected to obsolete peer", p)
+			p.log.Debug("%v: connected to obsolete peer", p)
 			p.Stop()
 			return
 		}

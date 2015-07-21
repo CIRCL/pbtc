@@ -22,7 +22,6 @@ package manager
 
 import (
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -50,10 +49,11 @@ type Manager struct {
 	addrTicker    *time.Ticker
 	infoTicker    *time.Ticker
 
-	network   wire.BitcoinNet
-	version   uint32
-	connRate  time.Duration
-	connLimit int
+	network        wire.BitcoinNet
+	version        uint32
+	connRate       time.Duration
+	tickerInterval time.Duration
+	connLimit      int
 
 	log  adaptor.Log
 	repo adaptor.Repository
@@ -79,10 +79,11 @@ func New(options ...func(mgr *Manager)) (*Manager, error) {
 		peerIndex:   parmap.New(),
 		listenIndex: make(map[string]*net.TCPListener),
 
-		network:   wire.TestNet3,
-		version:   wire.RejectVersion,
-		connRate:  time.Second / 10,
-		connLimit: 100,
+		network:        wire.TestNet3,
+		version:        wire.RejectVersion,
+		connRate:       time.Second / 10,
+		connLimit:      100,
+		tickerInterval: time.Second * 10,
 	}
 
 	nonce, err := wire.RandomUint64()
@@ -132,15 +133,22 @@ func SetConnectionLimit(connLimit int) func(*Manager) {
 	}
 }
 
+func SetTickerInterval(tickerInterval time.Duration) func(*Manager) {
+	return func(mgr *Manager) {
+		mgr.tickerInterval = tickerInterval
+	}
+}
+
 func (mgr *Manager) Start() {
 	mgr.log.Info("[MGR] Start: begin")
 
 	mgr.addrTicker = time.NewTicker(mgr.connRate)
-	mgr.infoTicker = time.NewTicker(time.Second * 5)
+	mgr.infoTicker = time.NewTicker(mgr.tickerInterval)
 
-	mgr.wg.Add(2)
+	mgr.wg.Add(3)
 	go mgr.goPeers()
 	go mgr.goAddresses()
+	go mgr.goTicker()
 
 	mgr.log.Info("[MGR] Start: completed")
 }
@@ -233,40 +241,21 @@ AddressLoop:
 	}
 }
 
-// to be called from a go routine
-// will try to accept incoming peers on the given listener
-func (mgr *Manager) goConnections(listener *net.TCPListener) {
+func (mgr Manager) goTicker() {
 	defer mgr.wg.Done()
 
+TickerLoop:
 	for {
-		conn, err := listener.AcceptTCP()
-		// unfortunately, listener does not follow the convention of returning
-		// an io.EOF on closed connection, so we need to find out like this
-		if err != nil &&
-			strings.Contains(err.Error(), "use of closed network connection") {
-			break
-		}
-		if err != nil {
-			mgr.log.Warning("[MGR] %v: could not accept connection (%v)",
-				listener.Addr(), err)
-			break
-		}
+		select {
+		case _, ok := <-mgr.peerSig:
+			if !ok {
+				break TickerLoop
+			}
 
-		// we are only interested in TCP connections (should never fail)
-		addr, ok := conn.RemoteAddr().(*net.TCPAddr)
-		if !ok {
-			conn.Close()
-			break
+		// print manager information to the log
+		case <-mgr.infoTicker.C:
+			mgr.log.Info("[MGR] %v total peers managed", mgr.peerIndex.Count())
 		}
-
-		// only accept connections to port 8333 for now (for easy counting)
-		if addr.Port != 8333 {
-			conn.Close()
-			break
-		}
-
-		// we submit the connetion for peer creation
-		mgr.connQ <- conn
 	}
 }
 
@@ -282,10 +271,6 @@ PeerLoop:
 			if !ok {
 				break PeerLoop
 			}
-
-		// print manager information to the log
-		case <-mgr.infoTicker.C:
-			mgr.log.Info("[MGR] %v total peers managed", mgr.peerIndex.Count())
 
 		// create new outgoing peers for received addresses
 		case addr := <-mgr.addrQ:
