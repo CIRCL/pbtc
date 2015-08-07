@@ -23,4 +23,6 @@ package adaptor
 type Server interface {
 	SetLog(Log)
 	SetManager(Manager)
+	Start()
+	Stop()
 }

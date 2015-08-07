@@ -34,4 +34,6 @@ type Manager interface {
 	Connected(Peer)
 	Ready(Peer)
 	Stopped(Peer)
+	Start()
+	Stop()
 }

@@ -31,4 +31,6 @@ type Logger interface {
 	SetLog(Log)
 	GetLog(string) Log
 	SetLevel(string, logging.Level)
+	Start()
+	Stop()
 }

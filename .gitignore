@@ -13,3 +13,10 @@ dumps_all
 records/*.txt
 records/*.bin
 pbtc.cfg
+collector/pbtc.dat
+collector/pbtc
+collector/nodes.dat
+collector/pbtc.log
+collector/pbtc.cfg
+collector/collector
+importer/importer

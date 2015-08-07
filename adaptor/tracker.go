@@ -30,4 +30,6 @@ type Tracker interface {
 	KnowsTx(hash wire.ShaHash) bool
 	AddBlock(hash wire.ShaHash)
 	KnowsBlock(hash wire.ShaHash) bool
+	Start()
+	Stop()
 }

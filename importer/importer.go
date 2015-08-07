@@ -18,16 +18,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with PBTC.  If not, see <http://www.gnu.org/licenses/>.
 
-package adaptor
+package main
 
-// Processor defines the interface for any structure that will process records
-// received from the Bitcoin network. It is currently used for filters, which
-// will forward them to other processors, and writers, which will take the
-// records and output them to certain media.
-type Processor interface {
-	SetLog(Log)
-	AddNext(Processor)
-	Process(Record)
-	Start()
-	Stop()
+func main() {
 }

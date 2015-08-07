@@ -34,4 +34,6 @@ type Repository interface {
 	Connected(*net.TCPAddr)
 	Succeeded(*net.TCPAddr)
 	Retrieve(chan<- *net.TCPAddr)
+	Start()
+	Stop()
 }
