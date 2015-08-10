@@ -23,6 +23,7 @@ package main
 import (
 	"bufio"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -30,6 +31,11 @@ import (
 	"path"
 
 	"github.com/gocql/gocql"
+)
+
+const (
+	logDir = "logs"
+	logHdr = "#PBTC Log Version 1"
 )
 
 var session *gocql.Session
@@ -49,7 +55,7 @@ func main() {
 	defer session.Close()
 
 	// get a list of iles in the logs folder
-	files, err := ioutil.ReadDir("../logs")
+	files, err := ioutil.ReadDir(path.Join("..", logDir))
 	if err != nil {
 		fmt.Println("could not read logs folder")
 		os.Exit(1)
@@ -63,55 +69,56 @@ func main() {
 		}
 	}
 
+	fmt.Printf("processed %v files\n", len(files))
 	os.Exit(0)
 }
 
 func process(file os.FileInfo) error {
 	// ignore all directories
 	if file.IsDir() {
-		return fmt.Errorf("can't process directory: %v", file.Name())
+		return fmt.Errorf("can't process directory: %v\n", file.Name())
 	}
 
 	// ignore all non-log files
 	if path.Ext(file.Name()) != ".txt" {
-		return fmt.Errorf("can only process log files: %v", file.Name())
+		return fmt.Errorf("can only process log files: %v\n", file.Name())
 	}
 
 	// open file
-	f, err := os.Open(file.Name())
+	f, err := os.Open(path.Join("..", logDir, file.Name()))
 	if err != nil {
-		return fmt.Errorf("could not open file: %v", file.Name())
+		return fmt.Errorf("could not open file: %v\n", file.Name())
 	}
 	defer f.Close()
 
 	// try to use scanner to read first line
 	scanner := bufio.NewScanner(f)
 	if !scanner.Scan() {
-		return fmt.Errorf("could not read first line: %v", file.Name())
+		return fmt.Errorf("could not read first line: %v\n", file.Name())
 	}
 
 	// check first line header for log version
 	line := scanner.Text()
-	if line != "PBTC Log Version 1" {
-		return fmt.Errorf("unknown header for file: %v (%v)", f.Name(), line)
+	if line != logHdr {
+		return fmt.Errorf("unknown header for file: %v (%v)\n", f.Name(), line)
 	}
 
 	// reset file pointer
 	_, err = f.Seek(0, 0)
 	if err != nil {
-		return fmt.Errorf("could not reset file pointer: %v", f.Name())
+		return fmt.Errorf("could not reset file pointer: %v\n", f.Name())
 	}
 
 	// stream file into hasher to get fingerprint
 	hasher := sha256.New()
 	_, err = io.Copy(hasher, f)
 	if err != nil {
-		return fmt.Errorf("could not stream file data into hasher: %v", f.Name())
+		return fmt.Errorf("could not stream file data into hasher: %v\n", f.Name())
 	}
 
 	// get fingerprint hash and check for duplicate
 	hash := hasher.Sum(nil)
-	fmt.Printf("hash for file: %v - %v", f.Name(), hash)
+	fmt.Printf("hash for file: %v - %v\n", f.Name(), hex.EncodeToString(hash))
 
 	// import file into cassandra
 	scanner = bufio.NewScanner(f)
